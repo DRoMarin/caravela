@@ -1,0 +1,28 @@
+    pub enum MessageType {
+        AcceptProposal,
+        Agree,
+        Cancel,
+        CFP,
+        Confirm,
+        Disconfirm,
+        Failure,
+        Inform,
+        InformIf,
+        InformRef,
+        NotUnderstood,
+        Propagate,
+        Propose,
+        QueryIf,
+        QueryRef,
+        Refuse,
+        RequestWhen,
+        RequestWhenever,
+        Subscribe,
+        NoResponse,
+    }
+    pub struct Message {
+        sender_aid: Option<std::thread::ThreadId>,
+        receiver_aid: Option<std::thread::ThreadId>,
+        message_type: Option<MessageType>,
+        content: Option<String>,
+    }
