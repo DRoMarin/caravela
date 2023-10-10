@@ -123,9 +123,10 @@ impl Generic for Agent {
         let index = self
             .contact_list
             .iter()
-            .position(|x| *x == contact)
-            .unwrap();
-        self.contact_list.remove(index);
+            .position(|x| *x == contact);
+        if index.is_some(){
+            self.contact_list.remove(index.unwrap());
+        }
     }
     fn clear_contact_list(&mut self) {
         self.contact_list.clear();
