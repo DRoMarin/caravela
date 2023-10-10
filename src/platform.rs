@@ -1,6 +1,9 @@
+use std::thread::ThreadId;
+use self::agents::base::Generic;
+
 pub mod agents;
-pub mod message;
-pub mod organization;
+mod message;
+//pub mod organization;
 
 enum ErrorCode {
     NoError,
@@ -13,3 +16,15 @@ enum ErrorCode {
     Invalid,
     NotRegistered,
 }
+
+/*struct Parent(pub ThreadId);
+impl Parent {
+    
+}*/
+
+/* 
+fn hey()->agents::base::AID{
+    let x = agents::base::new("yo".to_string(), 1, 20);
+    x.get_aid().unwrap()
+}
+*/
