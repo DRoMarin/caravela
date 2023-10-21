@@ -1,7 +1,7 @@
 //NEED TO ADD TRANSPORT SERVICE FUNCTIONALITY THAT WILL MANAGE ALL MPSC CHANNELS PER AGENT
 //NEED TO DEFINE WHAT WILL HOLD THE LIST OF CONTACTS
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum MessageType {
     AcceptProposal,
     Agree,
@@ -25,7 +25,7 @@ pub enum MessageType {
     NoResponse,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Message {
     sender_aid: Option<std::thread::ThreadId>,
     receiver_aid: Option<std::thread::ThreadId>,
