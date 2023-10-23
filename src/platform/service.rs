@@ -1,6 +1,9 @@
+use crate::platform::agent::base::AgentInfoDescription;
+
 pub mod ams;
+pub mod mts;
 
-
-trait directory<T> {
-    fn add(&self,_ : T);
+pub(crate) trait Service<T> {
+    fn get_aid(&self) -> &AgentInfoDescription;
+    fn get_name(&self) -> &str;
 }

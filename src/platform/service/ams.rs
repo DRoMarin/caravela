@@ -1,55 +1,81 @@
-use crate::platform::agent::base::{Agent, ExecutionResources, Info};
-use crate::platform::{AgentPrio, Directory, Generic, AID};
+use crate::platform::agent::base::{Agent, AgentInfoDescription};
+use crate::platform::message::Message;
+use crate::platform::service::Service;
+use crate::platform::{Directory, ErrorCode, Platform, UserConditions, ID, MAX_SUBSCRIBERS};
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
+use std::thread::current;
 
-pub(crate) struct WhitePages<'a>(HashMap<AID, &'a Agent>);
-pub (crate) struct AMSAgent<'a> {
-    info: Info,
-    resources: ExecutionResources,
-    pub(crate) directory: WhitePages<'a>,
+pub(crate) struct WhitePages<'a, T>(HashMap<AgentInfoDescription<'a>, &'a Agent<'a, T>>);
+pub(crate) struct AMSService<'a, T> {
+    //TODO: this can become a generic ServiceAgent<S> struct:
+    //become ServiceAgent<AMS> or ServiceAgent<DF>
+    name: String,
+    aid: AgentInfoDescription<'a>,
+    pub(crate) directory: WhitePages<'a, T>,
 }
 
-impl<'a> Generic<WhitePages<'a>> for AMSAgent<'a> {
-    fn get_aid(&self) -> Option<AID> {
-        self.info.aid
+impl<'a, T> Service<WhitePages<'a, T>> for AMSService<'a, T> {
+    fn get_aid(&self) -> &AgentInfoDescription {
+        &self.aid
     }
     fn get_name(&self) -> &str {
-        &self.info.name
-    }
-    fn get_platform(&self) -> Option<AID> {
-        self.info.platform
-    }
-    fn get_priority(&self) -> AgentPrio {
-        self.resources.priority
-    }
-    fn get_stack_size(&self) -> usize {
-        self.resources.stack_size
-    }
-    fn get_directory(&self) -> &WhitePages<'a> {
-        &self.directory
-    }
-    fn set_aid(&mut self, aid: AID) {
-        self.info.aid = Some(aid);
-    }
-    fn set_platform(&mut self, platform_aid: AID) {
-        self.info.platform = Some(platform_aid);
+        &self.name
     }
 }
 
-impl<'a> Directory<HashMap<AID, &'a Agent>, (AID, &'a Agent)> for WhitePages<'a> {
-    fn add_element(&mut self, element: (AID, &'a Agent)) {
-        self.0.insert(element.0, element.1);
+impl<'a, T>
+    Directory<
+        HashMap<AgentInfoDescription<'a>, &'a Agent<'a, T>>,
+        AgentInfoDescription<'a>,
+        &'a Agent<'a, T>,
+    > for WhitePages<'a, T>
+{
+    fn add_element(&mut self, key: AgentInfoDescription<'a>, value: &'a Agent<'a, T>) {
+        self.0.insert(key, value);
     }
-    fn remove_element(&mut self, element: (AID, &'a Agent)) {
-        self.0.remove(&element.0);
+    fn get_element(&self, element: AgentInfoDescription<'a>) -> Option<&'a Agent<'a, T>> {
+        self.0.get(&element).copied()
     }
-    fn get_directory(&self) -> &HashMap<AID, &'a Agent> {
+    fn remove_element(&mut self, element: AgentInfoDescription<'a>) {
+        self.0.remove(&element);
+    }
+    fn get_directory(&self) -> &HashMap<AgentInfoDescription<'a>, &'a Agent<'a, T>> {
         &self.0
     }
     fn clear_directory(&mut self) {
         self.0.clear();
     }
-    fn refresh_directory(&mut self) {
-
-    }
+    fn refresh_directory(&mut self) {}
 }
+
+impl<'a, T> AMSService<'a, T> {
+    fn new(platform: &'a Platform) -> Self {
+        let aid = AgentInfoDescription::new(current().id(), platform);
+        //let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
+        let directory = WhitePages(HashMap::with_capacity(MAX_SUBSCRIBERS));
+        Self {
+            name: "AMS".to_string(),
+            aid,
+            directory,
+        }
+    }
+    fn register_agent(&self, agent: Agent<'a, T>) -> ErrorCode {
+        /*match agent_aid {
+            None => ErrorCode::HandleNone,
+            Some(aid) => if !self.directory.0.contains_key(aid){
+                self.directory.add_element(key, value)
+            }
+        }*/
+        ErrorCode::NoError
+    }
+    fn deregister_agent(&self, agent_aid: &AgentInfoDescription) {}
+    fn kill_agent(&self, agent_aid: &AgentInfoDescription) {}
+    fn suspend_agent(&self, agent_aid: &AgentInfoDescription) {}
+    fn resume_agent(&self, agent_aid: &AgentInfoDescription) {}
+    fn restart_agent(&self, agent_aid: &AgentInfoDescription) {}
+}
+
+//IDEA
+//let a: &std::sync::mpsc::Receiver<Message> = &self.resources.channel.as_ref().unwrap().1;
+//let msg = a.recv();
