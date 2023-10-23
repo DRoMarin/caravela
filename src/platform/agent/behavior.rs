@@ -48,7 +48,7 @@ pub trait Behavior: GenericAgent {
     }
 }
 
-pub fn execute(mut behavior: impl Behavior) {
+pub(crate) fn execute(mut behavior: impl Behavior) {
     behavior.setup();
     loop {
         behavior.action();

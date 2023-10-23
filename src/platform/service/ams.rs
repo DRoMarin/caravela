@@ -6,16 +6,16 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::thread::current;
 
-pub(crate) struct WhitePages<'a, T>(HashMap<AgentInfoDescription<'a>, &'a Agent<'a, T>>);
-pub(crate) struct AMSService<'a, T> {
+pub(crate) struct WhitePages<'a>(HashMap<AgentInfoDescription<'a>, &'a Agent<'a>>);
+pub(crate) struct AMSService<'a> {
     //TODO: this can become a generic ServiceAgent<S> struct:
     //become ServiceAgent<AMS> or ServiceAgent<DF>
     name: String,
     aid: AgentInfoDescription<'a>,
-    pub(crate) directory: WhitePages<'a, T>,
+    pub(crate) directory: WhitePages<'a>,
 }
 
-impl<'a, T> Service<WhitePages<'a, T>> for AMSService<'a, T> {
+impl<'a> Service<WhitePages<'a>> for AMSService<'a> {
     fn get_aid(&self) -> &AgentInfoDescription {
         &self.aid
     }
@@ -24,23 +24,23 @@ impl<'a, T> Service<WhitePages<'a, T>> for AMSService<'a, T> {
     }
 }
 
-impl<'a, T>
+impl<'a>
     Directory<
-        HashMap<AgentInfoDescription<'a>, &'a Agent<'a, T>>,
+        HashMap<AgentInfoDescription<'a>, &'a Agent<'a>>,
         AgentInfoDescription<'a>,
-        &'a Agent<'a, T>,
-    > for WhitePages<'a, T>
+        &'a Agent<'a>,
+    > for WhitePages<'a>
 {
-    fn add_element(&mut self, key: AgentInfoDescription<'a>, value: &'a Agent<'a, T>) {
+    fn add_element(&mut self, key: AgentInfoDescription<'a>, value: &'a Agent<'a>) {
         self.0.insert(key, value);
     }
-    fn get_element(&self, element: AgentInfoDescription<'a>) -> Option<&'a Agent<'a, T>> {
+    fn get_element(&self, element: AgentInfoDescription<'a>) -> Option<&'a Agent<'a>> {
         self.0.get(&element).copied()
     }
     fn remove_element(&mut self, element: AgentInfoDescription<'a>) {
         self.0.remove(&element);
     }
-    fn get_directory(&self) -> &HashMap<AgentInfoDescription<'a>, &'a Agent<'a, T>> {
+    fn get_directory(&self) -> &HashMap<AgentInfoDescription<'a>, &'a Agent<'a>> {
         &self.0
     }
     fn clear_directory(&mut self) {
@@ -49,7 +49,7 @@ impl<'a, T>
     fn refresh_directory(&mut self) {}
 }
 
-impl<'a, T> AMSService<'a, T> {
+impl<'a> AMSService<'a> {
     pub(crate) fn new(platform: &'a Platform) -> Self {
         let aid = AgentInfoDescription::new(current().id(), platform);
         //let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
@@ -60,7 +60,7 @@ impl<'a, T> AMSService<'a, T> {
             directory,
         }
     }
-    pub(crate) fn register_agent(&self, agent: Agent<'a, T>) -> ErrorCode {
+    pub(crate) fn register_agent(&self, agent: Agent<'a>) -> ErrorCode {
         /*match agent_aid {
             None => ErrorCode::HandleNone,
             Some(aid) => if !self.directory.0.contains_key(aid){

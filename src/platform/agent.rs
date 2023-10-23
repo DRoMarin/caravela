@@ -1,4 +1,4 @@
-use self::base::AgentInfoDescription;
+use self::base::{Agent, AgentInfoDescription};
 use crate::platform::AgentPrio;
 
 pub mod base;
@@ -14,4 +14,9 @@ pub trait GenericAgent {
     //setters
     //fn set_aid(&mut self, aid: AgentInfoDescription);
     //fn set_platform(&mut self, platform: &Platform);
+}
+
+pub struct AgentWrapper<'a, T> {
+    agent: &'a Agent<'a>,
+    data: T,
 }

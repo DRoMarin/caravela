@@ -4,11 +4,16 @@ use crate::platform::{AgentPrio, Platform, StackSize, ID};
 use crate::platform::agent::GenericAgent;
 use std::sync::mpsc::{Receiver, Sender};
 
-#[derive(PartialEq, Eq, Hash, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct AgentInfoDescription<'a> {
     id: ID,
     platform: &'a Platform,
-    //channelTx?
+}
+
+pub(crate) struct ExecutionResources {
+    priority: AgentPrio, //TBD
+    stack_size: StackSize,
+    //Behavior?
 }
 
 pub(crate) struct Membership<'a> {
@@ -17,23 +22,15 @@ pub(crate) struct Membership<'a> {
     role: Option<OrgRole>,
 }
 
-pub(crate) struct ExecutionResources {
-    priority: AgentPrio, //TBD
-    stack_size: StackSize,
-    channel: Option<(Sender<Message>, Receiver<Message>)>,
-    //Behavior:
-}
-
-pub struct Agent<'a, T> {
+pub struct Agent<'a> {
     name: String,
     aid: Option<AgentInfoDescription<'a>>,
     membership: Option<Membership<'a>>,
     resources: ExecutionResources,
-    data: Option<T>,
-    //pub contact_list: ContactList,
+    channel: Option<(Sender<Message>,Receiver<Message>)>,
 }
 
-trait OrgMember {
+/*trait OrgMember {
     //getters
     fn get_org(&self) -> &Organization;
     fn get_affiliation(&self) -> Option<OrgAffiliation>;
@@ -41,7 +38,7 @@ trait OrgMember {
     //setters
     fn set_affiliation(&mut self, affiliation: OrgAffiliation);
     fn set_role(&mut self, role: OrgRole);
-}
+}*/
 
 impl<'a> AgentInfoDescription<'a> {
     pub fn new(id: ID, platform: &'a Platform) -> Self {
@@ -60,7 +57,6 @@ impl ExecutionResources {
         Self {
             priority,
             stack_size,
-            channel: None,
         }
     }
     pub fn get_priority(&self) -> AgentPrio {
@@ -71,7 +67,7 @@ impl ExecutionResources {
     }
 }
 
-impl<'a, T> Agent<'a, T> {
+impl<'a> Agent<'a> {
     pub fn new(name: String, priority: i32, stack_size: usize) -> Self {
         let aid = None;
         let resources = ExecutionResources::new(priority, stack_size);
@@ -82,13 +78,13 @@ impl<'a, T> Agent<'a, T> {
             aid,
             membership,
             resources,
-            data: None,
+            channel: None,
             //contact_list: ContactList(Vec::<AID>::with_capacity(MAX_SUBSCRIBERS)),
         }
     }
 }
 
-impl<'a, T> GenericAgent for Agent<'a, T> {
+impl<'a> GenericAgent for Agent<'a> {
     fn get_aid(&self) -> Option<&AgentInfoDescription<'a>> {
         self.aid.as_ref()
     }
