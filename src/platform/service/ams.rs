@@ -1,7 +1,7 @@
 use crate::platform::agent::base::{Agent, AgentInfoDescription};
 use crate::platform::message::Message;
-use crate::platform::service::Service;
-use crate::platform::{Directory, ErrorCode, Platform, UserConditions, ID, MAX_SUBSCRIBERS};
+use crate::platform::service::{Directory, Service};
+use crate::platform::{ErrorCode, Platform, UserConditions, ID, MAX_SUBSCRIBERS};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::thread::current;

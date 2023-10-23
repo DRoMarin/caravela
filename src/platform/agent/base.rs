@@ -1,8 +1,6 @@
 use crate::platform::agent::organization::{OrgAffiliation, OrgRole, Organization};
 use crate::platform::message::Message;
-use crate::platform::{
-    AgentPrio, Directory, GenericAgent, Platform, StackSize, ID, MAX_SUBSCRIBERS,
-};
+use crate::platform::{AgentPrio, GenericAgent, Platform, StackSize, ID, MAX_SUBSCRIBERS};
 use std::collections::HashMap;
 use std::sync::mpsc::{Receiver, Sender};
 
