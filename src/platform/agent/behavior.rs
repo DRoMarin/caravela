@@ -25,9 +25,9 @@ fn nuevo(){
 }
 */
 
-use crate::platform::agent::GenericAgent;
+use crate::platform::agent::{privateTaskControl::TaskControl, AgentWrapper};
 
-pub trait Behavior: GenericAgent {
+pub trait Behavior: TaskControl {
     fn setup(&mut self) {
         print!("no setup implemented")
     }
@@ -61,3 +61,8 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
         }
     }
 }
+
+//Example
+struct A {}
+
+impl<'a, A> Behavior for AgentWrapper<'a, A> {}

@@ -1,18 +1,18 @@
 use crate::platform::agent::base::{Agent, AgentInfoDescription};
+use crate::platform::agent::GenericAgent;
 use crate::platform::message::Message;
-use crate::platform::service::{Directory, Service};
-use crate::platform::{ErrorCode, Platform, UserConditions, ID, MAX_SUBSCRIBERS};
+use crate::platform::service::{Directory, Service, UserConditions};
+use crate::platform::{ErrorCode, Platform, MAX_SUBSCRIBERS};
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
-use std::thread::current;
 
-pub(crate) struct WhitePages<'a>(HashMap<AgentInfoDescription<'a>, &'a Agent<'a>>);
+pub(crate) struct WhitePages<'a>(HashMap<AgentInfoDescription, &'a Agent<'a>>);
 pub(crate) struct AMSService<'a> {
     //TODO: this can become a generic ServiceAgent<S> struct:
     //become ServiceAgent<AMS> or ServiceAgent<DF>
     name: String,
-    aid: AgentInfoDescription<'a>,
-    pub(crate) directory: WhitePages<'a>,
+    aid: AgentInfoDescription,
+    pub directory: WhitePages<'a>,
 }
 
 impl<'a> Service<WhitePages<'a>> for AMSService<'a> {
@@ -25,22 +25,19 @@ impl<'a> Service<WhitePages<'a>> for AMSService<'a> {
 }
 
 impl<'a>
-    Directory<
-        HashMap<AgentInfoDescription<'a>, &'a Agent<'a>>,
-        AgentInfoDescription<'a>,
-        &'a Agent<'a>,
-    > for WhitePages<'a>
+    Directory<HashMap<AgentInfoDescription, &'a Agent<'a>>, AgentInfoDescription, &'a Agent<'a>>
+    for WhitePages<'a>
 {
-    fn add_element(&mut self, key: AgentInfoDescription<'a>, value: &'a Agent<'a>) {
+    fn add_element(&mut self, key: AgentInfoDescription, value: &'a Agent<'a>) {
         self.0.insert(key, value);
     }
-    fn get_element(&self, element: AgentInfoDescription<'a>) -> Option<&'a Agent<'a>> {
+    fn get_element(&self, element: AgentInfoDescription) -> Option<&'a Agent<'a>> {
         self.0.get(&element).copied()
     }
-    fn remove_element(&mut self, element: AgentInfoDescription<'a>) {
+    fn remove_element(&mut self, element: AgentInfoDescription) {
         self.0.remove(&element);
     }
-    fn get_directory(&self) -> &HashMap<AgentInfoDescription<'a>, &'a Agent<'a>> {
+    fn get_directory(&self) -> &HashMap<AgentInfoDescription, &'a Agent<'a>> {
         &self.0
     }
     fn clear_directory(&mut self) {
@@ -51,31 +48,43 @@ impl<'a>
 
 impl<'a> AMSService<'a> {
     pub(crate) fn new(platform: &'a Platform) -> Self {
-        let aid = AgentInfoDescription::new(current().id(), platform);
+        let name = "AMS".to_string();
+        let id = name.clone() + "@" + &platform.name.clone();
+        let aid = AgentInfoDescription::new(id);
         //let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
         let directory = WhitePages(HashMap::with_capacity(MAX_SUBSCRIBERS));
         Self {
-            name: "AMS".to_string(),
+            name,
             aid,
             directory,
         }
     }
-    pub(crate) fn register_agent(&self, agent: Agent<'a>) -> ErrorCode {
-        /*match agent_aid {
-            None => ErrorCode::HandleNone,
-            Some(aid) => if !self.directory.0.contains_key(aid){
-                self.directory.add_element(key, value)
+    pub(crate) fn register_agent(
+        &mut self,
+        agent: &'a mut Agent<'a>,
+        cond: &impl UserConditions,
+    ) -> ErrorCode {
+        if cond.registration_condition() {
+            let aid: AgentInfoDescription = AgentInfoDescription::new(agent.get_name()); //FIX ID NAMING
+            if !self.directory.0.contains_key(&aid) {
+                agent.set_aid(aid.clone());
+                let agent_entry = &*agent;
+                self.directory.add_element(aid.clone(), agent_entry);
+                return ErrorCode::NoError;
+            } else {
+                return ErrorCode::Duplicated;
             }
-        }*/
-        ErrorCode::NoError
+        }
+        ErrorCode::Invalid
     }
-    pub(crate) fn deregister_agent(&self, agent_aid: &AgentInfoDescription) {}
-    pub(crate) fn kill_agent(&self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn deregister_agent(&mut self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn kill_agent(&mut self, agent_aid: &AgentInfoDescription) {}
     pub(crate) fn suspend_agent(&self, agent_aid: &AgentInfoDescription) {}
-    pub(crate) fn resume_agent(&self, agent_aid: &AgentInfoDescription) {}
-    pub(crate) fn restart_agent(&self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn resume_agent(&mut self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn restart_agent(&mut self, agent_aid: &AgentInfoDescription) {}
 }
 
+//fn format_id(name:,platform)
 //IDEA
 //let a: &std::sync::mpsc::Receiver<Message> = &self.resources.channel.as_ref().unwrap().1;
 //let msg = a.recv();

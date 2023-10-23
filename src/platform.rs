@@ -28,26 +28,8 @@ pub enum ErrorCode {
 }
 
 #[derive(PartialEq, Eq, Hash)]
-pub struct Platform {}
-trait UserConditions {
-    fn registration_condition() -> bool {
-        true
-    }
-    fn deregistration_condition() -> bool {
-        true
-    }
-    fn suspension_condition() -> bool {
-        true
-    }
-    fn resumption_condition() -> bool {
-        true
-    }
-    fn termination_condition() -> bool {
-        true
-    }
-    fn reset_condition() -> bool {
-        true
-    }
+pub struct Platform {
+    name: String,
 }
 
 /*struct Parent(pub ThreadId);

@@ -1,13 +1,13 @@
 use crate::platform::agent::organization::{OrgAffiliation, OrgRole, Organization};
+use crate::platform::agent::GenericAgent;
 use crate::platform::message::Message;
 use crate::platform::{AgentPrio, Platform, StackSize, ID};
-use crate::platform::agent::GenericAgent;
+use std::env;
 use std::sync::mpsc::{Receiver, Sender};
 
 #[derive(PartialEq, Eq, Hash, Clone)]
-pub struct AgentInfoDescription<'a> {
-    id: ID,
-    platform: &'a Platform,
+pub struct AgentInfoDescription {
+    id: String,
 }
 
 pub(crate) struct ExecutionResources {
@@ -24,10 +24,12 @@ pub(crate) struct Membership<'a> {
 
 pub struct Agent<'a> {
     name: String,
-    aid: Option<AgentInfoDescription<'a>>,
-    membership: Option<Membership<'a>>,
+    aid: Option<AgentInfoDescription>,
+    platform: Option<&'a Platform>,
     resources: ExecutionResources,
-    channel: Option<(Sender<Message>,Receiver<Message>)>,
+    channel: Option<(Sender<Message>, Receiver<Message>)>,
+    thread_id: Option<ID>,
+    membership: Option<Membership<'a>>,
 }
 
 /*trait OrgMember {
@@ -40,15 +42,12 @@ pub struct Agent<'a> {
     fn set_role(&mut self, role: OrgRole);
 }*/
 
-impl<'a> AgentInfoDescription<'a> {
-    pub fn new(id: ID, platform: &'a Platform) -> Self {
-        Self { id, platform }
+impl AgentInfoDescription {
+    pub fn new(id: String) -> Self {
+        Self { id }
     }
-    pub fn get_id(&self) -> ID {
-        self.id
-    }
-    pub fn get_platform(&self) -> &Platform {
-        self.platform
+    pub fn get_id(&self) -> String {
+        self.id.clone()
     }
 }
 
@@ -76,17 +75,24 @@ impl<'a> Agent<'a> {
         Self {
             name,
             aid,
-            membership,
+            platform: None,
             resources,
             channel: None,
-            //contact_list: ContactList(Vec::<AID>::with_capacity(MAX_SUBSCRIBERS)),
+            thread_id: None, //contact_list: ContactList(Vec::<AID>::with_capacity(MAX_SUBSCRIBERS)),
+            membership,
         }
+    }
+    pub(crate) fn set_thread_id(&mut self, thread_id: ID) {
+        self.thread_id = Some(thread_id);
+    }
+    pub(crate) fn set_aid(&mut self, aid: AgentInfoDescription) {
+        self.aid = Some(aid);
     }
 }
 
 impl<'a> GenericAgent for Agent<'a> {
-    fn get_aid(&self) -> Option<&AgentInfoDescription<'a>> {
-        self.aid.as_ref()
+    fn get_aid(&self) -> Option<&AgentInfoDescription> {
+        self.aid.as_ref().clone()
     }
     /*fn get_mailbox_tx(&self) -> Option<TX> {
         if self.info.channel.is_none() {
@@ -95,8 +101,8 @@ impl<'a> GenericAgent for Agent<'a> {
 
         return Some(self.info.channel.as_ref().unwrap().0.clone());
     }*/
-    fn get_name(&self) -> &str {
-        &self.name
+    fn get_name(&self) -> String {
+        self.name.clone()
     }
     fn get_priority(&self) -> AgentPrio {
         self.resources.get_priority()

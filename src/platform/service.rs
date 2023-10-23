@@ -18,3 +18,24 @@ pub(crate) trait Directory<D, I, O> {
     fn clear_directory(&mut self);
     fn refresh_directory(&mut self) {}
 }
+
+pub trait UserConditions {
+    fn registration_condition(&self) -> bool {
+        true
+    }
+    fn deregistration_condition(&self) -> bool {
+        true
+    }
+    fn suspension_condition(&self) -> bool {
+        true
+    }
+    fn resumption_condition(&self) -> bool {
+        true
+    }
+    fn termination_condition(&self) -> bool {
+        true
+    }
+    fn reset_condition(&self) -> bool {
+        true
+    }
+}

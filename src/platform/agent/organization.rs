@@ -29,11 +29,11 @@ pub enum OrgType {
 #[derive(Clone)]
 pub struct OrgInfo<'a> {
     pub org_type: OrgType,
-    pub members: Vec<&'a AgentInfoDescription<'a>>,
-    pub banned: Vec<&'a AgentInfoDescription<'a>>,
-    pub owner: Option<&'a AgentInfoDescription<'a>>,
-    pub admin: Option<&'a AgentInfoDescription<'a>>,
-    pub moderator: Option<&'a AgentInfoDescription<'a>>,
+    pub members: Vec<&'a AgentInfoDescription>,
+    pub banned: Vec<&'a AgentInfoDescription>,
+    pub owner: Option<&'a AgentInfoDescription>,
+    pub admin: Option<&'a AgentInfoDescription>,
+    pub moderator: Option<&'a AgentInfoDescription>,
 }
 
 #[derive(Clone)]
