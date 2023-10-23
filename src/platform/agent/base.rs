@@ -1,7 +1,7 @@
 use crate::platform::agent::organization::{OrgAffiliation, OrgRole, Organization};
 use crate::platform::message::Message;
-use crate::platform::{AgentPrio, GenericAgent, Platform, StackSize, ID, MAX_SUBSCRIBERS};
-use std::collections::HashMap;
+use crate::platform::{AgentPrio, Platform, StackSize, ID};
+use crate::platform::agent::GenericAgent;
 use std::sync::mpsc::{Receiver, Sender};
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
@@ -23,8 +23,6 @@ pub(crate) struct ExecutionResources {
     channel: Option<(Sender<Message>, Receiver<Message>)>,
     //Behavior:
 }
-
-//pub struct ContactList(Vec<AID>);
 
 pub struct Agent<'a, T> {
     name: String,

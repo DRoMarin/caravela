@@ -1,9 +1,8 @@
 use crate::platform::agent::base::AgentInfoDescription;
 use crate::platform::message::MessageType;
 use crate::platform::ErrorCode;
-use std::thread::current;
 
-use super::MAX_SUBSCRIBERS;
+use crate::platform::MAX_SUBSCRIBERS;
 
 #[derive(Clone, Copy)]
 pub enum OrgAffiliation {
@@ -66,51 +65,51 @@ impl<'a> Organization<'a> {
             return ErrorCode::Invalid;
         }
     }*/
- //AFTER WHITE PAGES DONE
- /*
-     fn close() -> ErrorCode {}
+    //AFTER WHITE PAGES DONE
+    /*
+        fn close() -> ErrorCode {}
 
-     fn add_member(target: AID) -> ErrorCode {}
-     fn invite_member(target: AID) -> MessageType {}
-     fn kick_member(target: AID) -> ErrorCode {}
-     fn ban_member(target: AID) -> ErrorCode {}
+        fn add_member(target: AID) -> ErrorCode {}
+        fn invite_member(target: AID) -> MessageType {}
+        fn kick_member(target: AID) -> ErrorCode {}
+        fn ban_member(target: AID) -> ErrorCode {}
 
-     fn change_owner(target: AID) -> ErrorCode {}
+        fn change_owner(target: AID) -> ErrorCode {}
 
-     fn set_admin(target: AID) -> ErrorCode {}
-     fn set_moderator(target: AID) -> ErrorCode {}
-     fn set_participant(target: AID) -> ErrorCode {}
-     fn set_visitor(target: AID) -> ErrorCode {}
+        fn set_admin(target: AID) -> ErrorCode {}
+        fn set_moderator(target: AID) -> ErrorCode {}
+        fn set_participant(target: AID) -> ErrorCode {}
+        fn set_visitor(target: AID) -> ErrorCode {}
 
-     fn lift_ban(target: AID) -> ErrorCode {}
-     fn clear_ban_list() -> ErrorCode {}
+        fn lift_ban(target: AID) -> ErrorCode {}
+        fn clear_ban_list() -> ErrorCode {}
 
-     fn get_size(&self) -> usize {
-         self.info.members.len()
-     }
-     fn get_info(&self) -> OrgInfo {
-         self.info
-     }
-     fn get_org_type(&self) -> OrgType {
-         self.info.org_type
-     }
+        fn get_size(&self) -> usize {
+            self.info.members.len()
+        }
+        fn get_info(&self) -> OrgInfo {
+            self.info
+        }
+        fn get_org_type(&self) -> OrgType {
+            self.info.org_type
+        }
 
-     fn is_member(&self, target:&AgentInfoDescription<'_> ) -> ErrorCode {
-         if self.info.members.contains(&target) {
-             return ErrorCode::Found;
-         }
-         else {
-             return ErrorCode::NotFound;
-         }
-     }
+        fn is_member(&self, target:&AgentInfoDescription<'_> ) -> ErrorCode {
+            if self.info.members.contains(&target) {
+                return ErrorCode::Found;
+            }
+            else {
+                return ErrorCode::NotFound;
+            }
+        }
 
-     fn is_banned(&self, target:&AgentInfoDescription<'_> ) -> ErrorCode {
-         if self.info.banned.contains(&target) {
-             return ErrorCode::Found;
-         }
-         else {
-             return ErrorCode::NotFound;
-         }
-     }
- */
+        fn is_banned(&self, target:&AgentInfoDescription<'_> ) -> ErrorCode {
+            if self.info.banned.contains(&target) {
+                return ErrorCode::Found;
+            }
+            else {
+                return ErrorCode::NotFound;
+            }
+        }
+    */
 }

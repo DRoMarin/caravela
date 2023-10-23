@@ -1,4 +1,3 @@
-use self::agent::base::AgentInfoDescription;
 use std::thread::ThreadId;
 
 type ID = ThreadId;
@@ -7,16 +6,16 @@ type ID = ThreadId;
 type AgentPrio = i32;
 type StackSize = usize;
 
-const DEFAULT_STACK: usize = 8;
-const MAX_PRIORITY: AgentPrio = 99;
-const MAX_SUBSCRIBERS: usize = 64;
+pub const DEFAULT_STACK: usize = 8;
+pub const MAX_PRIORITY: AgentPrio = 99;
+pub const MAX_SUBSCRIBERS: usize = 64;
 
 pub mod agent;
 mod message;
 pub mod service;
 //pub mod organization;
 
-enum ErrorCode {
+pub enum ErrorCode {
     NoError,
     Found,
     HandleNone,
@@ -30,18 +29,6 @@ enum ErrorCode {
 
 #[derive(PartialEq, Eq, Hash)]
 pub struct Platform {}
-pub trait GenericAgent {
-    //getters
-    fn get_aid(&self) -> Option<&AgentInfoDescription>;
-    fn get_name(&self) -> &str;
-    fn get_priority(&self) -> AgentPrio;
-    fn get_stack_size(&self) -> usize;
-    //fn get_directory(&self) -> &T;
-    //setters
-    //fn set_aid(&mut self, aid: AgentInfoDescription);
-    //fn set_platform(&mut self, platform: &Platform);
-}
-
 trait UserConditions {
     fn registration_condition() -> bool {
         true

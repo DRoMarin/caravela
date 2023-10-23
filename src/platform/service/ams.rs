@@ -50,7 +50,7 @@ impl<'a, T>
 }
 
 impl<'a, T> AMSService<'a, T> {
-    fn new(platform: &'a Platform) -> Self {
+    pub(crate) fn new(platform: &'a Platform) -> Self {
         let aid = AgentInfoDescription::new(current().id(), platform);
         //let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
         let directory = WhitePages(HashMap::with_capacity(MAX_SUBSCRIBERS));
@@ -60,7 +60,7 @@ impl<'a, T> AMSService<'a, T> {
             directory,
         }
     }
-    fn register_agent(&self, agent: Agent<'a, T>) -> ErrorCode {
+    pub(crate) fn register_agent(&self, agent: Agent<'a, T>) -> ErrorCode {
         /*match agent_aid {
             None => ErrorCode::HandleNone,
             Some(aid) => if !self.directory.0.contains_key(aid){
@@ -69,11 +69,11 @@ impl<'a, T> AMSService<'a, T> {
         }*/
         ErrorCode::NoError
     }
-    fn deregister_agent(&self, agent_aid: &AgentInfoDescription) {}
-    fn kill_agent(&self, agent_aid: &AgentInfoDescription) {}
-    fn suspend_agent(&self, agent_aid: &AgentInfoDescription) {}
-    fn resume_agent(&self, agent_aid: &AgentInfoDescription) {}
-    fn restart_agent(&self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn deregister_agent(&self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn kill_agent(&self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn suspend_agent(&self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn resume_agent(&self, agent_aid: &AgentInfoDescription) {}
+    pub(crate) fn restart_agent(&self, agent_aid: &AgentInfoDescription) {}
 }
 
 //IDEA

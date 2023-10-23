@@ -25,7 +25,7 @@ fn nuevo(){
 }
 */
 
-use crate::platform::GenericAgent;
+use crate::platform::agent::GenericAgent;
 
 pub trait Behavior: GenericAgent {
     fn setup(&mut self) {

@@ -10,7 +10,7 @@ pub(crate) trait Service<T> {
 
 pub(crate) trait Directory<D, I, O> {
     //manage elements
-    fn add_element(&mut self, key: I, value:O);
+    fn add_element(&mut self, key: I, value: O);
     fn get_element(&self, element: I) -> Option<O>;
     fn remove_element(&mut self, element: I);
     //manage directory
