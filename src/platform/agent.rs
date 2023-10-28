@@ -2,18 +2,19 @@ pub mod behavior;
 pub mod organization;
 
 use crate::platform::{
-    entity::{Description, ExecutionResources, GenericEntity},
-    message::Message,
+    entity::{dispatcher::Message, Description, ExecutionResources, GenericEntity},
     ThreadPriority, ID, RX,
 };
 use std::sync::mpsc::Receiver;
+
+use super::entity::dispatcher::{MessageDispatcher, self};
 
 pub struct AgentInfo {
     nickname: String,
     aid: Option<Description>,
     //platform: Option<String>,
     resources: ExecutionResources,
-    rx_channel: Option<Receiver<Message>>, // will become message dispatcher struct
+    dispatcher: Option<MessageDispatcher>,//Option<Receiver<Message>>, // will become message dispatcher struct
     thread_id: Option<ID>,
     //membership: Option<Membership<'a>>,
 }
@@ -44,6 +45,7 @@ impl AgentInfo {
     pub fn new(nickname: String, priority: i32, stack_size: usize) -> Self {
         let aid = None;
         let resources = ExecutionResources::new(priority, stack_size);
+        let dispatcher = None; 
         //let membership = None;
 
         Self {
@@ -51,7 +53,7 @@ impl AgentInfo {
             aid,
             //platform: None,
             resources,
-            rx_channel: None,
+            dispatcher,
             thread_id: None, //contact_list: ContactList(Vec::<AID>::with_capacity(MAX_SUBSCRIBERS)),
                              //membership,
         }
@@ -62,8 +64,8 @@ impl AgentInfo {
     pub(crate) fn set_aid(&mut self, aid: Description) {
         self.aid = Some(aid);
     }
-    pub(crate) fn set_rx(&mut self, rx: RX) {
-        self.rx_channel = Some(rx);
+    pub(crate) fn set_dispatcher(&mut self, rx: RX) {
+        self.dispatcher = Some(MessageDispatcher::new(rx));
     }
 }
 

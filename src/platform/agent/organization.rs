@@ -1,5 +1,5 @@
 use crate::platform::agent::Description;
-use crate::platform::message::MessageType;
+use crate::platform::entity::dispatcher::MessageType;
 use crate::platform::ErrorCode;
 
 use crate::platform::MAX_SUBSCRIBERS;

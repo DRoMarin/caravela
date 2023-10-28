@@ -1,7 +1,6 @@
 use crate::platform::{
     agent::AgentInfo,
-    entity::{Description, ExecutionResources, GenericEntity},
-    message::Message,
+    entity::{Description, ExecutionResources, GenericEntity,dispatcher::Message},
     service::{Directory, Service, UserConditions},
     {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS, RX, TX},
 };
@@ -83,7 +82,7 @@ impl AMSService {
         let (tx, rx) = channel::<Message>();
         let aid: Description = Description::new(id.clone(), Some(tx.clone())); //FIX ID NAMING
         agent.set_aid(aid);
-        agent.set_rx(rx);
+        agent.set_dispatcher(rx);
         self.directory.add_element(id, tx);
         return ErrorCode::NoError;
     }

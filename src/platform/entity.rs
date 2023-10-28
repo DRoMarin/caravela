@@ -1,4 +1,4 @@
-//use crate::platform::agent::organization::{OrgAffiliation, OrgRole, Organization};
+pub mod dispatcher;
 use crate::platform::{StackSize, ThreadPriority, ID, TX};
 
 #[derive(Clone)]
@@ -48,3 +48,4 @@ pub trait GenericEntity {
     fn get_stack_size(&self) -> usize;
     fn get_thread_id(&self) -> Option<ID>;
 }
+//TRAIT FOR MESSAGING. NEEDED FOR ALL ENTITIES. Implementation is not universal across entities

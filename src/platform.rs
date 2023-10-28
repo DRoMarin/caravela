@@ -8,8 +8,7 @@ pub mod message;
 pub mod service;
 //pub mod organization;
 
-use entity::Description;
-use message::Message;
+use entity::dispatcher::Message;
 
 type ID = ThreadId;
 type ThreadPriority = i32;
