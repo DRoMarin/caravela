@@ -1,19 +1,25 @@
-use std::thread::ThreadId;
-
-type ID = ThreadId;
-//type RX = Receiver<message::Message>;
-//type TX = Sender<message::Message>;
-type AgentPrio = i32;
-type StackSize = usize;
-
-pub const DEFAULT_STACK: usize = 8;
-pub const MAX_PRIORITY: AgentPrio = 99;
-pub const MAX_SUBSCRIBERS: usize = 64;
-
+use std::{
+    sync::mpsc::{Receiver, Sender},
+    thread::ThreadId,
+};
 pub mod agent;
-mod message;
+pub mod entity;
+pub mod message;
 pub mod service;
 //pub mod organization;
+
+use entity::Description;
+use message::Message;
+
+type ID = ThreadId;
+type ThreadPriority = i32;
+type StackSize = usize;
+type TX = Sender<Message>;
+type RX = Receiver<Message>;
+
+pub const DEFAULT_STACK: usize = 8;
+pub const MAX_PRIORITY: ThreadPriority = 99;
+pub const MAX_SUBSCRIBERS: usize = 64;
 
 pub enum ErrorCode {
     NoError,
@@ -31,6 +37,8 @@ pub enum ErrorCode {
 pub struct Platform {
     name: String,
 }
+
+
 
 /*struct Parent(pub ThreadId);
 impl Parent {

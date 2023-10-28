@@ -1,4 +1,4 @@
-use crate::platform::agent::base::AgentInfoDescription;
+use crate::platform::agent::Description;
 use crate::platform::message::MessageType;
 use crate::platform::ErrorCode;
 
@@ -29,11 +29,11 @@ pub enum OrgType {
 #[derive(Clone)]
 pub struct OrgInfo<'a> {
     pub org_type: OrgType,
-    pub members: Vec<&'a AgentInfoDescription>,
-    pub banned: Vec<&'a AgentInfoDescription>,
-    pub owner: Option<&'a AgentInfoDescription>,
-    pub admin: Option<&'a AgentInfoDescription>,
-    pub moderator: Option<&'a AgentInfoDescription>,
+    pub members: Vec<&'a Description>,
+    pub banned: Vec<&'a Description>,
+    pub owner: Option<&'a Description>,
+    pub admin: Option<&'a Description>,
+    pub moderator: Option<&'a Description>,
 }
 
 #[derive(Clone)]
@@ -44,8 +44,8 @@ pub struct Organization<'a> {
 pub fn new<'a>(org_type: OrgType) -> Organization<'a> {
     let info = OrgInfo {
         org_type,
-        members: Vec::<&'a AgentInfoDescription>::with_capacity(MAX_SUBSCRIBERS),
-        banned: Vec::<&'a AgentInfoDescription>::with_capacity(MAX_SUBSCRIBERS),
+        members: Vec::<&'a Description>::with_capacity(MAX_SUBSCRIBERS),
+        banned: Vec::<&'a Description>::with_capacity(MAX_SUBSCRIBERS),
         owner: None,
         admin: None,
         moderator: None,

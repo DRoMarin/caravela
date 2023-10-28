@@ -25,7 +25,7 @@ fn nuevo(){
 }
 */
 
-use crate::platform::agent::{privateTaskControl::TaskControl, AgentWrapper};
+use crate::platform::agent::{private_task_control::TaskControl, Agent};
 
 pub trait Behavior: TaskControl {
     fn setup(&mut self) {
@@ -65,4 +65,4 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
 //Example
 struct A {}
 
-impl<'a, A> Behavior for AgentWrapper<'a, A> {}
+impl<A> Behavior for Agent<A> {}
