@@ -1,20 +1,24 @@
 use std::{
-    sync::mpsc::{Receiver, Sender},
+    collections::HashMap,
+    sync::{
+        mpsc::{Receiver, Sender},
+        Arc, Mutex,
+    },
     thread::ThreadId,
 };
 pub mod agent;
 pub mod entity;
-pub mod message;
 pub mod service;
 //pub mod organization;
 
-use entity::dispatcher::Message;
+use entity::messaging::Message;
 
 type ID = ThreadId;
 type ThreadPriority = i32;
 type StackSize = usize;
 type TX = Sender<Message>;
 type RX = Receiver<Message>;
+type Directory = HashMap<String, (String, TX)>; //can be expanded into different dir types for agents, AMS or DF if present
 
 pub const DEFAULT_STACK: usize = 8;
 pub const MAX_PRIORITY: ThreadPriority = 99;
@@ -32,12 +36,18 @@ pub enum ErrorCode {
     NotRegistered,
 }
 
-#[derive(PartialEq, Eq, Hash)]
 pub struct Platform {
     name: String,
+    white_pages: Arc<Mutex<Directory>>,
 }
 
-
+impl Platform {
+    fn new(name: String) -> Self {
+        let white_pages: Arc<Mutex<Directory>> =
+            Arc::new(Mutex::new(Directory::with_capacity(MAX_SUBSCRIBERS)));
+        Self { name, white_pages }
+    }
+}
 
 /*struct Parent(pub ThreadId);
 impl Parent {

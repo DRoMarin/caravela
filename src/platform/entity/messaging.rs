@@ -1,11 +1,9 @@
 //NEED TO ADD TRANSPORT SERVICE FUNCTIONALITY THAT WILL MANAGE ALL MPSC CHANNELS PER AGENT
 //NEED TO DEFINE WHAT WILL HOLD THE LIST OF CONTACTS
 
-use crate::platform::{RX, MAX_SUBSCRIBERS};
-
 use super::{Description, TX};
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub enum MessageType {
     AcceptProposal,
     Agree,
@@ -43,14 +41,8 @@ pub struct Message {
     content: Option<ContentType>,
 }
 
-pub struct MessageDispatcher {
-    message: Message,
-    rx: RX,
-    contact_list: Vec<Description>, 
-}
-
 impl Message {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Message {
             sender_aid: None,
             receiver_aid: None,
@@ -67,8 +59,12 @@ impl Message {
     fn set_receiver(&mut self, receiver: Description) {
         self.receiver_aid = Some(receiver);
     }
+    fn set_sender(&mut self, sender: Description) {
+        self.sender_aid = Some(sender)
+    }
+
     fn get_type(&self) -> Option<MessageType> {
-        self.message_type
+        self.message_type.clone()
     }
     fn get_content(&self) -> Option<ContentType> {
         self.content.clone()
@@ -76,14 +72,7 @@ impl Message {
     fn get_sender(&self) -> Option<Description> {
         self.sender_aid.clone()
     }
-}
-
-impl MessageDispatcher {
-    pub(crate) fn new(rx: RX) -> Self {
-        let message = Message::new();
-        let contact_list = Vec::with_capacity(MAX_SUBSCRIBERS);
-        Self { message, rx, contact_list}
+    fn get_receiver(&self) -> Option<Description> {
+        self.receiver_aid.clone()
     }
-    //ADD DISPATCH FUNCTIONS
-    //CONTACT LIST FUNCTIONS
 }

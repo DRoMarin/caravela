@@ -63,6 +63,6 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
 }
 
 //Example
-struct A {}
+//struct A {}
 
-impl<A> Behavior for Agent<A> {}
+//impl<A> Behavior for Agent<A> {}

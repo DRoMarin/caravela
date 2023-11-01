@@ -1,91 +1,79 @@
 pub mod behavior;
 pub mod organization;
 
+use std::collections::HashMap;
+
 use crate::platform::{
-    entity::{dispatcher::Message, Description, ExecutionResources, GenericEntity},
-    ThreadPriority, ID, RX,
+    entity::{messaging::Message, Description, ExecutionResources, GenericEntity},
+    Directory, ID, MAX_SUBSCRIBERS, RX,
 };
-use std::sync::mpsc::Receiver;
 
-use super::entity::dispatcher::{MessageDispatcher, self};
+use super::entity::PrivateGenericEntity;
 
-pub struct AgentInfo {
+pub struct AgentHub {
     nickname: String,
-    aid: Option<Description>,
-    //platform: Option<String>,
-    resources: ExecutionResources,
-    dispatcher: Option<MessageDispatcher>,//Option<Receiver<Message>>, // will become message dispatcher struct
+    pub aid: Option<Description>,
+    pub resources: ExecutionResources,
+    receiver: Option<RX>,
+    pub msg: Message,
     thread_id: Option<ID>,
+    pub directory: Directory,
     //membership: Option<Membership<'a>>,
 }
 
 pub struct Agent<T> {
-    agent: AgentInfo,
-    data: T,
+    pub hub: AgentHub,
+    pub data: T,
+    //pub membership,
 }
 
-/*
-pub(crate) struct Membership<'a> {
-    org: Option<&'a Organization<'a>>,
-    affiliation: Option<OrgAffiliation>,
-    role: Option<OrgRole>,
-}
-*/
-/*trait OrgMember {
-    //getters
-    fn get_org(&self) -> &Organization;
-    fn get_affiliation(&self) -> Option<OrgAffiliation>;
-    fn get_role(&self) -> Option<OrgRole>;
-    //setters
-    fn set_affiliation(&mut self, affiliation: OrgAffiliation);
-    fn set_role(&mut self, role: OrgRole);
-}*/
-
-impl AgentInfo {
-    pub fn new(nickname: String, priority: i32, stack_size: usize) -> Self {
-        let aid = None;
-        let resources = ExecutionResources::new(priority, stack_size);
-        let dispatcher = None; 
-        //let membership = None;
-
+impl AgentHub {
+    pub(crate) fn new(nickname: String, resources: ExecutionResources) -> Self {
+        let msg = Message::new();
+        let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
         Self {
             nickname,
-            aid,
-            //platform: None,
+            aid: None,
             resources,
-            dispatcher,
-            thread_id: None, //contact_list: ContactList(Vec::<AID>::with_capacity(MAX_SUBSCRIBERS)),
-                             //membership,
+            receiver: None,
+            msg,
+            thread_id: None,
+            directory,
+            //membership,
         }
     }
-    pub(crate) fn set_thread_id(&mut self, thread_id: ID) {
-        self.thread_id = Some(thread_id);
-    }
-    pub(crate) fn set_aid(&mut self, aid: Description) {
+}
+impl PrivateGenericEntity for AgentHub {
+    //Setters
+    fn set_aid(&mut self, aid: Description) {
         self.aid = Some(aid);
     }
-    pub(crate) fn set_dispatcher(&mut self, rx: RX) {
-        self.dispatcher = Some(MessageDispatcher::new(rx));
+    fn set_thread_id(&mut self, thread_id: ID) {
+        self.thread_id = Some(thread_id);
+    }
+    fn set_receiver(&mut self, rx: RX) {
+        self.receiver = Some(rx);
     }
 }
 
-impl GenericEntity for AgentInfo {
+impl GenericEntity for AgentHub {
+    //Getters
     fn get_aid(&self) -> Option<Description> {
         self.aid.clone()
     }
-    fn get_name(&self) -> String {
+    fn get_nickname(&self) -> String {
         self.nickname.clone()
     }
-    fn get_priority(&self) -> ThreadPriority {
-        self.resources.get_priority()
-    }
-    fn get_stack_size(&self) -> usize {
-        self.resources.get_stack_size()
+    fn get_resources(&self) -> ExecutionResources {
+        self.resources.clone()
     }
     fn get_thread_id(&self) -> Option<ID> {
         self.thread_id.clone()
     }
+    //Messaging needed
 }
+
+impl<T> Agent<T> {}
 
 mod private_task_control {
     //THIS SHOULD PROVIDE

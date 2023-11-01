@@ -1,5 +1,6 @@
-pub mod dispatcher;
-use crate::platform::{StackSize, ThreadPriority, ID, TX};
+pub mod messaging;
+
+use crate::platform::{StackSize, ThreadPriority, ID, RX, TX};
 
 #[derive(Clone)]
 pub struct Description {
@@ -7,7 +8,8 @@ pub struct Description {
     channel_tx: Option<TX>,
 }
 
-pub(crate) struct ExecutionResources {
+#[derive(Clone)]
+pub struct ExecutionResources {
     priority: ThreadPriority, //TBD
     stack_size: StackSize,
     //Behavior?
@@ -40,12 +42,18 @@ impl ExecutionResources {
     }
 }
 
+pub(crate) trait PrivateGenericEntity {
+    fn set_aid(&mut self, aid: Description);
+    fn set_thread_id(&mut self, thread_id: ID);
+    fn set_receiver(&mut self, rx: RX);
+}
+
 pub trait GenericEntity {
-    //getters
+    //this trait will define top level gets and actions like recv and send msg
     fn get_aid(&self) -> Option<Description>;
-    fn get_name(&self) -> String;
-    fn get_priority(&self) -> ThreadPriority;
-    fn get_stack_size(&self) -> usize;
+    fn get_nickname(&self) -> String;
+    fn get_resources(&self) -> ExecutionResources;
     fn get_thread_id(&self) -> Option<ID>;
 }
+
 //TRAIT FOR MESSAGING. NEEDED FOR ALL ENTITIES. Implementation is not universal across entities
