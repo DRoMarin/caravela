@@ -4,11 +4,11 @@ pub mod organization;
 use std::collections::HashMap;
 
 use crate::platform::{
-    entity::{messaging::Message, Description, ExecutionResources, GenericEntity},
+    entity::{
+        messaging::Message, Description, ExecutionResources, GenericEntity, PrivateGenericEntity,
+    },
     Directory, ID, MAX_SUBSCRIBERS, RX,
 };
-
-use super::entity::PrivateGenericEntity;
 
 pub struct AgentHub {
     nickname: String,
@@ -73,7 +73,7 @@ impl GenericEntity for AgentHub {
     //Messaging needed
 }
 
-impl<T> Agent<T> {}
+//impl<T> Agent<T> {}
 
 mod private_task_control {
     //THIS SHOULD PROVIDE

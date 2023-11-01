@@ -1,7 +1,4 @@
-use std::{
-    process::id,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use crate::platform::{
     entity::{
@@ -11,7 +8,6 @@ use crate::platform::{
 };
 
 pub mod ams;
-pub mod mts;
 
 struct ServiceHub {
     nickname: String,

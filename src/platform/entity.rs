@@ -54,6 +54,6 @@ pub trait GenericEntity {
     fn get_nickname(&self) -> String;
     fn get_resources(&self) -> ExecutionResources;
     fn get_thread_id(&self) -> Option<ID>;
+    //MESSAGING GOES HERE
 }
 
-//TRAIT FOR MESSAGING. NEEDED FOR ALL ENTITIES. Implementation is not universal across entities
