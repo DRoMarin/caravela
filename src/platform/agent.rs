@@ -1,23 +1,27 @@
 pub mod behavior;
 pub mod organization;
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    sync::{atomic::Ordering, mpsc::channel},
+    thread::{current, Thread},
+};
 
 use crate::platform::{
-    entity::{
-        messaging::Message, Description, ExecutionResources, GenericEntity, PrivateGenericEntity,
-    },
-    Directory, ID, MAX_SUBSCRIBERS, RX,
+    entity::{messaging::Message, Description, Entity, ExecutionResources},
+    ControlBlock, Directory, StackSize, ThreadPriority, MAX_SUBSCRIBERS, RX,
 };
+
+//use behavior::Behavior;
 
 pub struct AgentHub {
     nickname: String,
-    pub aid: Option<Description>,
+    pub aid: Description,
     pub resources: ExecutionResources,
-    receiver: Option<RX>,
+    rx: RX,
     pub msg: Message,
-    thread_id: Option<ID>,
     pub directory: Directory,
+    pub(crate) control_block: Option<ControlBlock>,
     //membership: Option<Membership<'a>>,
 }
 
@@ -28,37 +32,36 @@ pub struct Agent<T> {
 }
 
 impl AgentHub {
-    pub(crate) fn new(nickname: String, resources: ExecutionResources) -> Self {
+    pub(crate) fn new(
+        nickname: String,
+        resources: ExecutionResources,
+        thread: Thread,
+        hap: &str,
+        control_block: Option<ControlBlock>,
+    ) -> Self {
+        let (tx, rx) = channel::<Message>();
+        let name = nickname.clone() + "@" + hap;
+        let aid = Description::new(name, tx, thread);
         let msg = Message::new();
+        //format name, set ID, set channel and set HAP
+
         let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
         Self {
             nickname,
-            aid: None,
+            aid,
             resources,
-            receiver: None,
+            rx,
             msg,
-            thread_id: None,
             directory,
+            control_block: None,
             //membership,
         }
     }
 }
-impl PrivateGenericEntity for AgentHub {
-    //Setters
-    fn set_aid(&mut self, aid: Description) {
-        self.aid = Some(aid);
-    }
-    fn set_thread_id(&mut self, thread_id: ID) {
-        self.thread_id = Some(thread_id);
-    }
-    fn set_receiver(&mut self, rx: RX) {
-        self.receiver = Some(rx);
-    }
-}
 
-impl GenericEntity for AgentHub {
+impl Entity for AgentHub {
     //Getters
-    fn get_aid(&self) -> Option<Description> {
+    fn get_aid(&self) -> Description {
         self.aid.clone()
     }
     fn get_nickname(&self) -> String {
@@ -67,20 +70,41 @@ impl GenericEntity for AgentHub {
     fn get_resources(&self) -> ExecutionResources {
         self.resources.clone()
     }
-    fn get_thread_id(&self) -> Option<ID> {
-        self.thread_id.clone()
-    }
     //Messaging needed
 }
 
-//impl<T> Agent<T> {}
+impl<T> Agent<T> {
+    pub fn new(
+        nickname: String,
+        priority: ThreadPriority,
+        stack_size: StackSize,
+        hap: &str,
+        data: T,
+    ) -> Self {
+        let id = current();
+        let resources = ExecutionResources::new(priority, stack_size);
+        let hub = AgentHub::new(nickname, resources, id, hap, None);
+        Self { hub, data }
+    }
+}
 
-mod private_task_control {
+/*mod private_task_control {
     //THIS SHOULD PROVIDE
     use super::Agent;
-    pub trait TaskControl {
+    pub(crate) trait TaskControl {
         //TBD
-        fn bar(&self) {}
+        fn suspend(&self) {}
+        fn wait(&self, time: i32) {}
+        fn execute(&self) {}
     }
     impl<T> TaskControl for Agent<T> {}
+}*/
+//Example
+/*
+struct A {}
+
+impl<A> Behavior for Agent<A> {
+    fn action(&mut self) {
+    }
 }
+*/

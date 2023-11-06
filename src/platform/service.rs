@@ -1,56 +1,46 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    sync::{mpsc::channel, Arc, Mutex},
+    thread::Thread,
+};
 
 use crate::platform::{
-    entity::{
-        messaging::Message, Description, ExecutionResources, GenericEntity, PrivateGenericEntity,
-    },
-    Directory, Platform, ID, RX,
+    entity::{messaging::Message, Description, Entity, ExecutionResources},
+    Platform, RX,
 };
 
 pub mod ams;
 
 struct ServiceHub {
     nickname: String,
-    pub aid: Option<Description>,
+    pub aid: Description,
     pub resources: ExecutionResources,
-    receiver: Option<RX>,
+    receiver: RX,
     pub msg: Message,
-    thread_id: Option<ID>,
-    pub directory: Arc<Mutex<Directory>>,
 }
 
 impl ServiceHub {
     pub(crate) fn new(
         nickname: String,
         resources: ExecutionResources,
-        directory: Arc<Mutex<Directory>>,
+        thread: Thread,
+        hap: &str,
     ) -> Self {
+        let (tx, rx) = channel::<Message>();
+        let name = nickname.clone() + "@" + hap;
+        let aid = Description::new(name, tx, thread);
         let msg = Message::new();
         Self {
             nickname,
-            aid: None,
+            aid,
             resources,
-            receiver: None,
+            receiver: rx,
             msg,
-            thread_id: None,
-            directory,
         }
     }
 }
 
-impl PrivateGenericEntity for ServiceHub {
-    fn set_aid(&mut self, aid: Description) {
-        self.aid = Some(aid);
-    }
-    fn set_receiver(&mut self, rx: RX) {
-        self.receiver = Some(rx)
-    }
-    fn set_thread_id(&mut self, thread_id: crate::platform::ID) {
-        self.thread_id = Some(thread_id);
-    }
-}
-impl GenericEntity for ServiceHub {
-    fn get_aid(&self) -> Option<Description> {
+impl Entity for ServiceHub {
+    fn get_aid(&self) -> Description {
         self.aid.clone()
     }
     fn get_nickname(&self) -> String {
@@ -59,13 +49,10 @@ impl GenericEntity for ServiceHub {
     fn get_resources(&self) -> ExecutionResources {
         self.resources.clone()
     }
-    fn get_thread_id(&self) -> Option<ID> {
-        self.thread_id.clone()
-    }
 }
 
-pub(crate) trait Service {
-    fn new(platform: &Platform) -> Self;
+pub(crate) trait Service<T: UserConditions> {
+    fn new(hap: &Platform, thread: Thread, conditions: T) -> Self;
     fn service_function(conditions: &impl UserConditions);
 }
 

@@ -1,70 +1,128 @@
 use crate::platform::{
-    agent::AgentHub,
-    entity::{
-        messaging::Message, Description, ExecutionResources, GenericEntity, PrivateGenericEntity,
-    },
+    entity::{messaging::Message, Description, ExecutionResources},
     service::{Service, ServiceHub, UserConditions},
+    ControlBlockDirectory, Directory,
     {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
 };
-use std::sync::mpsc::channel;
+use std::{
+    sync::{atomic::Ordering, Arc, Mutex},
+    thread::Thread,
+};
 
-//SERVICE NEEDS TO CHANGE TO FIT DISPATCHER STRUCT > GET RID OF MONO STRUCT, CREATE TYPES (CONTACTS, YP,WP,ETC)
-
-struct AMS {
+//AMS Needs a atomic control block for thread lifecycle control
+struct AMS<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     service_hub: ServiceHub,
-    platform_name: String,
+    directory: Arc<Mutex<Directory>>,
+    control_block_directory: Arc<Mutex<ControlBlockDirectory>>,
+    conditions: T,
 }
 
-impl Service for AMS {
-    fn new(platform: &Platform) -> Self {
+impl<T: UserConditions> Service<T> for AMS<T> {
+    fn new(hap: &Platform, thread: Thread, conditions: T) -> Self {
         let nickname = "AMS".to_string();
-        let platform_name = platform.name.clone();
-        let id = nickname.clone() + "@" + &platform_name;
-        let (tx, rx) = channel::<Message>();
-        let aid = Description::new(id, Some(tx));
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
-        let mut service_hub =
-            ServiceHub::new(nickname.clone(), resources, platform.white_pages.clone());
-        service_hub.set_aid(aid);
-        service_hub.set_receiver(rx);
+        let service_hub = ServiceHub::new(nickname.clone(), resources, thread, &hap.name);
+        let directory = hap.white_pages.clone();
+        let control_block_directory = hap.control_block_directory.clone();
         Self {
             service_hub,
-            platform_name,
+            directory,
+            control_block_directory,
+            conditions,
         }
     }
+
     fn service_function(conditions: &impl UserConditions) {}
 }
-impl AMS {
-    pub(crate) fn register_agent(
-        &mut self,
-        agent_hub: &mut AgentHub,
-        cond: &impl UserConditions,
-    ) -> ErrorCode {
-        if !cond.registration_condition() {
+
+impl<T: UserConditions> AMS<T> {
+    pub(crate) fn register_agent(&mut self, nickname: &str, description: Description) -> ErrorCode {
+        if !self.conditions.registration_condition() {
             return ErrorCode::Invalid;
         }
-        let mut white_pages = self.service_hub.directory.lock().unwrap();
+        let mut white_pages = self.directory.lock().unwrap();
         if white_pages.capacity().eq(&MAX_SUBSCRIBERS) {
             return ErrorCode::ListFull;
         }
-        let nickname = agent_hub.get_nickname();
-        if white_pages.contains_key(&nickname) {
+        if white_pages.contains_key(nickname) {
             return ErrorCode::Duplicated;
         }
-        let (tx, rx) = channel::<Message>();
-        let id = nickname.clone() + "@" + &self.platform_name;
-        let aid = Description::new(id.clone(), Some(tx.clone()));
-        agent_hub.set_aid(aid);
-        agent_hub.set_receiver(rx);
-        white_pages.insert(nickname, (id, tx));
-        return ErrorCode::NoError;
+        white_pages.insert(nickname.to_string(), description);
+        let mut tcb = self.control_block_directory.lock().unwrap();
+        tcb.get_mut(nickname)
+            .unwrap()
+            .init
+            .store(true, Ordering::Relaxed);
+        ErrorCode::NoError
+        //set agent as active in dir
     }
-    pub(crate) fn deregister_agent(&mut self, agent_aid: &Description) {}
-    pub(crate) fn kill_agent(&mut self, agent_aid: &Description) {}
-    pub(crate) fn suspend_agent(&self, agent_aid: &Description) {}
-    pub(crate) fn resume_agent(&mut self, agent_aid: &Description) {}
-    pub(crate) fn restart_agent(&mut self, agent_aid: &Description) {}
+
+    pub(crate) fn deregister_agent(&mut self, nickname: &str) -> ErrorCode {
+        if !self.conditions.deregistration_condition() {
+            return ErrorCode::Invalid;
+        }
+        let mut white_pages = self.directory.lock().unwrap();
+        if !white_pages.contains_key(nickname) {
+            return ErrorCode::NotFound;
+        }
+        let mut tcb = self.control_block_directory.lock().unwrap();
+        tcb.get_mut(nickname)
+            .unwrap()
+            .quit
+            .store(true, Ordering::Relaxed);
+        tcb.remove_entry(nickname);
+        white_pages.remove_entry(nickname);
+        ErrorCode::NoError
+    }
+
+    pub(crate) fn terminate_agent(&mut self, nickname: &str) -> ErrorCode {
+        if !self.conditions.termination_condition() {
+            return ErrorCode::Invalid;
+        }
+        self.deregister_agent(nickname)
+    }
+
+    pub(crate) fn suspend_agent(&self, nickname: &str) -> ErrorCode {
+        if !self.conditions.suspension_condition() {
+            return ErrorCode::Invalid;
+        }
+        let white_pages = self.directory.lock().unwrap();
+        if !white_pages.contains_key(nickname) {
+            return ErrorCode::NotFound;
+        }
+        let mut tcb = self.control_block_directory.lock().unwrap();
+        tcb.get_mut(nickname)
+            .unwrap()
+            .suspend
+            .store(true, Ordering::Relaxed);
+        ErrorCode::NoError
+        //update agent status
+    }
+
+    pub(crate) fn resume_agent(&mut self, nickname: &str) -> ErrorCode {
+        if !self.conditions.resumption_condition() {
+            return ErrorCode::Invalid;
+        }
+        let white_pages = self.directory.lock().unwrap();
+        if !white_pages.contains_key(nickname) {
+            return ErrorCode::NotFound;
+        }
+        let tcb = self.control_block_directory.lock().unwrap();
+        tcb.get(nickname)
+            .unwrap()
+            .handle
+            .as_ref()
+            .unwrap()
+            .thread()
+            .unpark();
+        ErrorCode::NoError
+        //update agent status
+    }
+
+    pub(crate) fn restart_agent(&mut self, nickname: &str) {
+        //relaunch agent
+    }
 }
 
 //fn format_id(name:,platform)
