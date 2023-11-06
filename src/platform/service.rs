@@ -1,11 +1,8 @@
-use std::{
-    sync::{mpsc::channel, Arc, Mutex},
-    thread::Thread,
-};
+use std::{sync::mpsc::channel, thread::Thread};
 
 use crate::platform::{
     entity::{messaging::Message, Description, Entity, ExecutionResources},
-    Platform, RX,
+    ErrorCode, Platform, RX,
 };
 
 pub mod ams;
@@ -51,9 +48,13 @@ impl Entity for ServiceHub {
     }
 }
 
-pub(crate) trait Service<T: UserConditions> {
-    fn new(hap: &Platform, thread: Thread, conditions: T) -> Self;
-    fn service_function(conditions: &impl UserConditions);
+pub(crate) trait Service {
+    type Conditions;
+    fn new(hap: &Platform, thread: Thread, conditions: Self::Conditions) -> Self;
+    fn register_agent(&mut self, nickname: &str, description: Description) -> ErrorCode;
+    fn deregister_agent(&mut self, nickname: &str) -> ErrorCode;
+    fn search_agent(&self, nickname: &str) -> ErrorCode; // TBD
+    fn service_function(conditions: Self::Conditions);
 }
 
 pub trait UserConditions {

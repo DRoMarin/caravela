@@ -1,9 +1,9 @@
 //NEED TO ADD TRANSPORT SERVICE FUNCTIONALITY THAT WILL MANAGE ALL MPSC CHANNELS PER AGENT
 //NEED TO DEFINE WHAT WILL HOLD THE LIST OF CONTACTS
 
-use super::{Description, TX};
+use super::Description;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum MessageType {
     AcceptProposal,
     Agree,
@@ -28,9 +28,9 @@ pub enum MessageType {
 }
 
 #[derive(Clone)]
-pub enum ContentType {
+pub enum Content {
     Text(String),
-    Address(TX),
+    AID(Description),
 }
 
 #[derive(Clone)]
@@ -38,7 +38,7 @@ pub struct Message {
     sender_aid: Option<Description>,
     receiver_aid: Option<Description>,
     message_type: Option<MessageType>,
-    content: Option<ContentType>,
+    content: Option<Content>,
 }
 
 impl Message {
@@ -53,7 +53,7 @@ impl Message {
     fn set_type(&mut self, msg_type: MessageType) {
         self.message_type = Some(msg_type);
     }
-    fn set_content(&mut self, msg_content: ContentType) {
+    fn set_content(&mut self, msg_content: Content) {
         self.content = Some(msg_content);
     }
     fn set_receiver(&mut self, receiver: Description) {
@@ -63,16 +63,16 @@ impl Message {
         self.sender_aid = Some(sender)
     }
 
-    fn get_type(&self) -> Option<MessageType> {
-        self.message_type.clone()
+    fn get_type(&self) -> &Option<MessageType> {
+        &self.message_type
     }
-    fn get_content(&self) -> Option<ContentType> {
-        self.content.clone()
+    fn get_content(&self) -> &Option<Content> {
+        &self.content
     }
-    fn get_sender(&self) -> Option<Description> {
-        self.sender_aid.clone()
+    fn get_sender(&self) -> &Option<Description> {
+        &self.sender_aid
     }
-    fn get_receiver(&self) -> Option<Description> {
-        self.receiver_aid.clone()
+    fn get_receiver(&self) -> &Option<Description> {
+        &self.receiver_aid
     }
 }

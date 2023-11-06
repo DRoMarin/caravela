@@ -1,10 +1,10 @@
 use std::{
     collections::HashMap,
     sync::{
-        atomic::AtomicBool,
         mpsc::{Receiver, Sender},
         Arc, Mutex,
-    }, thread::JoinHandle,
+    },
+    thread::JoinHandle,
 };
 
 pub mod agent;
@@ -12,22 +12,18 @@ pub mod entity;
 pub mod service;
 //pub mod organization;
 
-use entity::{messaging::Message, Description};
+use {
+    agent::ControlBlock,
+    entity::{messaging::Message, Description},
+};
 
 type ThreadPriority = i32;
 type StackSize = usize;
 type TX = Sender<Message>;
 type RX = Receiver<Message>;
 type Directory = HashMap<String, Description>; //can be expanded into different dir types for agents, AMS or DF if present
-
-pub(crate) struct ControlBlock {
-    handle: Option<JoinHandle<()>>,
-    init: AtomicBool,
-    suspend: AtomicBool,
-    quit: AtomicBool,
-}
-
 type ControlBlockDirectory = HashMap<String, ControlBlock>;
+type HandleDirectory = HashMap<String, JoinHandle<()>>;
 //set directory entry type: must include name, Thread ID, TX, Join Handle
 
 pub const DEFAULT_STACK: usize = 8;
@@ -51,6 +47,7 @@ pub struct Platform {
     name: String,
     white_pages: Arc<Mutex<Directory>>,
     control_block_directory: Arc<Mutex<ControlBlockDirectory>>,
+    handle_directory: Arc<Mutex<HandleDirectory>>,
 }
 
 impl Platform {
@@ -60,10 +57,13 @@ impl Platform {
         let control_block_directory: Arc<Mutex<ControlBlockDirectory>> = Arc::new(Mutex::new(
             ControlBlockDirectory::with_capacity(MAX_SUBSCRIBERS),
         ));
+        let handle_directory: Arc<Mutex<HandleDirectory>> =
+            Arc::new(Mutex::new(HandleDirectory::with_capacity(MAX_SUBSCRIBERS)));
         Self {
             name,
             white_pages,
             control_block_directory,
+            handle_directory,
         }
     }
 }

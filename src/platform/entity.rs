@@ -1,6 +1,6 @@
 pub mod messaging;
 
-use std::thread::{Thread, current};
+use std::thread::{current, Thread};
 
 use crate::platform::{StackSize, ThreadPriority, TX};
 
@@ -31,7 +31,7 @@ impl Description {
     pub fn get_id(&self) -> Thread {
         self.thread.clone()
     }
-    pub(crate) fn set_thread(&mut self){
+    pub(crate) fn set_thread(&mut self) {
         self.thread = current();
     }
 }

@@ -3,16 +3,20 @@ pub mod organization;
 
 use std::{
     collections::HashMap,
-    sync::{atomic::Ordering, mpsc::channel},
+    sync::{atomic::AtomicBool, mpsc::channel},
     thread::{current, Thread},
 };
 
 use crate::platform::{
     entity::{messaging::Message, Description, Entity, ExecutionResources},
-    ControlBlock, Directory, StackSize, ThreadPriority, MAX_SUBSCRIBERS, RX,
+    Directory, StackSize, ThreadPriority, MAX_SUBSCRIBERS, RX,
 };
 
-//use behavior::Behavior;
+pub(crate) struct ControlBlock {
+    pub init: AtomicBool,
+    pub suspend: AtomicBool,
+    pub quit: AtomicBool,
+}
 
 pub struct AgentHub {
     nickname: String,
@@ -56,6 +60,10 @@ impl AgentHub {
             control_block: None,
             //membership,
         }
+    }
+
+    pub(crate) fn set_tcb(&mut self, tcb: ControlBlock) {
+        self.control_block = Some(tcb);
     }
 }
 
