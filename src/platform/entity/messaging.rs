@@ -50,29 +50,29 @@ impl Message {
             content: None,
         }
     }
-    fn set_type(&mut self, msg_type: MessageType) {
+    pub fn set_type(&mut self, msg_type: MessageType) {
         self.message_type = Some(msg_type);
     }
-    fn set_content(&mut self, msg_content: Content) {
+    pub fn set_content(&mut self, msg_content: Content) {
         self.content = Some(msg_content);
     }
-    fn set_receiver(&mut self, receiver: Description) {
+    pub fn set_receiver(&mut self, receiver: Description) {
         self.receiver_aid = Some(receiver);
     }
-    fn set_sender(&mut self, sender: Description) {
+    pub fn set_sender(&mut self, sender: Description) {
         self.sender_aid = Some(sender)
     }
 
-    fn get_type(&self) -> &Option<MessageType> {
+    pub fn get_type(&self) -> &Option<MessageType> {
         &self.message_type
     }
-    fn get_content(&self) -> &Option<Content> {
+    pub fn get_content(&self) -> &Option<Content> {
         &self.content
     }
-    fn get_sender(&self) -> &Option<Description> {
+    pub fn get_sender(&self) -> &Option<Description> {
         &self.sender_aid
     }
-    fn get_receiver(&self) -> &Option<Description> {
+    pub fn get_receiver(&self) -> &Option<Description> {
         &self.receiver_aid
     }
 }

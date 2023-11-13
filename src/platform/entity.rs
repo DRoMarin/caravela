@@ -2,7 +2,9 @@ pub mod messaging;
 
 use std::thread::{current, Thread};
 
-use crate::platform::{StackSize, ThreadPriority, TX};
+use crate::platform::{StackSize, ThreadPriority, TX, ErrorCode};
+
+use self::messaging::{Message, MessageType};
 
 #[derive(Clone)]
 pub struct Description {
@@ -55,6 +57,10 @@ pub trait Entity {
     fn get_aid(&self) -> Description;
     fn get_nickname(&self) -> String;
     fn get_resources(&self) -> ExecutionResources;
+    fn send_to(&mut self, agent: &str) -> ErrorCode;
+    //fn send_to_with_timeout(&mut self, agent: &str, timeout: u64) -> ErrorCode;
+    //fn send_to_all(&self) -> ErrorCode;
+    fn receive(&mut self) -> MessageType;
     //fn get_thread_id(&self) -> Option<ID>;
     //MESSAGING GOES HERE
 }

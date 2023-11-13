@@ -5,7 +5,7 @@ use crate::platform::{
     {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
 };
 use std::{
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{atomic::Ordering, Arc, Mutex, RwLock},
     thread::Thread,
 };
 
@@ -13,8 +13,8 @@ use std::{
 struct AMS<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     service_hub: ServiceHub,
-    directory: Arc<Mutex<Directory>>,
-    control_block_directory: Arc<Mutex<ControlBlockDirectory>>,
+    directory: Arc<RwLock<Directory>>,
+    control_block_directory: Arc<RwLock<ControlBlockDirectory>>,
     handle_directory: Arc<Mutex<HandleDirectory>>,
     conditions: T,
 }
@@ -37,7 +37,7 @@ impl<T: UserConditions> Service for AMS<T> {
         }
     }
     fn search_agent(&self, nickname: &str) -> ErrorCode {
-        let white_pages = self.directory.lock().unwrap();
+        let white_pages = self.directory.read().unwrap();
         if white_pages.contains_key(nickname) {
             return ErrorCode::Found;
         }
@@ -51,13 +51,13 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::Duplicated;
         }
-        let mut white_pages = self.directory.lock().unwrap();
+        let mut white_pages = self.directory.write().unwrap();
         if white_pages.capacity().eq(&MAX_SUBSCRIBERS) {
             return ErrorCode::ListFull;
         }
         white_pages.insert(nickname.to_string(), description);
-        let mut tcb = self.control_block_directory.lock().unwrap();
-        tcb.get_mut(nickname)
+        let tcb = self.control_block_directory.write().unwrap();
+        tcb.get(nickname)
             .unwrap()
             .init
             .store(true, Ordering::Relaxed);
@@ -72,10 +72,9 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::NotFound {
             return ErrorCode::NotFound;
         }
-        let mut white_pages = self.directory.lock().unwrap();
-        //let tcb = self.control_block_directory.lock().unwrap();
-        let mut tcb = self.control_block_directory.lock().unwrap();
-        tcb.get_mut(nickname)
+        let mut white_pages = self.directory.write().unwrap();
+        let mut tcb = self.control_block_directory.write().unwrap();
+        tcb.get(nickname)
             .unwrap()
             .quit
             .store(true, Ordering::Relaxed);
@@ -110,7 +109,7 @@ impl<T: UserConditions> AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::Found;
         }
-        let mut tcb = self.control_block_directory.lock().unwrap();
+        let mut tcb = self.control_block_directory.write().unwrap();
         tcb.get_mut(nickname)
             .unwrap()
             .suspend
@@ -139,8 +138,3 @@ impl<T: UserConditions> AMS<T> {
 }
 
 //CAN REDUCE CODE BY CREATING: CONDITION CHECK VIA ENUM
-
-//fn format_id(name:,platform)
-//IDEA
-//let a: &std::sync::mpsc::Receiver<Message> = &self.resources.channel.as_ref().unwrap().1;
-//let msg = a.recv();

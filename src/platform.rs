@@ -1,8 +1,8 @@
 use std::{
     collections::HashMap,
     sync::{
-        mpsc::{Receiver, Sender},
-        Arc, Mutex,
+        mpsc::{Receiver, SyncSender},
+        Arc, Mutex, RwLock,
     },
     thread::JoinHandle,
 };
@@ -19,11 +19,12 @@ use {
 
 type ThreadPriority = i32;
 type StackSize = usize;
-type TX = Sender<Message>;
+type TX = SyncSender<Message>;
 type RX = Receiver<Message>;
 type Directory = HashMap<String, Description>; //can be expanded into different dir types for agents, AMS or DF if present
 type ControlBlockDirectory = HashMap<String, ControlBlock>;
 type HandleDirectory = HashMap<String, JoinHandle<()>>;
+type StateDirectory = HashMap<String, AgentState>;
 //set directory entry type: must include name, Thread ID, TX, Join Handle
 
 pub const DEFAULT_STACK: usize = 8;
@@ -43,27 +44,39 @@ pub enum ErrorCode {
     NotRegistered,
 }
 
+#[derive(PartialEq, Clone, Copy)]
+pub enum AgentState {
+    Waiting,
+    Active,
+    Suspended,
+    Initiated,
+}
+
 pub struct Platform {
     name: String,
-    white_pages: Arc<Mutex<Directory>>,
-    control_block_directory: Arc<Mutex<ControlBlockDirectory>>,
+    white_pages: Arc<RwLock<Directory>>,
+    control_block_directory: Arc<RwLock<ControlBlockDirectory>>,
     handle_directory: Arc<Mutex<HandleDirectory>>,
+    state_directory: Arc<RwLock<StateDirectory>>,
 }
 
 impl Platform {
     fn new(name: String) -> Self {
-        let white_pages: Arc<Mutex<Directory>> =
-            Arc::new(Mutex::new(Directory::with_capacity(MAX_SUBSCRIBERS)));
-        let control_block_directory: Arc<Mutex<ControlBlockDirectory>> = Arc::new(Mutex::new(
+        let white_pages: Arc<RwLock<Directory>> =
+            Arc::new(RwLock::new(Directory::with_capacity(MAX_SUBSCRIBERS)));
+        let control_block_directory: Arc<RwLock<ControlBlockDirectory>> = Arc::new(RwLock::new(
             ControlBlockDirectory::with_capacity(MAX_SUBSCRIBERS),
         ));
         let handle_directory: Arc<Mutex<HandleDirectory>> =
             Arc::new(Mutex::new(HandleDirectory::with_capacity(MAX_SUBSCRIBERS)));
+        let state_directory: Arc<RwLock<StateDirectory>> =
+            Arc::new(RwLock::new(StateDirectory::with_capacity(MAX_SUBSCRIBERS)));
         Self {
             name,
             white_pages,
             control_block_directory,
             handle_directory,
+            state_directory,
         }
     }
 }

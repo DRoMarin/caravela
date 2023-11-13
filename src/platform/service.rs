@@ -1,9 +1,11 @@
-use std::{sync::mpsc::channel, thread::Thread};
+use std::{sync::mpsc::sync_channel, thread::Thread};
 
 use crate::platform::{
     entity::{messaging::Message, Description, Entity, ExecutionResources},
     ErrorCode, Platform, RX,
 };
+
+use super::entity::messaging::MessageType;
 
 pub mod ams;
 
@@ -22,7 +24,7 @@ impl ServiceHub {
         thread: Thread,
         hap: &str,
     ) -> Self {
-        let (tx, rx) = channel::<Message>();
+        let (tx, rx) = sync_channel::<Message>(1);
         let name = nickname.clone() + "@" + hap;
         let aid = Description::new(name, tx, thread);
         let msg = Message::new();
@@ -45,6 +47,14 @@ impl Entity for ServiceHub {
     }
     fn get_resources(&self) -> ExecutionResources {
         self.resources.clone()
+    }
+    fn send_to(&mut self, agent: &str) -> ErrorCode {
+        //TBD: PLACEHOLDER
+        ErrorCode::NoError
+    }
+    fn receive(&mut self) -> MessageType {
+        //TBD: PLACEHOLDER
+        self.msg.get_type().clone().unwrap()
     }
 }
 
