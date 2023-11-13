@@ -1,16 +1,14 @@
 pub mod behavior;
 pub mod organization;
 
-use core::time;
 use std::{
     collections::HashMap,
-    result,
     sync::{
         atomic::AtomicBool,
         mpsc::{sync_channel, TrySendError},
         Arc, Mutex, RwLock,
     },
-    thread::{self, current, Thread},
+    thread::{current, Thread},
     time::Duration,
 };
 
@@ -97,8 +95,6 @@ impl Entity for AgentHub {
         self.resources.clone()
     }
     fn send_to(&mut self, agent: &str) -> ErrorCode {
-        self.msg.set_sender(self.aid.clone());
-
         let receiver = match self.directory.get(agent) {
             Some(x) => x.clone(),
             None => {
@@ -117,7 +113,7 @@ impl Entity for AgentHub {
             }
         };
         //TBD: CHECK ORG VALUES OF RECEIVER
-
+        self.msg.set_sender(self.aid.clone());
         let address = receiver.get_address().clone();
         self.msg.set_receiver(receiver);
         let result = address.try_send(self.msg.clone());

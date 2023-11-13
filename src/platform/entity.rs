@@ -2,9 +2,9 @@ pub mod messaging;
 
 use std::thread::{current, Thread};
 
-use crate::platform::{StackSize, ThreadPriority, TX, ErrorCode};
+use crate::platform::{ErrorCode, StackSize, ThreadPriority, TX};
 
-use self::messaging::{Message, MessageType};
+use self::messaging::MessageType;
 
 #[derive(Clone)]
 pub struct Description {

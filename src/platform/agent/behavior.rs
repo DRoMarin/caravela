@@ -66,6 +66,9 @@ mod private {
                 .quit
                 .load(Ordering::Relaxed)
         }
+        fn takedown(&self) {
+            //TBD
+        }
     }
 }
 
