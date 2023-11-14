@@ -21,6 +21,7 @@ pub enum MessageType {
     QueryIf,
     QueryRef,
     Refuse,
+    Request,
     RequestWhen,
     RequestWhenever,
     Subscribe,
@@ -28,9 +29,20 @@ pub enum MessageType {
 }
 
 #[derive(Clone)]
+pub enum RequestType {
+    Register(String, Description),
+    Deregister(String),
+    Suspend(String),
+    Resume(String),
+    Terminate(String),
+    //Restart(String),
+    Search(String),
+}
+
+#[derive(Clone)]
 pub enum Content {
     Text(String),
-    AID(Description),
+    Request(RequestType),
 }
 
 #[derive(Clone)]
@@ -63,16 +75,16 @@ impl Message {
         self.sender_aid = Some(sender)
     }
 
-    pub fn get_type(&self) -> &Option<MessageType> {
-        &self.message_type
+    pub fn get_type(&mut self) -> Option<MessageType> {
+        self.message_type.take()
     }
-    pub fn get_content(&self) -> &Option<Content> {
-        &self.content
+    pub fn get_content(&mut self) -> Option<Content> {
+        self.content.take()
     }
-    pub fn get_sender(&self) -> &Option<Description> {
-        &self.sender_aid
+    pub fn get_sender(&mut self) -> Option<Description> {
+        self.sender_aid.take()
     }
-    pub fn get_receiver(&self) -> &Option<Description> {
-        &self.receiver_aid
+    pub fn get_receiver(&mut self) -> Option<Description> {
+        self.receiver_aid.take()
     }
 }

@@ -1,8 +1,14 @@
-use std::{sync::mpsc::sync_channel, thread::Thread};
+use std::{
+    sync::{
+        mpsc::{sync_channel, TrySendError},
+        Arc, RwLock,
+    },
+    thread::Thread,
+};
 
 use crate::platform::{
     entity::{messaging::Message, Description, Entity, ExecutionResources},
-    ErrorCode, Platform, RX,
+    Directory, ErrorCode, Platform, RX,
 };
 
 use super::entity::messaging::MessageType;
@@ -13,8 +19,9 @@ struct ServiceHub {
     nickname: String,
     pub aid: Description,
     pub resources: ExecutionResources,
-    receiver: RX,
+    rx: RX,
     pub msg: Message,
+    directory: Arc<RwLock<Directory>>,
 }
 
 impl ServiceHub {
@@ -23,6 +30,7 @@ impl ServiceHub {
         resources: ExecutionResources,
         thread: Thread,
         hap: &str,
+        directory: Arc<RwLock<Directory>>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let name = nickname.clone() + "@" + hap;
@@ -32,8 +40,9 @@ impl ServiceHub {
             nickname,
             aid,
             resources,
-            receiver: rx,
+            rx,
             msg,
+            directory,
         }
     }
 }
@@ -49,12 +58,33 @@ impl Entity for ServiceHub {
         self.resources.clone()
     }
     fn send_to(&mut self, agent: &str) -> ErrorCode {
-        //TBD: PLACEHOLDER
-        ErrorCode::NoError
+        let receiver = match self.directory.read().unwrap().get(agent) {
+            Some(x) => x.clone(),
+            None => return ErrorCode::NotRegistered,
+        };
+        self.msg.set_sender(self.aid.clone());
+        let address = receiver.get_address().clone();
+        self.msg.set_receiver(receiver);
+        let result = address.try_send(self.msg.clone());
+        let error_code = match result {
+            Ok(_) => ErrorCode::NoError,
+            Err(error) => match error {
+                TrySendError::Full(_) => ErrorCode::Timeout,
+                TrySendError::Disconnected(_) => ErrorCode::NotRegistered, //LIST MAY BE OUTDATED
+            },
+        };
+        error_code
     }
     fn receive(&mut self) -> MessageType {
-        //TBD: PLACEHOLDER
-        self.msg.get_type().clone().unwrap()
+        let result = self.rx.recv();
+        let msg_type = match result {
+            Ok(received_msg) => {
+                self.msg = received_msg;
+                self.msg.get_type().clone().unwrap()
+            }
+            Err(_) => MessageType::NoResponse,
+        }; //could handle Err incase of disconnection
+        msg_type
     }
 }
 
@@ -64,7 +94,7 @@ pub(crate) trait Service {
     fn register_agent(&mut self, nickname: &str, description: Description) -> ErrorCode;
     fn deregister_agent(&mut self, nickname: &str) -> ErrorCode;
     fn search_agent(&self, nickname: &str) -> ErrorCode; // TBD
-    fn service_function(conditions: Self::Conditions);
+    fn service_function(&mut self);
 }
 
 pub trait UserConditions {

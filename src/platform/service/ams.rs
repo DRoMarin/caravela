@@ -1,7 +1,10 @@
 use crate::platform::{
-    entity::{messaging::Message, Description, ExecutionResources},
+    entity::{
+        messaging::{Content, MessageType, RequestType},
+        Description, Entity, ExecutionResources,
+    },
     service::{Service, ServiceHub, UserConditions},
-    ControlBlockDirectory, Directory, HandleDirectory,
+    ControlBlockDirectory, HandleDirectory,
     {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
 };
 use std::{
@@ -13,7 +16,6 @@ use std::{
 struct AMS<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     service_hub: ServiceHub,
-    directory: Arc<RwLock<Directory>>,
     control_block_directory: Arc<RwLock<ControlBlockDirectory>>,
     handle_directory: Arc<Mutex<HandleDirectory>>,
     conditions: T,
@@ -24,26 +26,25 @@ impl<T: UserConditions> Service for AMS<T> {
     fn new(hap: &Platform, thread: Thread, conditions: T) -> Self {
         let nickname = "AMS".to_string();
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
-        let service_hub = ServiceHub::new(nickname.clone(), resources, thread, &hap.name);
         let directory = hap.white_pages.clone();
+        let service_hub =
+            ServiceHub::new(nickname.clone(), resources, thread, &hap.name, directory);
         let control_block_directory = hap.control_block_directory.clone();
         let handle_directory = hap.handle_directory.clone();
         Self {
             service_hub,
-            directory,
             control_block_directory,
             handle_directory,
             conditions,
         }
     }
     fn search_agent(&self, nickname: &str) -> ErrorCode {
-        let white_pages = self.directory.read().unwrap();
+        let white_pages = self.service_hub.directory.read().unwrap();
         if white_pages.contains_key(nickname) {
             return ErrorCode::Found;
         }
         ErrorCode::NotFound
     }
-
     fn register_agent(&mut self, nickname: &str, description: Description) -> ErrorCode {
         if !self.conditions.registration_condition() {
             return ErrorCode::Invalid;
@@ -51,7 +52,7 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::Duplicated;
         }
-        let mut white_pages = self.directory.write().unwrap();
+        let mut white_pages = self.service_hub.directory.write().unwrap();
         if white_pages.capacity().eq(&MAX_SUBSCRIBERS) {
             return ErrorCode::ListFull;
         }
@@ -64,7 +65,6 @@ impl<T: UserConditions> Service for AMS<T> {
         ErrorCode::NoError
         //set agent as active in dir
     }
-
     fn deregister_agent(&mut self, nickname: &str) -> ErrorCode {
         if !self.conditions.deregistration_condition() {
             return ErrorCode::Invalid;
@@ -72,7 +72,7 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::NotFound {
             return ErrorCode::NotFound;
         }
-        let mut white_pages = self.directory.write().unwrap();
+        let mut white_pages = self.service_hub.directory.write().unwrap();
         let mut tcb = self.control_block_directory.write().unwrap();
         tcb.get(nickname)
             .unwrap()
@@ -88,9 +88,32 @@ impl<T: UserConditions> Service for AMS<T> {
         tcb.remove_entry(nickname);
         ErrorCode::NoError
     }
-
-    fn service_function(conditions: Self::Conditions) {
-        //TBD
+    fn service_function(&mut self) {
+        self.service_hub.aid.set_thread();
+        loop {
+            let msg_type = self.service_hub.receive();
+            if msg_type != MessageType::Request {
+                self.service_hub.msg.set_type(MessageType::NotUnderstood);
+            } else if let Content::Request(x) = self.service_hub.msg.get_content().unwrap() {
+                let error = match x {
+                    RequestType::Register(nickname, description) => {
+                        self.register_agent(&nickname, description)
+                    }
+                    RequestType::Deregister(nickname) => self.deregister_agent(&nickname),
+                    RequestType::Suspend(nickname) => self.suspend_agent(&nickname),
+                    RequestType::Resume(nickname) => self.resume_agent(&nickname),
+                    RequestType::Terminate(nickname) => self.terminate_agent(&nickname),
+                    RequestType::Search(nickname) => self.search_agent(&nickname),
+                };
+                if error == ErrorCode::NoError || error == ErrorCode::Found {
+                    self.service_hub.msg.set_type(MessageType::Confirm);
+                } else {
+                    self.service_hub.msg.set_type(MessageType::Refuse);
+                }
+            }
+            let sender = self.service_hub.msg.get_sender().unwrap().get_name();
+            self.service_hub.send_to(&sender);
+        }
     }
 }
 
@@ -101,7 +124,6 @@ impl<T: UserConditions> AMS<T> {
         }
         self.deregister_agent(nickname)
     }
-
     pub(crate) fn suspend_agent(&self, nickname: &str) -> ErrorCode {
         if !self.conditions.suspension_condition() {
             return ErrorCode::Invalid;
@@ -117,7 +139,6 @@ impl<T: UserConditions> AMS<T> {
         ErrorCode::NoError
         //update agent status
     }
-
     pub(crate) fn resume_agent(&mut self, nickname: &str) -> ErrorCode {
         if !self.conditions.resumption_condition() {
             return ErrorCode::Invalid;
@@ -132,9 +153,10 @@ impl<T: UserConditions> AMS<T> {
         //update agent status
     }
 
-    pub(crate) fn restart_agent(&mut self, nickname: &str) {
-        //relaunch agent
-    }
+    /*  pub(crate) fn restart_agent(&mut self, nickname: &str) {
+            //relaunch agent
+        }
+    */
 }
 
 //CAN REDUCE CODE BY CREATING: CONDITION CHECK VIA ENUM

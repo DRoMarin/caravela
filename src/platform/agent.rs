@@ -9,7 +9,6 @@ use std::{
         Arc, Mutex, RwLock,
     },
     thread::{current, Thread},
-    time::Duration,
 };
 
 use crate::platform::{
@@ -126,23 +125,9 @@ impl Entity for AgentHub {
         };
         error_code
     }
-    /*
-        fn send_to_with_timeout(&mut self, agent: &str, timeout: u64) -> ErrorCode {
-            let result = self.send_to(agent);
-            if timeout <= 0 {
-                return result;
-            }
-            if result == ErrorCode::Timeout {
-                let dur = Duration::from_millis(timeout);
-                thread::sleep(dur);
-                return self.send_to(agent);
-            } else {
-                return result;
-            };
-        }
-    */
 
     fn receive(&mut self) -> MessageType {
+        //could use recv_timeout
         let result = self.rx.recv();
         let msg_type = match result {
             Ok(received_msg) => {
@@ -171,24 +156,3 @@ impl<T> Agent<T> {
         Self { hub, data }
     }
 }
-
-/*mod private_task_control {
-    //THIS SHOULD PROVIDE
-    use super::Agent;
-    pub(crate) trait TaskControl {
-        //TBD
-        fn suspend(&self) {}
-        fn wait(&self, time: i32) {}
-        fn execute(&self) {}
-    }
-    impl<T> TaskControl for Agent<T> {}
-}*/
-//Example
-/*
-struct A {}
-
-impl<A> Behavior for Agent<A> {
-    fn action(&mut self) {
-    }
-}
-*/
