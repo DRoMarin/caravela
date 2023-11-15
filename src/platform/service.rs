@@ -1,9 +1,6 @@
-use std::{
-    sync::{
-        mpsc::{sync_channel, TrySendError},
-        Arc, RwLock,
-    },
-    thread::Thread,
+use std::sync::{
+    mpsc::{sync_channel, TrySendError},
+    Arc, RwLock,
 };
 
 use crate::platform::{
@@ -15,7 +12,8 @@ use super::entity::messaging::MessageType;
 
 pub mod ams;
 
-struct ServiceHub {
+pub struct DefaultConditions;
+pub(crate) struct ServiceHub {
     nickname: String,
     pub aid: Description,
     pub resources: ExecutionResources,
@@ -28,13 +26,12 @@ impl ServiceHub {
     pub(crate) fn new(
         nickname: String,
         resources: ExecutionResources,
-        thread: Thread,
         hap: &str,
         directory: Arc<RwLock<Directory>>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let name = nickname.clone() + "@" + hap;
-        let aid = Description::new(name, tx, thread);
+        let aid = Description::new(name, tx, None);
         let msg = Message::new();
         Self {
             nickname,
@@ -90,7 +87,7 @@ impl Entity for ServiceHub {
 
 pub(crate) trait Service {
     type Conditions;
-    fn new(hap: &Platform, thread: Thread, conditions: Self::Conditions) -> Self;
+    fn new(hap: &Platform, conditions: Self::Conditions) -> Self;
     fn register_agent(&mut self, nickname: &str, description: Description) -> ErrorCode;
     fn deregister_agent(&mut self, nickname: &str) -> ErrorCode;
     fn search_agent(&self, nickname: &str) -> ErrorCode; // TBD
@@ -117,3 +114,5 @@ pub trait UserConditions {
         true
     }
 }
+
+impl UserConditions for DefaultConditions {}

@@ -4,37 +4,36 @@ use crate::platform::{
         Description, Entity, ExecutionResources,
     },
     service::{Service, ServiceHub, UserConditions},
-    ControlBlockDirectory, HandleDirectory,
+    AgentState, ControlBlockDirectory, HandleDirectory, StateDirectory,
     {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
 };
-use std::{
-    sync::{atomic::Ordering, Arc, Mutex, RwLock},
-    thread::Thread,
-};
+use std::sync::{atomic::Ordering, Arc, Mutex, RwLock};
 
 //AMS Needs a atomic control block for thread lifecycle control
-struct AMS<T: UserConditions> {
+pub(crate) struct AMS<T: UserConditions> {
     //become Service<AMS> or Service<DF>
-    service_hub: ServiceHub,
+    pub(crate) service_hub: ServiceHub,
     control_block_directory: Arc<RwLock<ControlBlockDirectory>>,
     handle_directory: Arc<Mutex<HandleDirectory>>,
+    state_directory: Arc<RwLock<StateDirectory>>,
     conditions: T,
 }
 
 impl<T: UserConditions> Service for AMS<T> {
     type Conditions = T;
-    fn new(hap: &Platform, thread: Thread, conditions: T) -> Self {
+    fn new(hap: &Platform, conditions: T) -> Self {
         let nickname = "AMS".to_string();
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
         let directory = hap.white_pages.clone();
-        let service_hub =
-            ServiceHub::new(nickname.clone(), resources, thread, &hap.name, directory);
+        let service_hub = ServiceHub::new(nickname.clone(), resources, &hap.name, directory);
         let control_block_directory = hap.control_block_directory.clone();
         let handle_directory = hap.handle_directory.clone();
+        let state_directory = hap.state_directory.clone();
         Self {
             service_hub,
             control_block_directory,
             handle_directory,
+            state_directory,
             conditions,
         }
     }
@@ -91,6 +90,7 @@ impl<T: UserConditions> Service for AMS<T> {
     fn service_function(&mut self) {
         self.service_hub.aid.set_thread();
         loop {
+            println!("\nwaiting...\n");
             let msg_type = self.service_hub.receive();
             if msg_type != MessageType::Request {
                 self.service_hub.msg.set_type(MessageType::NotUnderstood);
@@ -131,6 +131,19 @@ impl<T: UserConditions> AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::Found;
         }
+        {
+            if self
+                .state_directory
+                .read()
+                .unwrap()
+                .get(nickname)
+                .unwrap()
+                .clone()
+                != AgentState::Active
+            {
+                return ErrorCode::Invalid;
+            }
+        }
         let mut tcb = self.control_block_directory.write().unwrap();
         tcb.get_mut(nickname)
             .unwrap()
@@ -143,7 +156,19 @@ impl<T: UserConditions> AMS<T> {
         if !self.conditions.resumption_condition() {
             return ErrorCode::Invalid;
         }
-
+        {
+            if self
+                .state_directory
+                .read()
+                .unwrap()
+                .get(nickname)
+                .unwrap()
+                .clone()
+                != AgentState::Suspended
+            {
+                return ErrorCode::Invalid;
+            }
+        }
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::NotFound;
         }

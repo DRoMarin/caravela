@@ -1,4 +1,4 @@
-use crate::platform::agent::Description;
+/*use crate::platform::agent::Description;
 use crate::platform::entity::messaging::MessageType;
 use crate::platform::ErrorCode;
 
@@ -113,3 +113,4 @@ impl<'a> Organization<'a> {
         }
     */
 }
+*/

@@ -2,7 +2,7 @@ pub mod messaging;
 
 use std::thread::{current, Thread};
 
-use crate::platform::{ErrorCode, StackSize, ThreadPriority, TX};
+use crate::platform::{ErrorCode, Priority, StackSize, TX};
 
 use self::messaging::MessageType;
 
@@ -10,18 +10,18 @@ use self::messaging::MessageType;
 pub struct Description {
     name: String,
     tx: TX,
-    pub(crate) thread: Thread,
+    pub(crate) thread: Option<Thread>,
 }
 
 #[derive(Clone)]
 pub struct ExecutionResources {
-    priority: ThreadPriority, //TBD
+    priority: Priority, //TBD
     stack_size: StackSize,
     //Behavior?
 }
 
 impl Description {
-    pub fn new(name: String, tx: TX, thread: Thread) -> Self {
+    pub fn new(name: String, tx: TX, thread: Option<Thread>) -> Self {
         Self { name, tx, thread }
     }
     pub fn get_name(&self) -> String {
@@ -30,23 +30,27 @@ impl Description {
     pub fn get_address(&self) -> TX {
         self.tx.clone()
     }
-    pub fn get_id(&self) -> Thread {
+    pub fn get_id(&self) -> Option<Thread> {
         self.thread.clone()
     }
     pub(crate) fn set_thread(&mut self) {
-        self.thread = current();
+        self.thread = Some(current());
     }
 }
 
 impl ExecutionResources {
-    pub fn new(priority: ThreadPriority, stack_size: StackSize) -> Self {
+    pub fn new(priority_num: u8, stack_size: StackSize) -> Self {
+        let priority = Priority::try_from(priority_num).unwrap();
         Self {
             priority,
             stack_size,
         }
     }
-    pub fn get_priority(&self) -> ThreadPriority {
-        self.priority
+    pub fn get_priority(&self) -> Priority {
+        self.priority.clone()
+    }
+    pub fn get_priority_value(&self) -> u8 {
+        self.priority.into()
     }
     pub fn get_stack_size(&self) -> usize {
         self.stack_size

@@ -8,15 +8,14 @@ use std::{
         mpsc::{sync_channel, TrySendError},
         Arc, Mutex, RwLock,
     },
-    thread::{current, Thread},
 };
 
 use crate::platform::{
     entity::{messaging::Message, Description, Entity, ExecutionResources},
-    Directory, StackSize, StateDirectory, ThreadPriority, MAX_SUBSCRIBERS, RX,
+    Directory, StackSize, StateDirectory, MAX_SUBSCRIBERS, RX,
 };
 
-use super::{entity::messaging::MessageType, ErrorCode};
+use super::{entity::messaging::MessageType, ErrorCode, MAX_PRIORITY};
 
 pub(crate) struct ControlBlock {
     pub init: AtomicBool,
@@ -44,16 +43,10 @@ pub struct Agent<T> {
 }
 
 impl AgentHub {
-    pub(crate) fn new(
-        nickname: String,
-        resources: ExecutionResources,
-        thread: Thread,
-        hap: &str,
-        control_block: Option<ControlBlock>,
-    ) -> Self {
+    pub(crate) fn new(nickname: String, resources: ExecutionResources, hap: &str) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let name = nickname.clone() + "@" + hap;
-        let aid = Description::new(name, tx, thread);
+        let aid = Description::new(name, tx, None);
         let msg = Message::new();
         //format name, set ID, set channel and set HAP
 
@@ -77,8 +70,8 @@ impl AgentHub {
     pub(crate) fn set_state_directory(&mut self, state_directory: Arc<Mutex<StateDirectory>>) {
         self.state_directory = Some(state_directory);
     }
-    pub(crate) fn white_pages_directory(&mut self, state_directory: Arc<Mutex<StateDirectory>>) {
-        self.state_directory = Some(state_directory);
+    pub(crate) fn white_pages_directory(&mut self, white_pages_directory: Arc<RwLock<Directory>>) {
+        self.white_pages = Some(white_pages_directory);
     }
 }
 
@@ -145,14 +138,16 @@ impl Entity for AgentHub {
 impl<T> Agent<T> {
     pub fn new(
         nickname: String,
-        priority: ThreadPriority,
+        priority: u8,
         stack_size: StackSize,
         hap: &str,
         data: T,
-    ) -> Self {
-        let id = current();
+    ) -> Result<Self, &str> {
+        if priority > (MAX_PRIORITY - 1) {
+            return Err("Priority value invalid");
+        };
         let resources = ExecutionResources::new(priority, stack_size);
-        let hub = AgentHub::new(nickname, resources, id, hap, None);
-        Self { hub, data }
+        let hub = AgentHub::new(nickname, resources, hap);
+        Ok(Self { hub, data })
     }
 }

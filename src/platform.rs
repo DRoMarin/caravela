@@ -7,17 +7,21 @@ use std::{
     thread::JoinHandle,
 };
 
+use self::service::{DefaultConditions, Service};
+
 pub mod agent;
 pub mod entity;
 pub mod service;
 //pub mod organization;
 
+use thread_priority::*;
 use {
     agent::ControlBlock,
     entity::{messaging::Message, Description},
 };
 
-type ThreadPriority = i32;
+//type ThreadPriority = i32;
+type Priority = ThreadPriorityValue;
 type StackSize = usize;
 type TX = SyncSender<Message>;
 type RX = Receiver<Message>;
@@ -28,7 +32,7 @@ type StateDirectory = HashMap<String, AgentState>;
 //set directory entry type: must include name, Thread ID, TX, Join Handle
 
 pub const DEFAULT_STACK: usize = 8;
-pub const MAX_PRIORITY: ThreadPriority = 99;
+pub const MAX_PRIORITY: u8 = 99;
 pub const MAX_SUBSCRIBERS: usize = 64;
 
 #[derive(PartialEq)]
@@ -61,7 +65,7 @@ pub struct Platform {
 }
 
 impl Platform {
-    fn new(name: String) -> Self {
+    pub fn new(name: String) -> Self {
         let white_pages: Arc<RwLock<Directory>> =
             Arc::new(RwLock::new(Directory::with_capacity(MAX_SUBSCRIBERS)));
         let control_block_directory: Arc<RwLock<ControlBlockDirectory>> = Arc::new(RwLock::new(
@@ -79,30 +83,26 @@ impl Platform {
             state_directory,
         }
     }
+    pub fn boot(&self) -> Result<(), &str> {
+        let default = service::DefaultConditions;
+        let mut ams = service::ams::AMS::<DefaultConditions>::new(&self, default);
+        let ams_name = ams.service_hub.aid.get_name();
+        let ams_handle = spawn(
+            ThreadPriority::Crossplatform(ams.service_hub.resources.get_priority()),
+            move |_| {
+                println!("\nBOOTING AMS: {}\n", ams.service_hub.aid.get_name());
+                ams.service_function();
+            },
+        );
+
+        if ams_handle.is_finished() {
+            return Err("AMS ended");
+        }
+
+        self.handle_directory
+            .lock()
+            .unwrap()
+            .insert(ams_name, ams_handle);
+        Ok(())
+    }
 }
-
-/*struct Parent(pub ThreadId);
-impl Parent {
-
-}*/
-
-/*
-fn hey()->agents::base::AID{
-    let x = agents::base::new("yo".to_string(), 1, 20);
-    x.get_aid().unwrap()
-}
-*/
-
-/*Agents have generic data, for implementation the user must:
-- create structs for each agent with each behavior data:
-struct A {a,b,c}
-struct B {d,e,f}
-- encapsulate the struct in a user define enum:
-
-enum AgentData{
-    AgentA(A)
-    AgentB(B)
-}
-
-AgentData enum must be passed as type when instantiating agents
-*/
