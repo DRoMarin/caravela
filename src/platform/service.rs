@@ -1,20 +1,22 @@
+use crate::platform::{
+    entity::{
+        messaging::{Message, MessageType},
+        Description, Entity, ExecutionResources,
+    },
+    Directory, ErrorCode, Platform, RX,
+};
 use std::sync::{
     mpsc::{sync_channel, TrySendError},
     Arc, RwLock,
 };
 
-use crate::platform::{
-    entity::{messaging::Message, Description, Entity, ExecutionResources},
-    Directory, ErrorCode, Platform, RX,
-};
-
-use super::entity::messaging::MessageType;
-
 pub mod ams;
 
 pub struct DefaultConditions;
+
 pub(crate) struct ServiceHub {
     nickname: String,
+    hap: String,
     pub aid: Description,
     pub resources: ExecutionResources,
     rx: RX,
@@ -26,15 +28,17 @@ impl ServiceHub {
     pub(crate) fn new(
         nickname: String,
         resources: ExecutionResources,
-        hap: &str,
+        platform: &str,
         directory: Arc<RwLock<Directory>>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
-        let name = nickname.clone() + "@" + hap;
+        let name = nickname.clone() + "@" + platform;
+        let hap = platform.to_string();
         let aid = Description::new(name, tx, None);
         let msg = Message::new();
         Self {
             nickname,
+            hap,
             aid,
             resources,
             rx,

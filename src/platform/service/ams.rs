@@ -24,8 +24,9 @@ impl<T: UserConditions> Service for AMS<T> {
     fn new(hap: &Platform, conditions: T) -> Self {
         let nickname = "AMS".to_string();
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
-        let directory = hap.white_pages.clone();
-        let service_hub = ServiceHub::new(nickname.clone(), resources, &hap.name, directory);
+        let service_directory = hap.white_pages_directory.clone();
+        let service_hub =
+            ServiceHub::new(nickname.clone(), resources, &hap.name, service_directory);
         let control_block_directory = hap.control_block_directory.clone();
         let handle_directory = hap.handle_directory.clone();
         let state_directory = hap.state_directory.clone();
@@ -55,6 +56,7 @@ impl<T: UserConditions> Service for AMS<T> {
         if white_pages.capacity().eq(&MAX_SUBSCRIBERS) {
             return ErrorCode::ListFull;
         }
+        println!("{}: SUCCESSFULLY REGISTERED {}",self.service_hub.get_nickname(), nickname);
         white_pages.insert(nickname.to_string(), description);
         let tcb = self.control_block_directory.write().unwrap();
         tcb.get(nickname)
@@ -71,6 +73,7 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::NotFound {
             return ErrorCode::NotFound;
         }
+        println!("{}: SUCCESSFULLY DEREGISTERED {}",self.service_hub.get_nickname(), nickname);
         let mut white_pages = self.service_hub.directory.write().unwrap();
         let mut tcb = self.control_block_directory.write().unwrap();
         tcb.get(nickname)
@@ -90,7 +93,7 @@ impl<T: UserConditions> Service for AMS<T> {
     fn service_function(&mut self) {
         self.service_hub.aid.set_thread();
         loop {
-            println!("\nwaiting...\n");
+            println!("{}: waiting...\n",self.service_hub.get_nickname());
             let msg_type = self.service_hub.receive();
             if msg_type != MessageType::Request {
                 self.service_hub.msg.set_type(MessageType::NotUnderstood);
