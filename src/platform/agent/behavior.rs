@@ -86,15 +86,20 @@ pub(crate) mod private {
 
 pub trait Behavior: Entity {
     fn setup(&mut self) {
-        print!("{}: no setup implemented\n", self.get_nickname())
+        print!("{}: no setup implemented", self.get_nickname())
     }
     fn done(&mut self) -> bool {
+        println!("{}: execution done, taking down...", self.get_nickname());
         true
     }
     fn action(&mut self) {
         print!("{}: no action implemented\n", self.get_nickname())
     }
     fn failure_detection(&mut self) -> bool {
+        println!(
+            "{}: no failure detection implemented",
+            self.get_nickname()
+        );
         true
     }
     fn failure_identification(&mut self) {

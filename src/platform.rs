@@ -159,8 +159,13 @@ impl Platform {
         &mut self,
         agent: impl Behavior + TaskControl + Send + 'static,
     ) -> Result<(), &str> {
+        let nickname = agent.get_nickname();
         let prio = agent.get_resources().get_priority();
         let agent_handle = spawn(ThreadPriority::Crossplatform(prio), move |_| execute(agent));
+        self.handle_directory
+            .lock()
+            .unwrap()
+            .insert(nickname, agent_handle);
         Ok(())
     }
 }

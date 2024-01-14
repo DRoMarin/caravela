@@ -10,7 +10,7 @@ use std::{
     sync::{
         atomic::AtomicBool,
         mpsc::{sync_channel, TrySendError},
-        Arc, Mutex, RwLock,
+        Arc, RwLock,
     },
 };
 

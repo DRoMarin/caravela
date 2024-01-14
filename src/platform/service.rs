@@ -32,8 +32,8 @@ impl ServiceHub {
         directory: Arc<RwLock<Directory>>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
-        let name = nickname.clone() + "@" + platform;
         let hap = platform.to_string();
+        let name = nickname.clone() + "@" + &hap;
         let aid = Description::new(name, tx, None);
         let msg = Message::new();
         Self {
