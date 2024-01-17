@@ -14,7 +14,10 @@ use std::{
     },
 };
 
-use super::MasterRecord;
+use super::{
+    entity::messaging::{Content, RequestType},
+    MasterRecord,
+};
 
 pub mod behavior;
 pub mod organization;
@@ -34,9 +37,6 @@ pub struct AgentHub {
     pub msg: Message,
     pub directory: Directory,
     platform: Arc<RwLock<MasterRecord>>,
-    /*pub(crate) control_block: Arc<ControlBlock>,
-    pub(crate) state_directory: Arc<RwLock<StateDirectory>>,
-    pub(crate) white_pages: Arc<RwLock<Directory>>,
     //membership: Option<Membership<'a>>,*/
 }
 
@@ -51,9 +51,6 @@ impl AgentHub {
         nickname: String,
         resources: ExecutionResources,
         platform: Arc<RwLock<MasterRecord>>,
-        /*control_block: Arc<ControlBlock>,
-        state_directory: Arc<RwLock<StateDirectory>>,
-        white_pages: Arc<RwLock<Directory>>,*/
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let hap = platform.read().unwrap().name.clone();
@@ -72,24 +69,10 @@ impl AgentHub {
             msg,
             directory,
             platform,
-            /*control_block,
-            state_directory,
-            white_pages,
-            //membership,*/
+            //membership,
         }
     }
-    /*pub(crate) fn get_tcb(&self) -> Arc<ControlBlock> {
-        self.control_block.clone()
-    }
-    pub(crate) fn set_state_directory(&mut self, state_directory: Arc<Mutex<StateDirectory>>) {
-        self.state_directory = Some(state_directory);
-    }
-    pub(crate) fn get_white_pages_directory(
-        &mut self,
-        white_pages_directory: Arc<RwLock<Directory>>,
-    ) {
-        self.white_pages = Some(white_pages_directory);
-    }*/
+    //manage contact list pending
 }
 
 impl<T> Entity for Agent<T> {
@@ -108,24 +91,31 @@ impl<T> Entity for Agent<T> {
         let receiver = match self.hub.directory.get(agent) {
             Some(x) => x.clone(),
             None => {
-                if let Some(description) = self
-                    .hub
-                    .platform
-                    .read()
-                    .unwrap()
-                    .white_pages_directory
-                    .get(agent)
-                //self.hub.white_pages.as_ref().read().unwrap().get(agent)
-                {
-                    description.clone()
+                let msg_bkp = self.hub.msg.clone();
+                self.hub.msg.set_type(MessageType::Request);
+                self.hub
+                    .msg
+                    .set_content(Content::Request(RequestType::Search(agent.to_string())));
+                self.send_to("AMS");
+                let request = self.receive();
+                if request == MessageType::Inform {
+                    if let Some(Content::AID(x)) = self.hub.msg.get_content() {
+                        self.hub.msg = msg_bkp;
+                        x
+                    } else {
+                        return ErrorCode::Invalid;
+                    }
                 } else {
                     return ErrorCode::NotRegistered;
                 }
             }
         };
+        self.send_to_aid(receiver)
+    }
+    fn send_to_aid(&mut self, description: Description) -> ErrorCode {
+        let address = description.get_address().clone();
         self.hub.msg.set_sender(self.hub.aid.clone());
-        let address = receiver.get_address().clone();
-        self.hub.msg.set_receiver(receiver);
+        self.hub.msg.set_receiver(description);
         let result = address.try_send(self.hub.msg.clone());
         let error_code = match result {
             Ok(_) => ErrorCode::NoError,
@@ -157,9 +147,6 @@ impl<T> Agent<T> {
         stack_size: StackSize,
         data: T,
         platform: Arc<RwLock<MasterRecord>>,
-        //tcb: Arc<ControlBlock>,
-        //state_directory: Arc<RwLock<StateDirectory>>,
-        //white_pages: Arc<RwLock<Directory>>,
     ) -> Result<Self, &'static str> {
         if priority > (MAX_PRIORITY - 1) {
             return Err("Priority value invalid");

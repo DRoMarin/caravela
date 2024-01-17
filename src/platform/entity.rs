@@ -60,6 +60,7 @@ pub trait Entity {
     fn get_nickname(&self) -> String;
     fn get_resources(&self) -> ExecutionResources;
     fn send_to(&mut self, agent: &str) -> ErrorCode;
+    fn send_to_aid(&mut self, description: Description) -> ErrorCode;
     //fn send_to_with_timeout(&mut self, agent: &str, timeout: u64) -> ErrorCode;
     //fn send_to_all(&self) -> ErrorCode;
     fn receive(&mut self) -> MessageType;

@@ -28,7 +28,7 @@ pub(crate) mod private {
             self.hub.aid.set_thread();
         }
         fn init(&mut self) -> bool {
-            let ams = "AMS".to_string() + "@" + &self.hub.hap;
+            let ams = "AMS".to_string(); // + "@" + &self.hub.hap;
             self.hub.msg.set_type(MessageType::Request);
             self.hub
                 .msg
@@ -40,8 +40,6 @@ pub(crate) mod private {
             //send register message
             //println!("{}: SENT MSG TO AMS", self.get_nickname());
             //could change for recv message with accept or reject
-
-            //while !self.hub.control_block.as_ref().init.load(Ordering::Relaxed) {
             while !self
                 .hub
                 .platform
@@ -59,17 +57,16 @@ pub(crate) mod private {
             true
         }
         fn suspend(&mut self) {
-            //let suspend = &self.hub.control_block.as_ref().suspend;
             let platform = self.hub.platform.write().unwrap();
-            let suspend_atomic = &platform
+            let suspend = &platform
                 .control_block_directory
                 .get(&self.get_nickname())
                 .as_mut()
                 .unwrap()
                 .suspend;
 
-            if suspend_atomic.load(Ordering::Relaxed) {
-                suspend_atomic.store(false, Ordering::Relaxed);
+            if suspend.load(Ordering::Relaxed) {
+                suspend.store(false, Ordering::Relaxed);
                 {
                     //let mut state = self.hub.state_directory.as_ref().write().unwrap();
                     let state = &mut self.hub.platform.write().unwrap().state_directory;
@@ -100,10 +97,9 @@ pub(crate) mod private {
                 .unwrap()
                 .quit
                 .load(Ordering::Relaxed)
-            //self.hub.control_block.as_ref().quit.load(Ordering::Relaxed)
         }
         fn takedown(&mut self) -> bool {
-            let ams = "AMS".to_string() + "@" + &self.hub.hap;
+            let ams = "AMS".to_string();
             self.hub.msg.set_type(MessageType::Request);
             self.hub
                 .msg
@@ -129,12 +125,16 @@ pub trait Behavior: Entity {
     }
     fn failure_detection(&mut self) -> bool {
         println!(
-            "{}: no failure detection implemented\n", self.get_nickname());
+            "{}: no failure detection implemented\n",
+            self.get_nickname()
+        );
         true
     }
     fn failure_identification(&mut self) {
         print!(
-            "{}: no failure identification implemented\n", self.get_nickname());
+            "{}: no failure identification implemented\n",
+            self.get_nickname()
+        );
     }
     fn failure_recovery(&mut self) {
         print!("{}: no failure recovery implemented\n", self.get_nickname());

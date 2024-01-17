@@ -1,23 +1,18 @@
 use crate::platform::{
-    self,
     entity::{
         messaging::{Content, MessageType, RequestType},
         Description, Entity, ExecutionResources,
     },
     service::{Service, ServiceHub, UserConditions},
-    AgentState, ControlBlockDirectory, HandleDirectory, MasterRecord, StateDirectory,
-    {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
+    AgentState, MasterRecord, {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
 };
-use std::sync::{atomic::Ordering, mpsc::TrySendError, Arc, Mutex, RwLock};
+use std::sync::{atomic::Ordering, mpsc::TrySendError, Arc, RwLock};
 
 //AMS Needs a atomic control block for thread lifecycle control
 pub(crate) struct AMS<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     pub(crate) service_hub: ServiceHub,
     platform: Arc<RwLock<MasterRecord>>,
-    /*control_block_directory: Arc<RwLock<ControlBlockDirectory>>,
-    handle_directory: Arc<Mutex<HandleDirectory>>,
-    state_directory: Arc<RwLock<StateDirectory>>,*/
     conditions: T,
 }
 
@@ -42,11 +37,14 @@ impl<T: UserConditions> Entity for AMS<T> {
             Some(x) => x.clone(),
             None => return ErrorCode::NotRegistered,
         };
+        self.send_to_aid(receiver)
+    }
+    fn send_to_aid(&mut self, description: Description) -> ErrorCode {
+        let address = description.get_address();
         self.service_hub
             .msg
             .set_sender(self.service_hub.aid.clone());
-        let address = receiver.get_address().clone();
-        self.service_hub.msg.set_receiver(receiver);
+        self.service_hub.msg.set_receiver(description);
         let result = address.try_send(self.service_hub.msg.clone());
         let error_code = match result {
             Ok(_) => ErrorCode::NoError,
@@ -77,18 +75,11 @@ impl<T: UserConditions> Service for AMS<T> {
         let nickname = "AMS".to_string();
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
         let platform = hap.mr.clone();
-        //let service_directory = hap.white_pages_directory.clone();
         let service_hub =
             ServiceHub::new(nickname.clone(), resources, &platform.read().unwrap().name);
-        /*let control_block_directory = hap.control_block_directory.clone();
-        let handle_directory = hap.handle_directory.clone();
-        let state_directory = hap.state_directory.clone();*/
         Self {
             service_hub,
             platform,
-            /*control_block_directory,
-            handle_directory,
-            state_directory,*/
             conditions,
         }
     }
@@ -123,10 +114,6 @@ impl<T: UserConditions> Service for AMS<T> {
             .unwrap()
             .init
             .store(true, Ordering::Relaxed);
-        /*tcb.get(nickname)
-        .unwrap()
-        .init
-        .store(true, Ordering::Relaxed);*/
         println!("SUCCESSFULLY REGISTERED {}", nickname);
         ErrorCode::NoError
         //set agent as active in dir
@@ -175,7 +162,29 @@ impl<T: UserConditions> Service for AMS<T> {
                     RequestType::Suspend(nickname) => self.suspend_agent(&nickname),
                     RequestType::Resume(nickname) => self.resume_agent(&nickname),
                     RequestType::Terminate(nickname) => self.terminate_agent(&nickname),
-                    RequestType::Search(nickname) => self.search_agent(&nickname),
+                    RequestType::Search(nickname) => {
+                        let result = self.search_agent(&nickname);
+                        if result == ErrorCode::Found {
+                            let found = self
+                                .platform
+                                .read()
+                                .unwrap()
+                                .white_pages_directory
+                                .get(&nickname)
+                                .unwrap()
+                                .clone();
+                            self.service_hub.msg.set_type(MessageType::Inform);
+                            self.service_hub.msg.set_content(Content::AID(found));
+                            let receiver = self.service_hub.msg.get_sender().unwrap();
+                            self.send_to_aid(receiver);
+                            /*let _ = receiver
+                            .unwrap()
+                            .get_address()
+                            .try_send(self.service_hub.msg.clone());*/
+                        }
+                        result
+                    }
+                    RequestType::None => ErrorCode::Invalid,
                 };
                 if error == ErrorCode::NoError || error == ErrorCode::Found {
                     self.service_hub.msg.set_type(MessageType::Confirm);
@@ -211,7 +220,6 @@ impl<T: UserConditions> AMS<T> {
                 .state_directory
                 .get(nickname)
                 .unwrap()
-                //.clone()
                 != AgentState::Active
             {
                 return ErrorCode::Invalid;

@@ -1,14 +1,8 @@
 use crate::platform::{
-    entity::{
-        messaging::{Message, MessageType},
-        Description, Entity, ExecutionResources,
-    },
-    Directory, ErrorCode, Platform, RX,
+    entity::{messaging::Message, Description, ExecutionResources},
+    ErrorCode, Platform, RX,
 };
-use std::sync::{
-    mpsc::{sync_channel, TrySendError},
-    Arc, RwLock,
-};
+use std::sync::mpsc::sync_channel;
 
 pub mod ams;
 
@@ -21,7 +15,6 @@ pub(crate) struct ServiceHub {
     pub resources: ExecutionResources,
     rx: RX,
     pub msg: Message,
-    //directory: Arc<RwLock<Directory>>,
 }
 
 impl ServiceHub {
@@ -43,7 +36,6 @@ impl ServiceHub {
             resources,
             rx,
             msg,
-            //directory,
         }
     }
 }

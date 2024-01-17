@@ -27,6 +27,7 @@ pub enum MessageType {
 
 #[derive(Clone)]
 pub enum RequestType {
+    None,
     Register(String, Description),
     Deregister(String),
     Suspend(String),
@@ -38,6 +39,7 @@ pub enum RequestType {
 
 #[derive(Clone)]
 pub enum Content {
+    None,
     Text(String),
     Request(RequestType),
     AID(Description),
