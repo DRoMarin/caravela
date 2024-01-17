@@ -1,9 +1,9 @@
 use crate::platform::{
     entity::{
-        messaging::{Message, MessageType},
+        messaging::{Content, Message, MessageType, RequestType},
         Description, Entity, ExecutionResources,
     },
-    Directory, ErrorCode, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
+    Directory, ErrorCode, MasterRecord, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
 };
 use std::{
     collections::HashMap,
@@ -12,11 +12,6 @@ use std::{
         mpsc::{sync_channel, TrySendError},
         Arc, RwLock,
     },
-};
-
-use super::{
-    entity::messaging::{Content, RequestType},
-    MasterRecord,
 };
 
 pub mod behavior;
