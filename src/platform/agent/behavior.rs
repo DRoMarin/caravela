@@ -38,29 +38,52 @@ pub(crate) mod private {
                 )));
             self.send_to(&ams);
             //send register message
-            println!("{}: SENT MSG TO AMS", self.get_nickname());
+            //println!("{}: SENT MSG TO AMS", self.get_nickname());
             //could change for recv message with accept or reject
 
-            while !self.hub.control_block.as_ref().init.load(Ordering::Relaxed) {
+            //while !self.hub.control_block.as_ref().init.load(Ordering::Relaxed) {
+            while !self
+                .hub
+                .platform
+                .read()
+                .unwrap()
+                .control_block_directory
+                .get(&self.get_nickname())
+                .unwrap()
+                .init
+                .load(Ordering::Relaxed)
+            {
+                //println!("WAITING");
                 //waiting
             }
             true
         }
         fn suspend(&mut self) {
-            let suspend = &self.hub.control_block.as_ref().suspend;
-            if suspend.load(Ordering::Relaxed) {
-                suspend.store(false, Ordering::Relaxed);
+            //let suspend = &self.hub.control_block.as_ref().suspend;
+            let platform = self.hub.platform.write().unwrap();
+            let suspend_atomic = &platform
+                .control_block_directory
+                .get(&self.get_nickname())
+                .as_mut()
+                .unwrap()
+                .suspend;
+
+            if suspend_atomic.load(Ordering::Relaxed) {
+                suspend_atomic.store(false, Ordering::Relaxed);
                 {
-                    let mut state = self.hub.state_directory.as_ref().write().unwrap();
+                    //let mut state = self.hub.state_directory.as_ref().write().unwrap();
+                    let state = &mut self.hub.platform.write().unwrap().state_directory;
                     state
                         .entry(self.hub.nickname.clone())
                         .and_modify(|s| *s = AgentState::Suspended);
                 }
                 thread::park();
             }
+            //TO BE FIXED: THIS WILL (PROBABLY) NOT WORK
         }
         fn wait(&self, time: u64) {
-            let mut state = self.hub.state_directory.as_ref().write().unwrap();
+            //let mut state = self.hub.state_directory.as_ref().write().unwrap();
+            let state = &mut self.hub.platform.write().unwrap().state_directory;
             state
                 .entry(self.hub.nickname.clone())
                 .and_modify(|s| *s = AgentState::Waiting);
@@ -68,7 +91,16 @@ pub(crate) mod private {
             thread::sleep(dur);
         }
         fn quit(&self) -> bool {
-            self.hub.control_block.as_ref().quit.load(Ordering::Relaxed)
+            self.hub
+                .platform
+                .read()
+                .unwrap()
+                .control_block_directory
+                .get(&self.get_nickname())
+                .unwrap()
+                .quit
+                .load(Ordering::Relaxed)
+            //self.hub.control_block.as_ref().quit.load(Ordering::Relaxed)
         }
         fn takedown(&mut self) -> bool {
             let ams = "AMS".to_string() + "@" + &self.hub.hap;
@@ -86,30 +118,26 @@ pub(crate) mod private {
 
 pub trait Behavior: Entity {
     fn setup(&mut self) {
-        print!("{}: no setup implemented", self.get_nickname())
+        print!("{}: no setup implemented\n", self.get_nickname());
     }
     fn done(&mut self) -> bool {
-        println!("{}: execution done, taking down...", self.get_nickname());
+        println!("{}: execution done, taking down...\n", self.get_nickname());
         true
     }
     fn action(&mut self) {
-        print!("{}: no action implemented\n", self.get_nickname())
+        print!("{}: no action implemented\n", self.get_nickname());
     }
     fn failure_detection(&mut self) -> bool {
         println!(
-            "{}: no failure detection implemented",
-            self.get_nickname()
-        );
+            "{}: no failure detection implemented\n", self.get_nickname());
         true
     }
     fn failure_identification(&mut self) {
         print!(
-            "{}: no failure identification implemented\n",
-            self.get_nickname()
-        )
+            "{}: no failure identification implemented\n", self.get_nickname());
     }
     fn failure_recovery(&mut self) {
-        print!("{}: no failure recovery implemented\n", self.get_nickname())
+        print!("{}: no failure recovery implemented\n", self.get_nickname());
     }
 }
 

@@ -3,7 +3,7 @@ use crate::platform::{
         messaging::{Message, MessageType},
         Description, Entity, ExecutionResources,
     },
-    Directory, ErrorCode, StackSize, StateDirectory, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
+    Directory, ErrorCode, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
 };
 use std::{
     collections::HashMap,
@@ -13,6 +13,8 @@ use std::{
         Arc, RwLock,
     },
 };
+
+use super::MasterRecord;
 
 pub mod behavior;
 pub mod organization;
@@ -31,10 +33,11 @@ pub struct AgentHub {
     rx: RX,
     pub msg: Message,
     pub directory: Directory,
-    pub(crate) control_block: Arc<ControlBlock>,
+    platform: Arc<RwLock<MasterRecord>>,
+    /*pub(crate) control_block: Arc<ControlBlock>,
     pub(crate) state_directory: Arc<RwLock<StateDirectory>>,
     pub(crate) white_pages: Arc<RwLock<Directory>>,
-    //membership: Option<Membership<'a>>,
+    //membership: Option<Membership<'a>>,*/
 }
 
 pub struct Agent<T> {
@@ -47,14 +50,14 @@ impl AgentHub {
     pub(crate) fn new(
         nickname: String,
         resources: ExecutionResources,
-        platform: String,
-        control_block: Arc<ControlBlock>,
+        platform: Arc<RwLock<MasterRecord>>,
+        /*control_block: Arc<ControlBlock>,
         state_directory: Arc<RwLock<StateDirectory>>,
-        white_pages: Arc<RwLock<Directory>>,
+        white_pages: Arc<RwLock<Directory>>,*/
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
-        let name = nickname.clone() + "@" + &platform;
-        let hap = platform;
+        let hap = platform.read().unwrap().name.clone();
+        let name = nickname.clone() + "@" + &hap.clone();
         let aid = Description::new(name, tx, None);
         let msg = Message::new();
         //format name, set ID, set channel and set HAP
@@ -68,10 +71,11 @@ impl AgentHub {
             rx,
             msg,
             directory,
-            control_block,
+            platform,
+            /*control_block,
             state_directory,
             white_pages,
-            //membership,
+            //membership,*/
         }
     }
     /*pub(crate) fn get_tcb(&self) -> Arc<ControlBlock> {
@@ -104,7 +108,14 @@ impl<T> Entity for Agent<T> {
         let receiver = match self.hub.directory.get(agent) {
             Some(x) => x.clone(),
             None => {
-                if let Some(description) = self.hub.white_pages.as_ref().read().unwrap().get(agent)
+                if let Some(description) = self
+                    .hub
+                    .platform
+                    .read()
+                    .unwrap()
+                    .white_pages_directory
+                    .get(agent)
+                //self.hub.white_pages.as_ref().read().unwrap().get(agent)
                 {
                     description.clone()
                 } else {
@@ -144,17 +155,18 @@ impl<T> Agent<T> {
         nickname: String,
         priority: u8,
         stack_size: StackSize,
-        hap: String,
         data: T,
-        tcb: Arc<ControlBlock>,
-        state_directory: Arc<RwLock<StateDirectory>>,
-        white_pages: Arc<RwLock<Directory>>,
+        platform: Arc<RwLock<MasterRecord>>,
+        //tcb: Arc<ControlBlock>,
+        //state_directory: Arc<RwLock<StateDirectory>>,
+        //white_pages: Arc<RwLock<Directory>>,
     ) -> Result<Self, &'static str> {
         if priority > (MAX_PRIORITY - 1) {
             return Err("Priority value invalid");
         };
         let resources = ExecutionResources::new(priority, stack_size);
-        let hub = AgentHub::new(nickname, resources, hap, tcb, state_directory, white_pages);
+        let hub = AgentHub::new(nickname, resources, platform);
+        //let hub = AgentHub::new(nickname, resources, hap, tcb, state_directory, white_pages);
         Ok(Self { hub, data })
     }
 }

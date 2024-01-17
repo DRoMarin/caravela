@@ -40,6 +40,7 @@ pub enum RequestType {
 pub enum Content {
     Text(String),
     Request(RequestType),
+    AID(Description),
 }
 
 #[derive(Clone)]

@@ -21,7 +21,7 @@ pub(crate) struct ServiceHub {
     pub resources: ExecutionResources,
     rx: RX,
     pub msg: Message,
-    directory: Arc<RwLock<Directory>>,
+    //directory: Arc<RwLock<Directory>>,
 }
 
 impl ServiceHub {
@@ -29,7 +29,7 @@ impl ServiceHub {
         nickname: String,
         resources: ExecutionResources,
         platform: &str,
-        directory: Arc<RwLock<Directory>>,
+        //directory: Arc<RwLock<Directory>>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let hap = platform.to_string();
@@ -43,49 +43,8 @@ impl ServiceHub {
             resources,
             rx,
             msg,
-            directory,
+            //directory,
         }
-    }
-}
-
-impl Entity for ServiceHub {
-    fn get_aid(&self) -> Description {
-        self.aid.clone()
-    }
-    fn get_nickname(&self) -> String {
-        self.nickname.clone()
-    }
-    fn get_resources(&self) -> ExecutionResources {
-        self.resources.clone()
-    }
-    fn send_to(&mut self, agent: &str) -> ErrorCode {
-        let receiver = match self.directory.read().unwrap().get(agent) {
-            Some(x) => x.clone(),
-            None => return ErrorCode::NotRegistered,
-        };
-        self.msg.set_sender(self.aid.clone());
-        let address = receiver.get_address().clone();
-        self.msg.set_receiver(receiver);
-        let result = address.try_send(self.msg.clone());
-        let error_code = match result {
-            Ok(_) => ErrorCode::NoError,
-            Err(error) => match error {
-                TrySendError::Full(_) => ErrorCode::Timeout,
-                TrySendError::Disconnected(_) => ErrorCode::NotRegistered, //LIST MAY BE OUTDATED
-            },
-        };
-        error_code
-    }
-    fn receive(&mut self) -> MessageType {
-        let result = self.rx.recv();
-        let msg_type = match result {
-            Ok(received_msg) => {
-                self.msg = received_msg;
-                self.msg.get_type().clone().unwrap()
-            }
-            Err(_) => MessageType::NoResponse,
-        }; //could handle Err incase of disconnection
-        msg_type
     }
 }
 

@@ -1,22 +1,74 @@
 use crate::platform::{
+    self,
     entity::{
         messaging::{Content, MessageType, RequestType},
         Description, Entity, ExecutionResources,
     },
     service::{Service, ServiceHub, UserConditions},
-    AgentState, ControlBlockDirectory, HandleDirectory, StateDirectory,
+    AgentState, ControlBlockDirectory, HandleDirectory, MasterRecord, StateDirectory,
     {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
 };
-use std::sync::{atomic::Ordering, Arc, Mutex, RwLock};
+use std::sync::{atomic::Ordering, mpsc::TrySendError, Arc, Mutex, RwLock};
 
 //AMS Needs a atomic control block for thread lifecycle control
 pub(crate) struct AMS<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     pub(crate) service_hub: ServiceHub,
-    control_block_directory: Arc<RwLock<ControlBlockDirectory>>,
+    platform: Arc<RwLock<MasterRecord>>,
+    /*control_block_directory: Arc<RwLock<ControlBlockDirectory>>,
     handle_directory: Arc<Mutex<HandleDirectory>>,
-    state_directory: Arc<RwLock<StateDirectory>>,
+    state_directory: Arc<RwLock<StateDirectory>>,*/
     conditions: T,
+}
+
+impl<T: UserConditions> Entity for AMS<T> {
+    fn get_aid(&self) -> Description {
+        self.service_hub.aid.clone()
+    }
+    fn get_nickname(&self) -> String {
+        self.service_hub.nickname.clone()
+    }
+    fn get_resources(&self) -> ExecutionResources {
+        self.service_hub.resources.clone()
+    }
+    fn send_to(&mut self, agent: &str) -> ErrorCode {
+        let receiver = match self
+            .platform
+            .read()
+            .unwrap()
+            .white_pages_directory
+            .get(agent)
+        {
+            Some(x) => x.clone(),
+            None => return ErrorCode::NotRegistered,
+        };
+        self.service_hub
+            .msg
+            .set_sender(self.service_hub.aid.clone());
+        let address = receiver.get_address().clone();
+        self.service_hub.msg.set_receiver(receiver);
+        let result = address.try_send(self.service_hub.msg.clone());
+        let error_code = match result {
+            Ok(_) => ErrorCode::NoError,
+            Err(error) => match error {
+                TrySendError::Full(_) => ErrorCode::Timeout,
+                TrySendError::Disconnected(_) => ErrorCode::NotRegistered, //LIST MAY BE OUTDATED
+            },
+        };
+        error_code
+    }
+    fn receive(&mut self) -> MessageType {
+        let result = self.service_hub.rx.recv();
+        let msg_type = match result {
+            Ok(received_msg) => {
+                //println!("RECEIVED MSG");
+                self.service_hub.msg = received_msg;
+                self.service_hub.msg.get_type().clone().unwrap()
+            }
+            Err(_) => MessageType::NoResponse,
+        }; //could handle Err incase of disconnection
+        msg_type
+    }
 }
 
 impl<T: UserConditions> Service for AMS<T> {
@@ -24,22 +76,24 @@ impl<T: UserConditions> Service for AMS<T> {
     fn new(hap: &Platform, conditions: T) -> Self {
         let nickname = "AMS".to_string();
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
-        let service_directory = hap.white_pages_directory.clone();
+        let platform = hap.mr.clone();
+        //let service_directory = hap.white_pages_directory.clone();
         let service_hub =
-            ServiceHub::new(nickname.clone(), resources, &hap.name, service_directory);
-        let control_block_directory = hap.control_block_directory.clone();
+            ServiceHub::new(nickname.clone(), resources, &platform.read().unwrap().name);
+        /*let control_block_directory = hap.control_block_directory.clone();
         let handle_directory = hap.handle_directory.clone();
-        let state_directory = hap.state_directory.clone();
+        let state_directory = hap.state_directory.clone();*/
         Self {
             service_hub,
-            control_block_directory,
+            platform,
+            /*control_block_directory,
             handle_directory,
-            state_directory,
+            state_directory,*/
             conditions,
         }
     }
     fn search_agent(&self, nickname: &str) -> ErrorCode {
-        let white_pages = self.service_hub.directory.read().unwrap();
+        let white_pages = &self.platform.read().unwrap().white_pages_directory;
         if white_pages.contains_key(nickname) {
             return ErrorCode::Found;
         }
@@ -52,17 +106,28 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::Duplicated;
         }
-        let mut white_pages = self.service_hub.directory.write().unwrap();
-        if white_pages.capacity().eq(&MAX_SUBSCRIBERS) {
+        let platform = &mut self.platform.write().unwrap();
+        if platform
+            .white_pages_directory
+            .capacity()
+            .eq(&MAX_SUBSCRIBERS)
+        {
             return ErrorCode::ListFull;
         }
-        println!("{}: SUCCESSFULLY REGISTERED {}",self.service_hub.get_nickname(), nickname);
-        white_pages.insert(nickname.to_string(), description);
-        let tcb = self.control_block_directory.write().unwrap();
-        tcb.get(nickname)
+        platform
+            .white_pages_directory
+            .insert(nickname.to_string(), description);
+        platform
+            .control_block_directory
+            .get(nickname)
             .unwrap()
             .init
             .store(true, Ordering::Relaxed);
+        /*tcb.get(nickname)
+        .unwrap()
+        .init
+        .store(true, Ordering::Relaxed);*/
+        println!("SUCCESSFULLY REGISTERED {}", nickname);
         ErrorCode::NoError
         //set agent as active in dir
     }
@@ -73,28 +138,32 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::NotFound {
             return ErrorCode::NotFound;
         }
-        println!("{}: SUCCESSFULLY DEREGISTERED {}",self.service_hub.get_nickname(), nickname);
-        let mut white_pages = self.service_hub.directory.write().unwrap();
-        let mut tcb = self.control_block_directory.write().unwrap();
-        tcb.get(nickname)
+        let platform = &mut self.platform.write().unwrap();
+        platform
+            .control_block_directory
+            .get(nickname)
             .unwrap()
             .quit
             .store(true, Ordering::Relaxed);
 
-        let mut handles = self.handle_directory.lock().unwrap();
-        let mut handle = handles.remove(nickname);
+        let mut handle = platform.handle_directory.remove(nickname);
         if let Some(handle) = handle.take() {
             let _ = handle.join(); //can add message when Err or Ok
         }
-        white_pages.remove_entry(nickname);
-        tcb.remove_entry(nickname);
+        platform.white_pages_directory.remove_entry(nickname);
+        platform.control_block_directory.remove_entry(nickname);
+        println!(
+            "{}: SUCCESSFULLY DEREGISTERED {}",
+            self.get_nickname(),
+            nickname
+        );
         ErrorCode::NoError
     }
     fn service_function(&mut self) {
         self.service_hub.aid.set_thread();
         loop {
-            println!("{}: waiting...\n",self.service_hub.get_nickname());
-            let msg_type = self.service_hub.receive();
+            println!("{}: waiting...", self.get_nickname());
+            let msg_type = self.receive();
             if msg_type != MessageType::Request {
                 self.service_hub.msg.set_type(MessageType::NotUnderstood);
             } else if let Content::Request(x) = self.service_hub.msg.get_content().unwrap() {
@@ -115,7 +184,7 @@ impl<T: UserConditions> Service for AMS<T> {
                 }
             }
             let sender = self.service_hub.msg.get_sender().unwrap().get_name();
-            self.service_hub.send_to(&sender);
+            self.send_to(&sender);
         }
     }
 }
@@ -135,19 +204,20 @@ impl<T: UserConditions> AMS<T> {
             return ErrorCode::Found;
         }
         {
-            if self
-                .state_directory
+            if *self
+                .platform
                 .read()
                 .unwrap()
+                .state_directory
                 .get(nickname)
                 .unwrap()
-                .clone()
+                //.clone()
                 != AgentState::Active
             {
                 return ErrorCode::Invalid;
             }
         }
-        let mut tcb = self.control_block_directory.write().unwrap();
+        let tcb = &mut self.platform.write().unwrap().control_block_directory;
         tcb.get_mut(nickname)
             .unwrap()
             .suspend
@@ -160,13 +230,13 @@ impl<T: UserConditions> AMS<T> {
             return ErrorCode::Invalid;
         }
         {
-            if self
-                .state_directory
+            if *self
+                .platform
                 .read()
                 .unwrap()
+                .state_directory
                 .get(nickname)
                 .unwrap()
-                .clone()
                 != AgentState::Suspended
             {
                 return ErrorCode::Invalid;
@@ -175,7 +245,7 @@ impl<T: UserConditions> AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::NotFound;
         }
-        let handles = self.handle_directory.lock().unwrap();
+        let handles = &mut self.platform.write().unwrap().handle_directory;
         handles.get(nickname).unwrap().thread().unpark();
         ErrorCode::NoError
         //update agent status
