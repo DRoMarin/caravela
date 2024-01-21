@@ -3,14 +3,14 @@ use crate::platform::{
         messaging::{Content, Message, MessageType, RequestType},
         Description, Entity, ExecutionResources,
     },
-    Directory, ErrorCode, MasterRecord, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
+    Directory, ErrorCode, SharedRecord, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
 };
 use std::{
     collections::HashMap,
     sync::{
         atomic::AtomicBool,
         mpsc::{sync_channel, TrySendError},
-        Arc, RwLock,
+        Arc, Barrier, RwLock,
     },
 };
 
@@ -18,7 +18,8 @@ pub mod behavior;
 pub mod organization;
 
 pub(crate) struct ControlBlock {
-    pub init: AtomicBool,
+    //pub init: AtomicBool,
+    pub init: Barrier,
     pub suspend: AtomicBool,
     pub quit: AtomicBool,
 }
@@ -29,14 +30,15 @@ pub struct AgentHub {
     pub aid: Description,
     pub resources: ExecutionResources,
     rx: RX,
-    pub msg: Message,
-    pub directory: Directory,
-    platform: Arc<RwLock<MasterRecord>>,
+    platform: Arc<RwLock<SharedRecord>>,
     //membership: Option<Membership<'a>>,*/
 }
 
 pub struct Agent<T> {
     pub hub: AgentHub,
+    pub msg: Message,
+    pub directory: Directory,
+    pub(crate) tcb: Arc<ControlBlock>,
     pub data: T,
     //pub membership,
 }
@@ -45,24 +47,18 @@ impl AgentHub {
     pub(crate) fn new(
         nickname: String,
         resources: ExecutionResources,
-        platform: Arc<RwLock<MasterRecord>>,
+        platform: Arc<RwLock<SharedRecord>>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let hap = platform.read().unwrap().name.clone();
         let name = nickname.clone() + "@" + &hap.clone();
         let aid = Description::new(name, tx, None);
-        let msg = Message::new();
-        //format name, set ID, set channel and set HAP
-
-        let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
         Self {
             nickname,
             hap,
             aid,
             resources,
             rx,
-            msg,
-            directory,
             platform,
             //membership,
         }
@@ -82,26 +78,26 @@ impl<T> Entity for Agent<T> {
         self.hub.resources.clone()
     }
     fn send_to(&mut self, agent: &str) -> ErrorCode {
-        //println!("AMS NAME: {}", agent);
-        let receiver = match self.hub.directory.get(agent) {
+        let receiver = match self.directory.get(agent) {
             Some(x) => x.clone(),
             None => {
-                let msg_bkp = self.hub.msg.clone();
-                self.hub.msg.set_type(MessageType::Request);
-                self.hub
-                    .msg
+                let msg_bkp = self.msg.clone();
+                self.msg.set_type(MessageType::Request);
+                self.msg
                     .set_content(Content::Request(RequestType::Search(agent.to_string())));
                 self.send_to("AMS");
                 let request = self.receive();
                 if request == MessageType::Inform {
-                    if let Some(Content::AID(x)) = self.hub.msg.get_content() {
-                        self.hub.msg = msg_bkp;
+                    if let Some(Content::AID(x)) = self.msg.get_content() {
+                        self.msg = msg_bkp;
                         x
                     } else {
                         return ErrorCode::Invalid;
                     }
-                } else {
+                } else if request == MessageType::Failure {
                     return ErrorCode::NotRegistered;
+                } else {
+                    return ErrorCode::Invalid; //<-----might need to change
                 }
             }
         };
@@ -109,9 +105,9 @@ impl<T> Entity for Agent<T> {
     }
     fn send_to_aid(&mut self, description: Description) -> ErrorCode {
         let address = description.get_address().clone();
-        self.hub.msg.set_sender(self.hub.aid.clone());
-        self.hub.msg.set_receiver(description);
-        let result = address.try_send(self.hub.msg.clone());
+        self.msg.set_sender(self.hub.aid.clone());
+        self.msg.set_receiver(description);
+        let result = address.try_send(self.msg.clone());
         let error_code = match result {
             Ok(_) => ErrorCode::NoError,
             Err(error) => match error {
@@ -126,8 +122,8 @@ impl<T> Entity for Agent<T> {
         let result = self.hub.rx.recv();
         let msg_type = match result {
             Ok(received_msg) => {
-                self.hub.msg = received_msg;
-                self.hub.msg.get_type().clone().unwrap()
+                self.msg = received_msg;
+                self.msg.get_type().clone().unwrap()
             }
             Err(_) => MessageType::NoResponse,
         }; //could handle Err incase of disconnection
@@ -141,14 +137,56 @@ impl<T> Agent<T> {
         priority: u8,
         stack_size: StackSize,
         data: T,
-        platform: Arc<RwLock<MasterRecord>>,
+        platform: Arc<RwLock<SharedRecord>>,
+        tcb: Arc<ControlBlock>,
     ) -> Result<Self, &'static str> {
         if priority > (MAX_PRIORITY - 1) {
             return Err("Priority value invalid");
         };
+        let msg = Message::new();
+        let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
         let resources = ExecutionResources::new(priority, stack_size);
         let hub = AgentHub::new(nickname, resources, platform);
         //let hub = AgentHub::new(nickname, resources, hap, tcb, state_directory, white_pages);
-        Ok(Self { hub, data })
+        Ok(Self {
+            hub,
+            msg,
+            directory,
+            data,
+            tcb,
+        })
+    }
+    pub fn add_contact(&mut self, agent: &str) -> ErrorCode {
+        self.msg.set_type(MessageType::Request);
+        self.msg
+            .set_content(Content::Request(RequestType::Search(agent.to_string())));
+        println!("{} ASKING AMS", self.get_nickname());
+        self.send_to("AMS");
+        let search_result = self.receive();
+        println!("{} GOT MESSAGE FROM AMS", self.get_nickname());
+        if search_result == MessageType::Inform {
+            if let Some(Content::AID(x)) = self.msg.get_content() {
+                self.add_contact_aid(agent, x);
+                //println!("{} SUCCESSFULLY ADDED", self.get_nickname());
+                return ErrorCode::NoError;
+            } else {
+                return ErrorCode::Invalid;
+            }
+        } else if search_result == MessageType::Failure {
+            //println!("{} TARGET IS NOT REGISTERED", self.get_nickname());
+            return ErrorCode::NotRegistered;
+        } else {
+            return ErrorCode::Invalid;
+        }
+    }
+    pub fn add_contact_aid(&mut self, nickname: &str, description: Description) -> ErrorCode {
+        if self.directory.len().eq(&MAX_SUBSCRIBERS) {
+            return ErrorCode::ListFull;
+        } else if self.directory.contains_key(nickname) {
+            return ErrorCode::Duplicated;
+        } else {
+            self.directory.insert(nickname.to_string(), description);
+            ErrorCode::NoError
+        }
     }
 }

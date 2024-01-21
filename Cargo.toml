@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 thread-priority = "0.15.0"
+scheduler = "0.1.3"

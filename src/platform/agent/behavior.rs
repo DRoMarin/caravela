@@ -1,6 +1,5 @@
-use private::TaskControl;
-
 use crate::platform::entity::Entity;
+use private::TaskControl;
 
 pub(crate) mod private {
     use crate::platform::{
@@ -28,19 +27,37 @@ pub(crate) mod private {
             self.hub.aid.set_thread();
         }
         fn init(&mut self) -> bool {
+            println!("{}: Resgistering", self.get_nickname());
             let ams = "AMS".to_string(); // + "@" + &self.hub.hap;
-            self.hub.msg.set_type(MessageType::Request);
-            self.hub
-                .msg
-                .set_content(Content::Request(RequestType::Register(
-                    self.get_nickname(),
-                    self.get_aid(),
-                )));
+            self.msg.set_type(MessageType::Request);
+            self.msg.set_content(Content::Request(RequestType::Register(
+                self.get_nickname(),
+                self.get_aid(),
+            )));
             self.send_to(&ams);
-            //send register message
             //println!("{}: SENT MSG TO AMS", self.get_nickname());
             //could change for recv message with accept or reject
-            while !self
+            {
+                self.tcb.init.wait();
+                /*while !self
+                    .hub
+                    .platform
+                    .read()
+                    .unwrap()
+                    .control_block_directory
+                    .get(&self.get_nickname())
+                    .unwrap()
+                    .init
+                    .load(Ordering::Relaxed)
+                {
+                    //println!("WAITING");
+                    //waiting
+                }*/
+            }
+            true
+        }
+        fn suspend(&mut self) {
+            /*let suspend = self
                 .hub
                 .platform
                 .read()
@@ -48,16 +65,18 @@ pub(crate) mod private {
                 .control_block_directory
                 .get(&self.get_nickname())
                 .unwrap()
-                .init
-                .load(Ordering::Relaxed)
-            {
-                //println!("WAITING");
-                //waiting
+                .suspend
+                .load(Ordering::Relaxed);
+            if suspend {
+                {
+                    let state = &mut self.hub.platform.write().unwrap().state_directory;
+                    state
+                        .entry(self.get_nickname())
+                        .and_modify(|s| *s = AgentState::Suspended);
+                }
+                thread::park()
             }
-            true
-        }
-        fn suspend(&mut self) {
-            let platform = self.hub.platform.write().unwrap();
+            /*let platform = self.hub.platform.write().unwrap();
             let suspend = &platform
                 .control_block_directory
                 .get(&self.get_nickname())
@@ -76,33 +95,32 @@ pub(crate) mod private {
                 }
                 thread::park();
             }
-            //TO BE FIXED: THIS WILL (PROBABLY) NOT WORK
+            //TO BE FIXED: THIS WILL (PROBABLY) NOT WORK*/*/
         }
         fn wait(&self, time: u64) {
-            //let mut state = self.hub.state_directory.as_ref().write().unwrap();
-            let state = &mut self.hub.platform.write().unwrap().state_directory;
+            /*let state = &mut self.hub.platform.write().unwrap().state_directory;
             state
-                .entry(self.hub.nickname.clone())
-                .and_modify(|s| *s = AgentState::Waiting);
+                .entry(self.get_nickname())
+                .and_modify(|s| *s = AgentState::Waiting);*/
             let dur = Duration::from_millis(time);
             thread::sleep(dur);
         }
         fn quit(&self) -> bool {
-            self.hub
-                .platform
-                .read()
-                .unwrap()
-                .control_block_directory
-                .get(&self.get_nickname())
-                .unwrap()
-                .quit
-                .load(Ordering::Relaxed)
+            /*self.hub
+            .platform
+            .read()
+            .unwrap()
+            .control_block_directory
+            .get(&self.get_nickname())
+            .unwrap()
+            .quit
+            .load(Ordering::Relaxed)*/
+            false
         }
         fn takedown(&mut self) -> bool {
             let ams = "AMS".to_string();
-            self.hub.msg.set_type(MessageType::Request);
-            self.hub
-                .msg
+            self.msg.set_type(MessageType::Request);
+            self.msg
                 .set_content(Content::Request(RequestType::Deregister(
                     self.get_nickname(),
                 )));
@@ -143,13 +161,14 @@ pub trait Behavior: Entity {
 
 pub(crate) fn execute(mut behavior: impl Behavior + TaskControl) {
     behavior.set_thread();
-    if behavior.init() == true {
+    let result = behavior.init();
+    if result == true {
         behavior.setup();
         loop {
-            behavior.suspend();
-            if behavior.quit() {
+            //behavior.suspend();
+            /*if behavior.quit() {
                 break;
-            }
+            }*/
             behavior.action();
             if behavior.failure_detection() {
                 behavior.failure_identification();

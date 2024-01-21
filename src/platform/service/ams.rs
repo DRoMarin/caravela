@@ -4,7 +4,8 @@ use crate::platform::{
         Description, Entity, ExecutionResources,
     },
     service::{Service, ServiceHub, UserConditions},
-    AgentState, MasterRecord, {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
+    AgentState, PrivateRecord, SharedRecord,
+    {ErrorCode, Platform, DEFAULT_STACK, MAX_PRIORITY, MAX_SUBSCRIBERS},
 };
 use std::sync::{atomic::Ordering, mpsc::TrySendError, Arc, RwLock};
 
@@ -12,7 +13,8 @@ use std::sync::{atomic::Ordering, mpsc::TrySendError, Arc, RwLock};
 pub(crate) struct AMS<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     pub(crate) service_hub: ServiceHub,
-    platform: Arc<RwLock<MasterRecord>>,
+    shared_platform: Arc<RwLock<SharedRecord>>,
+    private_platform: Arc<RwLock<PrivateRecord>>,
     conditions: T,
 }
 
@@ -28,7 +30,7 @@ impl<T: UserConditions> Entity for AMS<T> {
     }
     fn send_to(&mut self, agent: &str) -> ErrorCode {
         let receiver = match self
-            .platform
+            .private_platform
             .read()
             .unwrap()
             .white_pages_directory
@@ -74,17 +76,22 @@ impl<T: UserConditions> Service for AMS<T> {
     fn new(hap: &Platform, conditions: T) -> Self {
         let nickname = "AMS".to_string();
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
-        let platform = hap.mr.clone();
-        let service_hub =
-            ServiceHub::new(nickname.clone(), resources, &platform.read().unwrap().name);
+        let shared_platform = hap.shared_record.clone();
+        let private_platform = hap.private_record.clone();
+        let service_hub = ServiceHub::new(
+            nickname.clone(),
+            resources,
+            &shared_platform.read().unwrap().name,
+        );
         Self {
             service_hub,
-            platform,
+            private_platform,
+            shared_platform,
             conditions,
         }
     }
     fn search_agent(&self, nickname: &str) -> ErrorCode {
-        let white_pages = &self.platform.read().unwrap().white_pages_directory;
+        let white_pages = &self.private_platform.read().unwrap().white_pages_directory;
         if white_pages.contains_key(nickname) {
             return ErrorCode::Found;
         }
@@ -97,23 +104,21 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::Duplicated;
         }
-        let platform = &mut self.platform.write().unwrap();
-        if platform
-            .white_pages_directory
-            .capacity()
-            .eq(&MAX_SUBSCRIBERS)
-        {
+        let platform = &mut self.private_platform.write().unwrap();
+        if platform.white_pages_directory.len().eq(&MAX_SUBSCRIBERS) {
             return ErrorCode::ListFull;
         }
         platform
             .white_pages_directory
             .insert(nickname.to_string(), description);
-        platform
+        self.shared_platform
+            .read()
+            .unwrap()
             .control_block_directory
             .get(nickname)
             .unwrap()
             .init
-            .store(true, Ordering::Relaxed);
+            .wait();
         println!("SUCCESSFULLY REGISTERED {}", nickname);
         ErrorCode::NoError
         //set agent as active in dir
@@ -125,20 +130,22 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::NotFound {
             return ErrorCode::NotFound;
         }
-        let platform = &mut self.platform.write().unwrap();
-        platform
+
+        /*platform
             .control_block_directory
             .get(nickname)
             .unwrap()
             .quit
             .store(true, Ordering::Relaxed);
+        */
 
+        let platform = &mut self.private_platform.write().unwrap();
         let mut handle = platform.handle_directory.remove(nickname);
         if let Some(handle) = handle.take() {
             let _ = handle.join(); //can add message when Err or Ok
         }
         platform.white_pages_directory.remove_entry(nickname);
-        platform.control_block_directory.remove_entry(nickname);
+        //platform.control_block_directory.remove_entry(nickname);
         println!(
             "{}: SUCCESSFULLY DEREGISTERED {}",
             self.get_nickname(),
@@ -166,7 +173,7 @@ impl<T: UserConditions> Service for AMS<T> {
                         let result = self.search_agent(&nickname);
                         if result == ErrorCode::Found {
                             let found = self
-                                .platform
+                                .private_platform
                                 .read()
                                 .unwrap()
                                 .white_pages_directory
@@ -175,13 +182,12 @@ impl<T: UserConditions> Service for AMS<T> {
                                 .clone();
                             self.service_hub.msg.set_type(MessageType::Inform);
                             self.service_hub.msg.set_content(Content::AID(found));
-                            let receiver = self.service_hub.msg.get_sender().unwrap();
-                            self.send_to_aid(receiver);
-                            /*let _ = receiver
-                            .unwrap()
-                            .get_address()
-                            .try_send(self.service_hub.msg.clone());*/
+                        } else {
+                            self.service_hub.msg.set_type(MessageType::Failure);
+                            self.service_hub.msg.set_content(Content::None);
                         }
+                        let receiver = self.service_hub.msg.get_sender().unwrap();
+                        self.send_to_aid(receiver);
                         result
                     }
                     RequestType::None => ErrorCode::Invalid,
@@ -214,7 +220,7 @@ impl<T: UserConditions> AMS<T> {
         }
         {
             if *self
-                .platform
+                .shared_platform
                 .read()
                 .unwrap()
                 .state_directory
@@ -225,13 +231,14 @@ impl<T: UserConditions> AMS<T> {
                 return ErrorCode::Invalid;
             }
         }
-        let tcb = &mut self.platform.write().unwrap().control_block_directory;
+
+        /*let tcb = &mut self.platform.write().unwrap().control_block_directory;
         tcb.get_mut(nickname)
             .unwrap()
             .suspend
-            .store(true, Ordering::Relaxed);
+            .store(true, Ordering::Relaxed);*/
+
         ErrorCode::NoError
-        //update agent status
     }
     pub(crate) fn resume_agent(&mut self, nickname: &str) -> ErrorCode {
         if !self.conditions.resumption_condition() {
@@ -239,7 +246,7 @@ impl<T: UserConditions> AMS<T> {
         }
         {
             if *self
-                .platform
+                .shared_platform
                 .read()
                 .unwrap()
                 .state_directory
@@ -253,10 +260,9 @@ impl<T: UserConditions> AMS<T> {
         if self.search_agent(nickname) == ErrorCode::Found {
             return ErrorCode::NotFound;
         }
-        let handles = &mut self.platform.write().unwrap().handle_directory;
+        let handles = &mut self.private_platform.write().unwrap().handle_directory;
         handles.get(nickname).unwrap().thread().unpark();
         ErrorCode::NoError
-        //update agent status
     }
 
     /*  pub(crate) fn restart_agent(&mut self, nickname: &str) {
