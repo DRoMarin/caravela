@@ -11,7 +11,7 @@ mod tests {
         ErrorCode, Platform,
     };
 
-    //#[test]
+    #[test]
     fn platform_boot() {
         struct A;
         let data_a = A;
@@ -32,7 +32,7 @@ mod tests {
         assert!(start.is_ok());
     }
 
-    //#[test]
+    #[test]
     fn instantiating() {
         struct Valid;
         struct Invalid;
@@ -55,7 +55,7 @@ mod tests {
         assert!(ag_c.is_err());
     }
 
-    //#[test]
+    #[test]
     fn contacts() {
         struct AgentList;
         struct AgentPresent;
@@ -109,7 +109,7 @@ mod tests {
     fn concurrent() {
         struct AgentFast {
             rate: u64,
-        };
+        }
         struct AgentSlow {
             rate: u64,
         }
@@ -118,11 +118,10 @@ mod tests {
 
         impl Behavior for Agent<AgentFast> {
             fn action(&mut self) {
-                println!("beep");
-                self.wait(self.data.rate * 1000);
-            }
-            fn done(&mut self) -> bool {
-                false
+                for _ in 0..6 {
+                    println!("beep");
+                    self.wait(self.data.rate * 1000);
+                }
             }
             fn failure_detection(&mut self) -> bool {
                 false
@@ -131,11 +130,10 @@ mod tests {
 
         impl Behavior for Agent<AgentSlow> {
             fn action(&mut self) {
-                println!("boop");
-                self.wait(self.data.rate * 1000);
-            }
-            fn done(&mut self) -> bool {
-                false
+                for _ in 0..3 {
+                    println!("boop");
+                    self.wait(self.data.rate * 1000);
+                }
             }
             fn failure_detection(&mut self) -> bool {
                 false
@@ -156,6 +154,6 @@ mod tests {
         let _ = agent_platform.start(ag_fast);
         println!("STARTING SLOW");
         let _ = agent_platform.start(ag_slow);
-        std::thread::sleep(std::time::Duration::from_millis(10000));
+        std::thread::sleep(std::time::Duration::from_millis(8000));
     }
 }

@@ -39,64 +39,37 @@ pub(crate) mod private {
             true
         }
         fn suspend(&mut self) {
-            /*let suspend = self
-                .hub
-                .platform
-                .read()
-                .unwrap()
-                .control_block_directory
-                .get(&self.get_nickname())
-                .unwrap()
-                .suspend
-                .load(Ordering::Relaxed);
-            if suspend {
+            if self.hub.tcb.suspend.load(Ordering::Relaxed) {
                 {
-                    let state = &mut self.hub.platform.write().unwrap().state_directory;
-                    state
+                    println!("SUSPENDING");
+                    self.hub.tcb.suspend.store(false, Ordering::Relaxed);
+                    self.hub
+                        .platform
+                        .write()
+                        .unwrap()
+                        .state_directory
                         .entry(self.get_nickname())
                         .and_modify(|s| *s = AgentState::Suspended);
                 }
-                thread::park()
-            }
-            /*let platform = self.hub.platform.write().unwrap();
-            let suspend = &platform
-                .control_block_directory
-                .get(&self.get_nickname())
-                .as_mut()
-                .unwrap()
-                .suspend;
-
-            if suspend.load(Ordering::Relaxed) {
-                suspend.store(false, Ordering::Relaxed);
-                {
-                    //let mut state = self.hub.state_directory.as_ref().write().unwrap();
-                    let state = &mut self.hub.platform.write().unwrap().state_directory;
-                    state
-                        .entry(self.hub.nickname.clone())
-                        .and_modify(|s| *s = AgentState::Suspended);
-                }
                 thread::park();
+                //update state
             }
-            //TO BE FIXED: THIS WILL (PROBABLY) NOT WORK*/*/
         }
         fn wait(&self, time: u64) {
-            /*let state = &mut self.hub.platform.write().unwrap().state_directory;
-            state
-                .entry(self.get_nickname())
-                .and_modify(|s| *s = AgentState::Waiting);*/
+            {
+                let state = &mut self.hub.platform.write().unwrap().state_directory;
+                state
+                    .entry(self.get_nickname())
+                    .and_modify(|s| *s = AgentState::Waiting);
+            }
             let dur = Duration::from_millis(time);
             thread::sleep(dur);
         }
         fn quit(&self) -> bool {
-            /*self.hub
-            .platform
-            .read()
-            .unwrap()
-            .control_block_directory
-            .get(&self.get_nickname())
-            .unwrap()
-            .quit
-            .load(Ordering::Relaxed)*/
+            if self.hub.tcb.quit.load(Ordering::Relaxed) {
+                println!("QUITTING")
+            }
+
             false
         }
         fn takedown(&mut self) -> bool {
@@ -114,30 +87,30 @@ pub(crate) mod private {
 
 pub trait Behavior: Entity {
     fn setup(&mut self) {
-        print!("{}: no setup implemented\n", self.get_nickname());
+        println!("{}: no setup implemented", self.get_nickname());
     }
     fn done(&mut self) -> bool {
-        println!("{}: execution done, taking down...\n", self.get_nickname());
+        println!("{}: execution done, taking down...", self.get_nickname());
         true
     }
     fn action(&mut self) {
-        print!("{}: no action implemented\n", self.get_nickname());
+        println!("{}: no action implemented", self.get_nickname());
     }
     fn failure_detection(&mut self) -> bool {
         println!(
-            "{}: no failure detection implemented\n",
+            "{}: no failure detection implemented",
             self.get_nickname()
         );
-        true
+        false
     }
     fn failure_identification(&mut self) {
-        print!(
-            "{}: no failure identification implemented\n",
+        println!(
+            "{}: no failure identification implemented",
             self.get_nickname()
         );
     }
     fn failure_recovery(&mut self) {
-        print!("{}: no failure recovery implemented\n", self.get_nickname());
+        println!("{}: no failure recovery implemented", self.get_nickname());
     }
 }
 

@@ -114,7 +114,6 @@ impl<T: UserConditions> Service for AMS<T> {
         platform
             .white_pages_directory
             .insert(nickname.to_string(), description);
-
         platform
             .control_block_directory
             .get(nickname)
@@ -133,22 +132,20 @@ impl<T: UserConditions> Service for AMS<T> {
         if self.search_agent(nickname) == ErrorCode::NotFound {
             return ErrorCode::NotFound;
         }
-
-        /*platform
-            .control_block_directory
-            .get(nickname)
-            .unwrap()
-            .quit
-            .store(true, Ordering::Relaxed);
-        */
-
         let platform = &mut self.private_platform.write().unwrap();
+        /*platform
+        .control_block_directory
+        .get(nickname)
+        .unwrap()
+        .quit
+        .store(true, Ordering::Relaxed);*/
         let mut handle = platform.handle_directory.remove(nickname);
         if let Some(handle) = handle.take() {
             let _ = handle.join(); //can add message when Err or Ok
         }
         platform.white_pages_directory.remove_entry(nickname);
-        //platform.control_block_directory.remove_entry(nickname);
+        //let a = platform.control_block_directory.remove_entry(nickname);
+
         println!(
             "{}: SUCCESSFULLY DEREGISTERED {}",
             self.get_nickname(),
@@ -212,6 +209,7 @@ impl<T: UserConditions> AMS<T> {
         if !self.conditions.termination_condition() {
             return ErrorCode::Invalid;
         }
+        //SEND QUIT SIGNAL
         self.deregister_agent(nickname)
     }
     pub(crate) fn suspend_agent(&self, nickname: &str) -> ErrorCode {
