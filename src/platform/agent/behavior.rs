@@ -66,11 +66,7 @@ pub(crate) mod private {
             thread::sleep(dur);
         }
         fn quit(&self) -> bool {
-            if self.hub.tcb.quit.load(Ordering::Relaxed) {
-                println!("QUITTING")
-            }
-
-            false
+            self.hub.tcb.quit.load(Ordering::Relaxed)
         }
         fn takedown(&mut self) -> bool {
             let ams = "AMS".to_string();
@@ -97,10 +93,7 @@ pub trait Behavior: Entity {
         println!("{}: no action implemented", self.get_nickname());
     }
     fn failure_detection(&mut self) -> bool {
-        println!(
-            "{}: no failure detection implemented",
-            self.get_nickname()
-        );
+        println!("{}: no failure detection implemented", self.get_nickname());
         false
     }
     fn failure_identification(&mut self) {

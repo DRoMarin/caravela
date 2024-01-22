@@ -64,7 +64,6 @@ impl<T: UserConditions> Entity for AMS<T> {
         let result = self.service_hub.rx.recv();
         let msg_type = match result {
             Ok(received_msg) => {
-                //println!("RECEIVED MSG");
                 self.service_hub.msg = received_msg;
                 self.service_hub.msg.get_type().clone().unwrap()
             }
@@ -133,18 +132,12 @@ impl<T: UserConditions> Service for AMS<T> {
             return ErrorCode::NotFound;
         }
         let platform = &mut self.private_platform.write().unwrap();
-        /*platform
-        .control_block_directory
-        .get(nickname)
-        .unwrap()
-        .quit
-        .store(true, Ordering::Relaxed);*/
         let mut handle = platform.handle_directory.remove(nickname);
         if let Some(handle) = handle.take() {
             let _ = handle.join(); //can add message when Err or Ok
         }
         platform.white_pages_directory.remove_entry(nickname);
-        //let a = platform.control_block_directory.remove_entry(nickname);
+        platform.control_block_directory.remove_entry(nickname);
 
         println!(
             "{}: SUCCESSFULLY DEREGISTERED {}",
@@ -209,7 +202,15 @@ impl<T: UserConditions> AMS<T> {
         if !self.conditions.termination_condition() {
             return ErrorCode::Invalid;
         }
-        //SEND QUIT SIGNAL
+        {
+            let platform = &mut self.private_platform.write().unwrap();
+            platform
+                .control_block_directory
+                .get(nickname)
+                .unwrap()
+                .quit
+                .store(true, Ordering::Relaxed);
+        }
         self.deregister_agent(nickname)
     }
     pub(crate) fn suspend_agent(&self, nickname: &str) -> ErrorCode {
@@ -232,12 +233,13 @@ impl<T: UserConditions> AMS<T> {
                 return ErrorCode::Invalid;
             }
         }
-
-        /*let tcb = &mut self.platform.write().unwrap().control_block_directory;
-        tcb.get_mut(nickname)
+        let platform = &mut self.private_platform.write().unwrap();
+        platform
+            .control_block_directory
+            .get(nickname)
             .unwrap()
             .suspend
-            .store(true, Ordering::Relaxed);*/
+            .store(true, Ordering::Relaxed);
 
         ErrorCode::NoError
     }
@@ -268,6 +270,10 @@ impl<T: UserConditions> AMS<T> {
 
     /*  pub(crate) fn restart_agent(&mut self, nickname: &str) {
             //relaunch agent
+        }
+    */
+    /*  pub(crate) fn modify_agent(&mut self, nickname: &str, update: Description) {
+            //update agent
         }
     */
 }

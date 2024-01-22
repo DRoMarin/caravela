@@ -1,10 +1,3 @@
-use self::{
-    agent::{
-        behavior::{execute, private::TaskControl, Behavior},
-        Agent,
-    },
-    entity::Entity,
-};
 use std::{
     collections::HashMap,
     sync::{
@@ -16,8 +9,11 @@ use std::{
 };
 use thread_priority::*;
 use {
-    agent::ControlBlock,
-    entity::{messaging::Message, Description},
+    agent::{
+        behavior::{execute, private::TaskControl, Behavior},
+        Agent, ControlBlock,
+    },
+    entity::{messaging::Message, Description, Entity},
     service::{DefaultConditions, Service},
 };
 
@@ -172,6 +168,8 @@ impl Platform {
             .spawn_with_priority(ThreadPriority::Crossplatform(prio), move |_| execute(agent));
         if let Ok(handle) = agent_handle {
             platform.handle_directory.insert(nickname, handle);
+        } else {
+            return Err("Could not launch agent");
         }
         Ok(())
     }

@@ -18,7 +18,6 @@ pub mod behavior;
 pub mod organization;
 
 pub(crate) struct ControlBlock {
-    //pub init: AtomicBool,
     pub init: Barrier,
     pub suspend: AtomicBool,
     pub quit: AtomicBool,
@@ -64,11 +63,9 @@ impl AgentHub {
             tcb, //membership,
         }
     }
-    //manage contact list pending
 }
 
 impl<T> Entity for Agent<T> {
-    //Getters
     fn get_aid(&self) -> Description {
         self.hub.aid.clone()
     }
@@ -133,6 +130,7 @@ impl<T> Entity for Agent<T> {
         }; //could handle Err incase of disconnection
         msg_type
     }
+    /*fn receive_timeout(&mut self, timeout: u64) -> MessageType */
 }
 
 impl<T> Agent<T> {
