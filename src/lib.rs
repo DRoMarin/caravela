@@ -3,7 +3,10 @@ pub mod platform;
 #[cfg(test)]
 mod tests {
     use crate::platform::{
-        agent::{behavior::{Behavior, private::TaskControl}, Agent},
+        agent::{
+            behavior::{private::TaskControl, Behavior},
+            Agent,
+        },
         entity::{messaging::MessageType, Entity},
         ErrorCode, Platform,
     };
@@ -93,14 +96,13 @@ mod tests {
             .unwrap();
         let ag_list = agent_platform
             .add("Agent-List".to_string(), 1, 10, data_list)
-            //self.receive();
             .unwrap();
         println!("STARTING PRESENT");
         let _ = agent_platform.start(ag_present);
         //std::thread::sleep(std::time::Duration::from_millis(1000));
         println!("STARTING LIST");
         let _ = agent_platform.start(ag_list);
-        std::thread::sleep(std::time::Duration::from_millis(10000));
+        std::thread::sleep(std::time::Duration::from_millis(15000));
     }
 
     #[test]
@@ -117,7 +119,7 @@ mod tests {
         impl Behavior for Agent<AgentFast> {
             fn action(&mut self) {
                 println!("beep");
-                self.wait(self.data.rate*1000);
+                self.wait(self.data.rate * 1000);
             }
             fn done(&mut self) -> bool {
                 false
@@ -130,7 +132,7 @@ mod tests {
         impl Behavior for Agent<AgentSlow> {
             fn action(&mut self) {
                 println!("boop");
-                self.wait(self.data.rate*1000);
+                self.wait(self.data.rate * 1000);
             }
             fn done(&mut self) -> bool {
                 false
@@ -149,11 +151,9 @@ mod tests {
             .unwrap();
         let ag_slow = agent_platform
             .add("Agent-Slow".to_string(), 1, 10, data_slow)
-            //self.receive();
             .unwrap();
         println!("STARTING FAST");
         let _ = agent_platform.start(ag_fast);
-        //std::thread::sleep(std::time::Duration::from_millis(1000));
         println!("STARTING SLOW");
         let _ = agent_platform.start(ag_slow);
         std::thread::sleep(std::time::Duration::from_millis(10000));

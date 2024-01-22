@@ -10,7 +10,7 @@ use std::{
     sync::{
         atomic::AtomicBool,
         mpsc::{Receiver, SyncSender},
-        Arc, Barrier, Mutex, RwLock,
+        Arc, Barrier, RwLock,
     },
     thread::JoinHandle,
 };
@@ -26,7 +26,6 @@ pub mod entity;
 pub mod service;
 //pub mod organization;
 
-//type ThreadPriority = i32;
 type Priority = ThreadPriorityValue;
 type StackSize = usize;
 type TX = SyncSender<Message>;
@@ -71,10 +70,10 @@ pub struct Platform {
 pub(crate) struct PrivateRecord {
     pub(crate) handle_directory: HandleDirectory, //accessed only by AMS
     pub(crate) white_pages_directory: Directory,  //accessed only by AMS
+    pub(crate) control_block_directory: ControlBlockDirectory, //accessed only by AMS
 }
 pub(crate) struct SharedRecord {
     pub(crate) name: String,
-    pub(crate) control_block_directory: ControlBlockDirectory, //accessed and modifed by All
     pub(crate) state_directory: StateDirectory, //modified only by Agents, accessed by All
 }
 
@@ -88,11 +87,11 @@ impl Platform {
         let shared_record = Arc::new(RwLock::new(SharedRecord {
             name,
             state_directory,
-            control_block_directory,
         }));
         let private_record = Arc::new(RwLock::new(PrivateRecord {
             handle_directory,
             white_pages_directory,
+            control_block_directory,
         }));
         Self {
             ams_aid: None,
@@ -104,9 +103,8 @@ impl Platform {
         let default = service::DefaultConditions;
         let mut ams = service::ams::AMS::<DefaultConditions>::new(&self, default);
         let ams_name = "AMS".to_string();
-        self.private_record
-            .write()
-            .unwrap()
+        let mut platform = self.private_record.write().unwrap();
+        platform
             .white_pages_directory
             .insert(ams_name.clone(), ams.get_aid());
         self.ams_aid = Some(ams.get_aid());
@@ -117,16 +115,11 @@ impl Platform {
                 ams.service_function();
             },
         );
-
         /*if ams_handle.is_finished() {
             return Err("AMS ended");
         }*/
         if let Ok(handle) = ams_handle {
-            self.private_record
-                .write()
-                .unwrap()
-                .handle_directory
-                .insert(ams_name, handle);
+            platform.handle_directory.insert(ams_name, handle);
         }
         Ok(())
     }
@@ -143,7 +136,7 @@ impl Platform {
             suspend: AtomicBool::new(false),
             quit: AtomicBool::new(false),
         });
-        let hap = self.shared_record.read().unwrap().name.clone();
+        let _hap = self.shared_record.read().unwrap().name.clone();
         let platform = self.shared_record.clone();
         let agent_creation = Agent::new(
             nickname.clone(),
@@ -155,7 +148,7 @@ impl Platform {
         );
         match agent_creation {
             Ok(mut agent) => {
-                self.shared_record
+                self.private_record
                     .write()
                     .unwrap()
                     .control_block_directory
@@ -174,14 +167,11 @@ impl Platform {
     ) -> Result<(), &str> {
         let nickname = agent.get_nickname();
         let prio = agent.get_resources().get_priority();
+        let mut platform = self.private_record.write().unwrap();
         let agent_handle = std::thread::Builder::new()
             .spawn_with_priority(ThreadPriority::Crossplatform(prio), move |_| execute(agent));
         if let Ok(handle) = agent_handle {
-            self.private_record
-                .write()
-                .unwrap()
-                .handle_directory
-                .insert(nickname, handle);
+            platform.handle_directory.insert(nickname, handle);
         }
         Ok(())
     }

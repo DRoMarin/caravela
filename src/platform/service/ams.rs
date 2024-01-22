@@ -25,6 +25,9 @@ impl<T: UserConditions> Entity for AMS<T> {
     fn get_nickname(&self) -> String {
         self.service_hub.nickname.clone()
     }
+    fn get_hap(&self) -> String {
+        self.service_hub.hap.clone()
+    }
     fn get_resources(&self) -> ExecutionResources {
         self.service_hub.resources.clone()
     }
@@ -111,14 +114,14 @@ impl<T: UserConditions> Service for AMS<T> {
         platform
             .white_pages_directory
             .insert(nickname.to_string(), description);
-        self.shared_platform
-            .read()
-            .unwrap()
+
+        platform
             .control_block_directory
             .get(nickname)
             .unwrap()
             .init
             .wait();
+
         println!("SUCCESSFULLY REGISTERED {}", nickname);
         ErrorCode::NoError
         //set agent as active in dir

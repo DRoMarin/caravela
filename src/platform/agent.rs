@@ -31,6 +31,7 @@ pub struct AgentHub {
     pub resources: ExecutionResources,
     rx: RX,
     platform: Arc<RwLock<SharedRecord>>,
+    pub(crate) tcb: Arc<ControlBlock>,
     //membership: Option<Membership<'a>>,*/
 }
 
@@ -38,7 +39,6 @@ pub struct Agent<T> {
     pub hub: AgentHub,
     pub msg: Message,
     pub directory: Directory,
-    pub(crate) tcb: Arc<ControlBlock>,
     pub data: T,
     //pub membership,
 }
@@ -48,6 +48,7 @@ impl AgentHub {
         nickname: String,
         resources: ExecutionResources,
         platform: Arc<RwLock<SharedRecord>>,
+        tcb: Arc<ControlBlock>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let hap = platform.read().unwrap().name.clone();
@@ -60,7 +61,7 @@ impl AgentHub {
             resources,
             rx,
             platform,
-            //membership,
+            tcb, //membership,
         }
     }
     //manage contact list pending
@@ -73,6 +74,9 @@ impl<T> Entity for Agent<T> {
     }
     fn get_nickname(&self) -> String {
         self.hub.nickname.clone()
+    }
+    fn get_hap(&self) -> String {
+        self.hub.hap.clone()
     }
     fn get_resources(&self) -> ExecutionResources {
         self.hub.resources.clone()
@@ -146,14 +150,12 @@ impl<T> Agent<T> {
         let msg = Message::new();
         let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
         let resources = ExecutionResources::new(priority, stack_size);
-        let hub = AgentHub::new(nickname, resources, platform);
-        //let hub = AgentHub::new(nickname, resources, hap, tcb, state_directory, white_pages);
+        let hub = AgentHub::new(nickname, resources, platform, tcb);
         Ok(Self {
             hub,
             msg,
             directory,
             data,
-            tcb,
         })
     }
     pub fn add_contact(&mut self, agent: &str) -> ErrorCode {

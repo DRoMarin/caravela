@@ -35,25 +35,7 @@ pub(crate) mod private {
                 self.get_aid(),
             )));
             self.send_to(&ams);
-            //println!("{}: SENT MSG TO AMS", self.get_nickname());
-            //could change for recv message with accept or reject
-            {
-                self.tcb.init.wait();
-                /*while !self
-                    .hub
-                    .platform
-                    .read()
-                    .unwrap()
-                    .control_block_directory
-                    .get(&self.get_nickname())
-                    .unwrap()
-                    .init
-                    .load(Ordering::Relaxed)
-                {
-                    //println!("WAITING");
-                    //waiting
-                }*/
-            }
+            self.hub.tcb.init.wait();
             true
         }
         fn suspend(&mut self) {
@@ -165,10 +147,10 @@ pub(crate) fn execute(mut behavior: impl Behavior + TaskControl) {
     if result == true {
         behavior.setup();
         loop {
-            //behavior.suspend();
-            /*if behavior.quit() {
+            behavior.suspend();
+            if behavior.quit() {
                 break;
-            }*/
+            }
             behavior.action();
             if behavior.failure_detection() {
                 behavior.failure_identification();

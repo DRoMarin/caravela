@@ -58,6 +58,7 @@ pub trait Entity {
     //this trait will define top level gets and actions like recv and send msg
     fn get_aid(&self) -> Description;
     fn get_nickname(&self) -> String;
+    fn get_hap(&self) -> String;
     fn get_resources(&self) -> ExecutionResources;
     fn send_to(&mut self, agent: &str) -> ErrorCode;
     fn send_to_aid(&mut self, description: Description) -> ErrorCode;
