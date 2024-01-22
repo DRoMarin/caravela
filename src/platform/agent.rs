@@ -102,6 +102,7 @@ impl<T> Entity for Agent<T> {
                 }
             }
         };
+        self.msg.set_sender(self.hub.aid.clone());
         self.send_to_aid(receiver)
     }
     fn send_to_aid(&mut self, description: Description) -> ErrorCode {
@@ -160,23 +161,20 @@ impl<T> Agent<T> {
         self.msg.set_type(MessageType::Request);
         self.msg
             .set_content(Content::Request(RequestType::Search(agent.to_string())));
-        println!("{} ASKING AMS", self.get_nickname());
         self.send_to("AMS");
         let search_result = self.receive();
-        println!("{} GOT MESSAGE FROM AMS", self.get_nickname());
-        if search_result == MessageType::Inform {
-            if let Some(Content::AID(x)) = self.msg.get_content() {
-                self.add_contact_aid(agent, x);
-                //println!("{} SUCCESSFULLY ADDED", self.get_nickname());
-                return ErrorCode::NoError;
-            } else {
-                return ErrorCode::Invalid;
+        match search_result {
+            MessageType::Inform => {
+                if let Some(Content::AID(x)) = self.msg.get_content() {
+                    self.add_contact_aid(agent, x);
+                    return ErrorCode::NoError;
+                } else {
+                    return ErrorCode::Invalid;
+                }
             }
-        } else if search_result == MessageType::Failure {
-            //println!("{} TARGET IS NOT REGISTERED", self.get_nickname());
-            return ErrorCode::NotRegistered;
-        } else {
-            return ErrorCode::Invalid;
+            MessageType::Failure => return ErrorCode::NotRegistered,
+
+            _ => return ErrorCode::Invalid,
         }
     }
     pub fn add_contact_aid(&mut self, nickname: &str, description: Description) -> ErrorCode {

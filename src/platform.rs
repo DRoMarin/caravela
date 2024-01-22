@@ -46,6 +46,7 @@ pub enum ErrorCode {
     NotFound,
     Timeout,
     Invalid,
+    InvalidRequest,
     NotRegistered,
 }
 

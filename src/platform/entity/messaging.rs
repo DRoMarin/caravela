@@ -28,13 +28,14 @@ pub enum MessageType {
 #[derive(Clone)]
 pub enum RequestType {
     None,
+    Search(String),
+    //Modify(String, Description),
     Register(String, Description),
     Deregister(String),
     Suspend(String),
     Resume(String),
-    Terminate(String),
     //Restart(String),
-    Search(String),
+    Terminate(String),
 }
 
 #[derive(Clone)]
@@ -74,7 +75,6 @@ impl Message {
     pub fn set_sender(&mut self, sender: Description) {
         self.sender_aid = Some(sender)
     }
-
     pub fn get_type(&mut self) -> Option<MessageType> {
         self.message_type.take()
     }

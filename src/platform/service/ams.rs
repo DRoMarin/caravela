@@ -149,7 +149,7 @@ impl<T: UserConditions> Service for AMS<T> {
     fn service_function(&mut self) {
         self.service_hub.aid.set_thread();
         loop {
-            println!("{}: waiting...", self.get_nickname());
+            println!("{}: WAITING...", self.get_nickname());
             let msg_type = self.receive();
             if msg_type != MessageType::Request {
                 self.service_hub.msg.set_type(MessageType::NotUnderstood);
@@ -173,28 +173,63 @@ impl<T: UserConditions> Service for AMS<T> {
                                 .get(&nickname)
                                 .unwrap()
                                 .clone();
-                            self.service_hub.msg.set_type(MessageType::Inform);
+                            //self.service_hub.msg.set_type(MessageType::Inform);
                             self.service_hub.msg.set_content(Content::AID(found));
                         } else {
-                            self.service_hub.msg.set_type(MessageType::Failure);
                             self.service_hub.msg.set_content(Content::None);
                         }
-                        let receiver = self.service_hub.msg.get_sender().unwrap();
-                        self.send_to_aid(receiver);
                         result
                     }
-                    RequestType::None => ErrorCode::Invalid,
+                    RequestType::None => ErrorCode::InvalidRequest,
                 };
-                if error == ErrorCode::NoError || error == ErrorCode::Found {
-                    self.service_hub.msg.set_type(MessageType::Confirm);
-                } else {
-                    self.service_hub.msg.set_type(MessageType::Refuse);
+                match error {
+                    ErrorCode::Found => {
+                        self.service_hub.msg.set_type(MessageType::Inform);
+                    }
+                    ErrorCode::NotFound => {
+                        self.service_hub.msg.set_type(MessageType::Failure);
+                    }
+                    ErrorCode::NoError => {
+                        self.service_hub.msg.set_type(MessageType::Confirm);
+                    }
+                    ErrorCode::Invalid => {
+                        self.service_hub.msg.set_type(MessageType::Refuse);
+                    }
+                    _ => {
+                        self.service_hub.msg.set_type(MessageType::NotUnderstood);
+                        self.service_hub.msg.set_content(Content::None);
+                    }
                 }
             }
-            let sender = self.service_hub.msg.get_sender().unwrap().get_name();
-            self.send_to(&sender);
+            let receiver = self.service_hub.msg.get_sender().unwrap();
+            self.service_hub.msg.set_sender(self.get_aid());
+            println!(
+                "{}: REPLYING TO {}",
+                self.get_nickname(),
+                receiver.get_name()
+            );
+            self.send_to_aid(receiver);
+            /*println!(
+                "{}",
+                self.private_platform.read().unwrap().handle_directory.len()
+            );*/
+            if self
+                .private_platform
+                .read()
+                .unwrap()
+                .handle_directory
+                .len()
+                .eq(&1)
+            {
+                println!("{}: CLOSING PLATFORM", self.get_nickname());
+                break;
+            }
         }
     }
+    /*  pub(crate) fn modify_agent(&mut self, nickname: &str, update: Description) {
+            //update agent
+        }
+    */
 }
 
 impl<T: UserConditions> AMS<T> {
@@ -270,10 +305,6 @@ impl<T: UserConditions> AMS<T> {
 
     /*  pub(crate) fn restart_agent(&mut self, nickname: &str) {
             //relaunch agent
-        }
-    */
-    /*  pub(crate) fn modify_agent(&mut self, nickname: &str, update: Description) {
-            //update agent
         }
     */
 }

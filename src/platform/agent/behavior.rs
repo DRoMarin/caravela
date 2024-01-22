@@ -36,12 +36,12 @@ pub(crate) mod private {
             )));
             self.send_to(&ams);
             self.hub.tcb.init.wait();
+            self.receive();
             true
         }
         fn suspend(&mut self) {
             if self.hub.tcb.suspend.load(Ordering::Relaxed) {
                 {
-                    println!("SUSPENDING");
                     self.hub.tcb.suspend.store(false, Ordering::Relaxed);
                     self.hub
                         .platform
@@ -52,13 +52,25 @@ pub(crate) mod private {
                         .and_modify(|s| *s = AgentState::Suspended);
                 }
                 thread::park();
-                //update state
+                {
+                    self.hub.tcb.suspend.store(false, Ordering::Relaxed);
+                    self.hub
+                        .platform
+                        .write()
+                        .unwrap()
+                        .state_directory
+                        .entry(self.get_nickname())
+                        .and_modify(|s| *s = AgentState::Active);
+                }
             }
         }
         fn wait(&self, time: u64) {
             {
-                let state = &mut self.hub.platform.write().unwrap().state_directory;
-                state
+                self.hub
+                    .platform
+                    .write()
+                    .unwrap()
+                    .state_directory
                     .entry(self.get_nickname())
                     .and_modify(|s| *s = AgentState::Waiting);
             }
@@ -109,8 +121,7 @@ pub trait Behavior: Entity {
 
 pub(crate) fn execute(mut behavior: impl Behavior + TaskControl) {
     behavior.set_thread();
-    let result = behavior.init();
-    if result == true {
+    if behavior.init() {
         behavior.setup();
         loop {
             behavior.suspend();

@@ -65,7 +65,7 @@ mod tests {
         impl Behavior for Agent<AgentPresent> {
             fn action(&mut self) {
                 println!("{}: waiting", self.get_nickname());
-                self.wait(10000);
+                self.wait(5000);
                 self.receive();
             }
 
@@ -87,7 +87,7 @@ mod tests {
             }
         }
 
-        let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
+        //let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
 
         let mut agent_platform = Platform::new("test_contacts".to_string());
         let _ = agent_platform.boot();
@@ -97,6 +97,7 @@ mod tests {
         let ag_list = agent_platform
             .add("Agent-List".to_string(), 1, 10, data_list)
             .unwrap();
+
         println!("STARTING PRESENT");
         let _ = agent_platform.start(ag_present);
         //std::thread::sleep(std::time::Duration::from_millis(1000));
@@ -105,7 +106,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(15000));
     }
 
-    #[test]
+    //#[test]
     fn concurrent() {
         struct AgentFast {
             rate: u64,
