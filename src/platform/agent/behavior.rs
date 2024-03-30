@@ -1,3 +1,5 @@
+use std::thread::{self, Thread};
+
 use crate::platform::entity::Entity;
 use private::TaskControl;
 
@@ -8,7 +10,7 @@ pub(crate) mod private {
             messaging::{Content, MessageType, RequestType},
             Entity,
         },
-        AgentState,
+        AgentState, ErrorCode,
     };
     use std::{sync::atomic::Ordering, thread, time::Duration};
 
@@ -34,7 +36,13 @@ pub(crate) mod private {
                 self.get_nickname(),
                 self.get_aid(),
             )));
-            self.send_to(&ams);
+            loop {
+                let send_result = self.send_to(&ams);
+                if send_result == ErrorCode::Timeout {
+                    continue;
+                }
+                break;
+            }
             self.hub.tcb.init.wait();
             self.receive();
             true

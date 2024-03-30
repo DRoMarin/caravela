@@ -161,27 +161,33 @@ impl<T> Agent<T> {
         self.msg.set_type(MessageType::Request);
         self.msg
             .set_content(Content::Request(RequestType::Search(agent.to_string())));
-        self.send_to("AMS");
+        loop {
+            let send_result = self.send_to("AMS");
+            if send_result == ErrorCode::Timeout {
+                continue;
+            }
+            break;
+        }
         let search_result = self.receive();
         match search_result {
             MessageType::Inform => {
                 if let Some(Content::AID(x)) = self.msg.get_content() {
                     self.add_contact_aid(agent, x);
-                    return ErrorCode::NoError;
+                    ErrorCode::NoError
                 } else {
-                    return ErrorCode::Invalid;
+                    ErrorCode::Invalid
                 }
             }
-            MessageType::Failure => return ErrorCode::NotRegistered,
+            MessageType::Failure => ErrorCode::NotRegistered,
 
-            _ => return ErrorCode::Invalid,
+            _ => ErrorCode::Invalid,
         }
     }
     pub fn add_contact_aid(&mut self, nickname: &str, description: Description) -> ErrorCode {
         if self.directory.len().eq(&MAX_SUBSCRIBERS) {
-            return ErrorCode::ListFull;
+            ErrorCode::ListFull
         } else if self.directory.contains_key(nickname) {
-            return ErrorCode::Duplicated;
+            ErrorCode::Duplicated
         } else {
             self.directory.insert(nickname.to_string(), description);
             ErrorCode::NoError

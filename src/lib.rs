@@ -7,7 +7,10 @@ mod tests {
             behavior::{private::TaskControl, Behavior},
             Agent,
         },
-        entity::{messaging::MessageType, Entity},
+        entity::{
+            messaging::{Content, MessageType},
+            Entity,
+        },
         ErrorCode, Platform,
     };
 
@@ -100,13 +103,12 @@ mod tests {
 
         println!("STARTING PRESENT");
         let _ = agent_platform.start(ag_present);
-        //std::thread::sleep(std::time::Duration::from_millis(1000));
         println!("STARTING LIST");
         let _ = agent_platform.start(ag_list);
         std::thread::sleep(std::time::Duration::from_millis(15000));
     }
 
-    //#[test]
+    #[test]
     fn concurrent() {
         struct AgentFast {
             rate: u64,
@@ -141,7 +143,7 @@ mod tests {
             }
         }
 
-        let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
+        //let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
 
         let mut agent_platform = Platform::new("test_concurrent".to_string());
         let _ = agent_platform.boot();
@@ -156,5 +158,85 @@ mod tests {
         println!("STARTING SLOW");
         let _ = agent_platform.start(ag_slow);
         std::thread::sleep(std::time::Duration::from_millis(8000));
+    }
+
+    #[test]
+    fn ping_pong() {
+        struct Player {
+            delay: u64,
+            event: &'static str,
+            target: &'static str,
+        }
+        let ping_data = Player {
+            delay: 500,
+            event: "ping!",
+            target: "Agent-Pong",
+        };
+        let pong_data = Player {
+            delay: 500,
+            event: "pong!",
+            target: "Agent-Ping",
+        };
+
+        impl Behavior for Agent<Player> {
+            fn setup(&mut self) {
+                loop {
+                    let result = self.add_contact(self.data.target);
+                    if result == ErrorCode::NoError {
+                        println!("FOUND");
+                        break;
+                    }
+                }
+                if self.get_nickname() == "Agent-Ping" {
+                    self.msg.set_type(MessageType::Inform);
+                    self.msg
+                        .set_content(Content::Text(self.data.event.to_string()));
+
+                    println!("STARTING {}\n", self.data.event);
+                    loop {
+                        let send_result = self.send_to("Agent-Pong");
+                        if send_result == ErrorCode::NoError {
+                            break;
+                        }
+                        self.wait(self.data.delay);
+                        println!("RETRY {}\n", self.data.event);
+                    }
+                }
+            }
+
+            fn action(&mut self) {
+                if self.receive() == MessageType::Inform {
+                    if let Some(Content::Text(x)) = self.msg.get_content() {
+                        println!("{}", x);
+                        self.wait(self.data.delay);
+                    }
+                    self.msg.set_type(MessageType::Inform);
+                    self.msg
+                        .set_content(Content::Text(self.data.event.to_string()));
+                    self.send_to(self.data.target);
+                }
+            }
+
+            fn done(&mut self) -> bool {
+                false
+            }
+            fn failure_detection(&mut self) -> bool {
+                false
+            }
+        }
+
+        let mut agent_platform = Platform::new("demo".to_string());
+        agent_platform.boot();
+        let ag_ping = agent_platform
+            .add("Agent-Ping".to_string(), 1, 10, ping_data)
+            .unwrap();
+        let ag_pong = agent_platform
+            .add("Agent-Pong".to_string(), 1, 10, pong_data)
+            .unwrap();
+
+        agent_platform.start(ag_pong);
+
+        agent_platform.start(ag_ping);
+        std::thread::sleep(std::time::Duration::from_millis(10000));
     }
 }
