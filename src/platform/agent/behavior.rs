@@ -1,5 +1,3 @@
-use std::thread::{self, Thread};
-
 use crate::platform::entity::Entity;
 use private::TaskControl;
 
@@ -10,7 +8,7 @@ pub(crate) mod private {
             messaging::{Content, MessageType, RequestType},
             Entity,
         },
-        AgentState, ErrorCode,
+        //AgentState,
     };
     use std::{sync::atomic::Ordering, thread, time::Duration};
 
@@ -29,12 +27,12 @@ pub(crate) mod private {
             self.hub.aid.set_thread();
         }
         fn init(&mut self) -> bool {
-            println!("{}: Resgistering", self.get_nickname());
-            let ams = "AMS".to_string(); // + "@" + &self.hub.hap;
+            //println!("{}: Resgistering", self.get_nickname());
+            /*let ams = "AMS".to_string(); // + "@" + &self.hub.hap;
             self.msg.set_type(MessageType::Request);
             self.msg.set_content(Content::Request(RequestType::Register(
                 self.get_nickname(),
-                self.get_aid(),
+                //self.get_aid(),
             )));
             loop {
                 let send_result = self.send_to(&ams);
@@ -45,43 +43,47 @@ pub(crate) mod private {
             }
             self.hub.tcb.init.wait();
             self.receive();
+            */
             true
         }
         fn suspend(&mut self) {
             if self.hub.tcb.suspend.load(Ordering::Relaxed) {
                 {
                     self.hub.tcb.suspend.store(false, Ordering::Relaxed);
-                    self.hub
-                        .platform
-                        .write()
-                        .unwrap()
-                        .state_directory
-                        .entry(self.get_nickname())
-                        .and_modify(|s| *s = AgentState::Suspended);
+                    /*self.hub
+                            .deck
+                            .write()
+                            .unwrap()
+                            .state_directory
+                            .entry(self.get_nickname())
+                            .and_modify(|s| *s = AgentState::Suspended);
+                    */
                 }
                 thread::park();
                 {
                     self.hub.tcb.suspend.store(false, Ordering::Relaxed);
-                    self.hub
-                        .platform
-                        .write()
-                        .unwrap()
-                        .state_directory
-                        .entry(self.get_nickname())
-                        .and_modify(|s| *s = AgentState::Active);
+                    /*self.hub
+                            .deck
+                            .write()
+                            .unwrap()
+                            .state_directory
+                            .entry(self.get_nickname())
+                            .and_modify(|s| *s = AgentState::Active);
+                    */
                 }
             }
         }
         fn wait(&self, time: u64) {
-            {
+            /*{
                 self.hub
-                    .platform
+                    .deck
                     .write()
                     .unwrap()
                     .state_directory
                     .entry(self.get_nickname())
                     .and_modify(|s| *s = AgentState::Waiting);
             }
+            */
             let dur = Duration::from_millis(time);
             thread::sleep(dur);
         }

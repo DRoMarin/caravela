@@ -4,6 +4,8 @@ use crate::platform::{
 };
 use std::sync::mpsc::sync_channel;
 
+use super::entity::messaging::{MessageType, RequestType};
+
 pub mod ams;
 
 pub struct DefaultConditions;
@@ -15,6 +17,7 @@ pub(crate) struct ServiceHub {
     pub resources: ExecutionResources,
     rx: RX,
     pub msg: Message,
+    //deck: Arc<RwLock<Deck>>,
 }
 
 impl ServiceHub {
@@ -22,7 +25,6 @@ impl ServiceHub {
         nickname: String,
         resources: ExecutionResources,
         platform: &str,
-        //directory: Arc<RwLock<Directory>>,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
         let hap = platform.to_string();
@@ -36,6 +38,7 @@ impl ServiceHub {
             resources,
             rx,
             msg,
+            //deck,
         }
     }
 }
@@ -43,10 +46,17 @@ impl ServiceHub {
 pub(crate) trait Service {
     type Conditions;
     fn new(hap: &Platform, conditions: Self::Conditions) -> Self;
-    fn register_agent(&mut self, nickname: &str, description: Description) -> ErrorCode;
+    fn register_agent(&mut self, nickname: &str) -> ErrorCode;
     fn deregister_agent(&mut self, nickname: &str) -> ErrorCode;
     fn search_agent(&self, nickname: &str) -> ErrorCode; // TBD
     fn service_function(&mut self);
+    fn service_request_reply_type(&mut self, request_type: RequestType, error: ErrorCode);
+    fn error_to_msgtype(err: ErrorCode) -> MessageType {
+        match err {
+            ErrorCode::Found => MessageType::Inform,
+            _ => MessageType::Failure,
+        }
+    }
 }
 
 pub trait UserConditions {

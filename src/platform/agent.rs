@@ -1,16 +1,19 @@
 use crate::platform::{
+    deck::{Deck, Directory},
     entity::{
         messaging::{Content, Message, MessageType, RequestType},
         Description, Entity, ExecutionResources,
     },
-    Directory, ErrorCode, SharedRecord, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
+    ErrorCode, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS, RX,
 };
 use std::{
     collections::HashMap,
     sync::{
         atomic::AtomicBool,
         mpsc::{sync_channel, TrySendError},
-        Arc, Barrier, RwLock,
+        Arc,
+        RwLock,
+        //Barrier,
     },
 };
 
@@ -18,7 +21,9 @@ pub mod behavior;
 pub mod organization;
 
 pub(crate) struct ControlBlock {
-    pub init: Barrier,
+    //pub init: Barrier,
+    pub active: AtomicBool,
+    pub wait: AtomicBool,
     pub suspend: AtomicBool,
     pub quit: AtomicBool,
 }
@@ -29,7 +34,7 @@ pub struct AgentHub {
     pub aid: Description,
     pub resources: ExecutionResources,
     rx: RX,
-    platform: Arc<RwLock<SharedRecord>>,
+    deck: Arc<RwLock<Deck>>,
     pub(crate) tcb: Arc<ControlBlock>,
     //membership: Option<Membership<'a>>,*/
 }
@@ -46,11 +51,11 @@ impl AgentHub {
     pub(crate) fn new(
         nickname: String,
         resources: ExecutionResources,
-        platform: Arc<RwLock<SharedRecord>>,
+        deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
+        hap: String,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
-        let hap = platform.read().unwrap().name.clone();
         let name = nickname.clone() + "@" + &hap.clone();
         let aid = Description::new(name, tx, None);
         Self {
@@ -59,7 +64,7 @@ impl AgentHub {
             aid,
             resources,
             rx,
-            platform,
+            deck,
             tcb, //membership,
         }
     }
@@ -140,8 +145,10 @@ impl<T> Agent<T> {
         priority: u8,
         stack_size: StackSize,
         data: T,
-        platform: Arc<RwLock<SharedRecord>>,
+        deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
+        //tcb: ControlBlock,
+        hap: String,
     ) -> Result<Self, &'static str> {
         if priority > (MAX_PRIORITY - 1) {
             return Err("Priority value invalid");
@@ -149,7 +156,7 @@ impl<T> Agent<T> {
         let msg = Message::new();
         let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
         let resources = ExecutionResources::new(priority, stack_size);
-        let hub = AgentHub::new(nickname, resources, platform, tcb);
+        let hub = AgentHub::new(nickname, resources, deck, tcb, hap);
         Ok(Self {
             hub,
             msg,

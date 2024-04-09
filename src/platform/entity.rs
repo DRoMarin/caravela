@@ -1,14 +1,22 @@
 use crate::platform::{ErrorCode, Priority, StackSize, TX};
 use messaging::MessageType;
-use std::thread::{current, Thread};
+use std::thread::{current, ThreadId};
 
 pub mod messaging;
 
+/*#[derive(Clone)]
+pub struct Description {
+    name: String,
+    tx: TX, //could remove due to developments on deck structure
+    pub(crate) thread: Option<Thread>,
+}*/
+
+//REPLACE FOR THIS
 #[derive(Clone)]
 pub struct Description {
     name: String,
-    tx: TX,
-    pub(crate) thread: Option<Thread>,
+    tx: TX, //could remove due to developments on deck structure
+    pub(crate) thread: Option<ThreadId>,
 }
 
 #[derive(Clone)]
@@ -19,8 +27,11 @@ pub struct ExecutionResources {
 }
 
 impl Description {
-    pub fn new(name: String, tx: TX, thread: Option<Thread>) -> Self {
+    //pub fn new(name: String, tx: TX, thread: Option<Thread>) -> Self {
+    pub fn new(name: String, tx: TX, thread: Option<ThreadId>) -> Self {
+        //pub fn new(name: String, thread: Option<ThreadId>) -> Self {
         Self { name, tx, thread }
+        //Self { name, thread }
     }
     pub fn get_name(&self) -> String {
         self.name.clone()
@@ -28,11 +39,13 @@ impl Description {
     pub fn get_address(&self) -> TX {
         self.tx.clone()
     }
-    pub fn get_id(&self) -> Option<Thread> {
+    //pub fn get_id(&self) -> Option<Thread> {
+    pub fn get_id(&self) -> Option<ThreadId> {
         self.thread.clone()
     }
     pub(crate) fn set_thread(&mut self) {
-        self.thread = Some(current());
+        //self.thread = Some(current());
+        self.thread = Some(current().id());
     }
 }
 

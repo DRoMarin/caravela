@@ -30,7 +30,8 @@ pub enum RequestType {
     None,
     Search(String),
     //Modify(String, Description),
-    Register(String, Description),
+    Register(String),
+    //Register(String, Description),
     Deregister(String),
     Suspend(String),
     Resume(String),
@@ -76,15 +77,15 @@ impl Message {
         self.sender_aid = Some(sender)
     }
     pub fn get_type(&mut self) -> Option<MessageType> {
-        self.message_type.take()
+        self.message_type.clone()
     }
     pub fn get_content(&mut self) -> Option<Content> {
-        self.content.take()
+        self.content.clone()
     }
     pub fn get_sender(&mut self) -> Option<Description> {
-        self.sender_aid.take()
+        self.sender_aid.clone()
     }
     pub fn get_receiver(&mut self) -> Option<Description> {
-        self.receiver_aid.take()
+        self.receiver_aid.clone()
     }
 }
