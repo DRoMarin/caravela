@@ -24,7 +24,6 @@ type Priority = ThreadPriorityValue;
 type StackSize = usize;
 type TX = SyncSender<Message>;
 type RX = Receiver<Message>;
-//set directory entry type: must include name, Thread ID, TX, Join Handle
 
 pub const DEFAULT_STACK: usize = 8;
 pub const MAX_PRIORITY: u8 = 99;
@@ -32,8 +31,7 @@ pub const MAX_SUBSCRIBERS: usize = 64;
 
 #[derive(PartialEq, Debug)]
 pub enum ErrorCode {
-    NoError,
-    Found,
+    Disconnected,
     HandleNone,
     ListFull,
     Duplicated,
@@ -53,7 +51,6 @@ pub enum AgentState {
 }
 
 pub struct Platform {
-    //pub refself: Arc<RwLock<Self>>,
     pub(crate) name: String,
     pub(crate) ams_aid: Option<Description>,
     pub(crate) deck: Arc<RwLock<Deck>>,
@@ -68,6 +65,7 @@ impl Platform {
             deck,
         }
     }
+
     pub fn boot(&mut self) -> Result<(), &str> {
         let default = service::DefaultConditions;
         let mut ams = service::ams::AMS::<DefaultConditions>::new(&self, default);
@@ -91,6 +89,7 @@ impl Platform {
         }
         Ok(())
     }
+
     pub fn add<T>(
         &mut self,
         nickname: String,
@@ -99,9 +98,6 @@ impl Platform {
         data: T,
     ) -> Result<Agent<T>, &str> {
         let tcb = Arc::new(ControlBlock {
-            //let tcb = ControlBlock {
-            //init: AtomicBool::new(false),
-            //init: Barrier::new(2),
             active: AtomicBool::new(false),
             wait: AtomicBool::new(false),
             suspend: AtomicBool::new(false),
@@ -125,6 +121,11 @@ impl Platform {
                     .unwrap()
                     .control_block_directory
                     .insert(nickname.clone(), tcb);
+                self.deck
+                    .write()
+                    .unwrap()
+                    .white_pages_directory
+                    .insert(nickname, agent.get_aid());
                 agent
                     .directory
                     .insert("AMS".to_string(), self.ams_aid.clone().unwrap());
@@ -133,6 +134,7 @@ impl Platform {
             Err(x) => Err(x),
         }
     }
+
     pub fn start(
         &mut self,
         agent: impl Behavior + TaskControl + Send + 'static,

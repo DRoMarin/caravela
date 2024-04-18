@@ -7,8 +7,7 @@ pub(crate) mod private {
         entity::{
             messaging::{Content, MessageType, RequestType},
             Entity,
-        },
-        //AgentState,
+        }, //AgentState,
     };
     use std::{sync::atomic::Ordering, thread, time::Duration};
 
@@ -26,8 +25,10 @@ pub(crate) mod private {
         fn set_thread(&mut self) {
             self.hub.aid.set_thread();
         }
+
         fn init(&mut self) -> bool {
-            //println!("{}: Resgistering", self.get_nickname());
+            println!("{}: STARTING", self.get_nickname());
+            self.hub.tcb.active.store(true, Ordering::Relaxed);
             /*let ams = "AMS".to_string(); // + "@" + &self.hub.hap;
             self.msg.set_type(MessageType::Request);
             self.msg.set_content(Content::Request(RequestType::Register(
@@ -46,50 +47,26 @@ pub(crate) mod private {
             */
             true
         }
+
         fn suspend(&mut self) {
             if self.hub.tcb.suspend.load(Ordering::Relaxed) {
-                {
-                    self.hub.tcb.suspend.store(false, Ordering::Relaxed);
-                    /*self.hub
-                            .deck
-                            .write()
-                            .unwrap()
-                            .state_directory
-                            .entry(self.get_nickname())
-                            .and_modify(|s| *s = AgentState::Suspended);
-                    */
-                }
+                self.hub.tcb.suspend.store(true, Ordering::Relaxed);
                 thread::park();
-                {
-                    self.hub.tcb.suspend.store(false, Ordering::Relaxed);
-                    /*self.hub
-                            .deck
-                            .write()
-                            .unwrap()
-                            .state_directory
-                            .entry(self.get_nickname())
-                            .and_modify(|s| *s = AgentState::Active);
-                    */
-                }
+                self.hub.tcb.suspend.store(false, Ordering::Relaxed);
             }
         }
+
         fn wait(&self, time: u64) {
-            /*{
-                self.hub
-                    .deck
-                    .write()
-                    .unwrap()
-                    .state_directory
-                    .entry(self.get_nickname())
-                    .and_modify(|s| *s = AgentState::Waiting);
-            }
-            */
+            self.hub.tcb.wait.store(true, Ordering::Relaxed);
             let dur = Duration::from_millis(time);
             thread::sleep(dur);
+            self.hub.tcb.wait.store(false, Ordering::Relaxed);
         }
+
         fn quit(&self) -> bool {
             self.hub.tcb.quit.load(Ordering::Relaxed)
         }
+
         fn takedown(&mut self) -> bool {
             let ams = "AMS".to_string();
             self.msg.set_type(MessageType::Request);
@@ -97,7 +74,7 @@ pub(crate) mod private {
                 .set_content(Content::Request(RequestType::Deregister(
                     self.get_nickname(),
                 )));
-            self.send_to(&ams);
+            let _ = self.send_to(&ams);
             true
         }
     }
@@ -107,23 +84,28 @@ pub trait Behavior: Entity {
     fn setup(&mut self) {
         println!("{}: no setup implemented", self.get_nickname());
     }
+
     fn done(&mut self) -> bool {
         println!("{}: execution done, taking down...", self.get_nickname());
         true
     }
+
     fn action(&mut self) {
         println!("{}: no action implemented", self.get_nickname());
     }
+
     fn failure_detection(&mut self) -> bool {
         println!("{}: no failure detection implemented", self.get_nickname());
         false
     }
+
     fn failure_identification(&mut self) {
         println!(
             "{}: no failure identification implemented",
             self.get_nickname()
         );
     }
+
     fn failure_recovery(&mut self) {
         println!("{}: no failure recovery implemented", self.get_nickname());
     }

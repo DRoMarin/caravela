@@ -1,5 +1,5 @@
 use crate::platform::{
-    deck::{Deck, Directory},
+    deck::{Deck, Directory, SyncType},
     entity::{
         messaging::{Content, Message, MessageType, RequestType},
         Description, Entity, ExecutionResources,
@@ -10,10 +10,9 @@ use std::{
     collections::HashMap,
     sync::{
         atomic::AtomicBool,
-        mpsc::{sync_channel, TrySendError},
+        mpsc::{sync_channel, RecvError},
         Arc,
         RwLock,
-        //Barrier,
     },
 };
 
@@ -21,7 +20,6 @@ pub mod behavior;
 pub mod organization;
 
 pub(crate) struct ControlBlock {
-    //pub init: Barrier,
     pub active: AtomicBool,
     pub wait: AtomicBool,
     pub suspend: AtomicBool,
@@ -74,67 +72,50 @@ impl<T> Entity for Agent<T> {
     fn get_aid(&self) -> Description {
         self.hub.aid.clone()
     }
+
     fn get_nickname(&self) -> String {
         self.hub.nickname.clone()
     }
+
     fn get_hap(&self) -> String {
         self.hub.hap.clone()
     }
+
     fn get_resources(&self) -> ExecutionResources {
         self.hub.resources.clone()
     }
-    fn send_to(&mut self, agent: &str) -> ErrorCode {
-        let receiver = match self.directory.get(agent) {
-            Some(x) => x.clone(),
-            None => {
-                let msg_bkp = self.msg.clone();
-                self.msg.set_type(MessageType::Request);
-                self.msg
-                    .set_content(Content::Request(RequestType::Search(agent.to_string())));
-                self.send_to("AMS");
-                let request = self.receive();
-                if request == MessageType::Inform {
-                    if let Some(Content::AID(x)) = self.msg.get_content() {
-                        self.msg = msg_bkp;
-                        x
-                    } else {
-                        return ErrorCode::Invalid;
-                    }
-                } else if request == MessageType::Failure {
-                    return ErrorCode::NotRegistered;
-                } else {
-                    return ErrorCode::Invalid; //<-----might need to change
-                }
-            }
-        };
-        self.msg.set_sender(self.hub.aid.clone());
-        self.send_to_aid(receiver)
+
+    //TBD: add block/nonblock parameter
+    fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+        if let Some(agent) = self.directory.get(agent) {
+            self.send_to_aid(agent.clone())
+        } else {
+            self.hub
+                .deck
+                .read()
+                .unwrap()
+                .send(agent, self.msg.clone(), SyncType::Blocking)
+        }
     }
-    fn send_to_aid(&mut self, description: Description) -> ErrorCode {
-        let address = description.get_address().clone();
-        self.msg.set_sender(self.hub.aid.clone());
-        self.msg.set_receiver(description);
-        let result = address.try_send(self.msg.clone());
-        let error_code = match result {
-            Ok(_) => ErrorCode::NoError,
-            Err(error) => match error {
-                TrySendError::Full(_) => ErrorCode::Timeout,
-                TrySendError::Disconnected(_) => ErrorCode::NotRegistered, //LIST MAY BE OUTDATED
-            },
-        };
-        error_code
+
+    fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
+        self.hub
+            .deck
+            .read()
+            .unwrap()
+            .send_to_aid(description, self.msg.clone(), SyncType::Blocking)
     }
-    fn receive(&mut self) -> MessageType {
-        //could use recv_timeout
+
+    fn receive(&mut self) -> Result<MessageType, RecvError> {
+        //TBD: could use recv_timeout
         let result = self.hub.rx.recv();
-        let msg_type = match result {
+        match result {
             Ok(received_msg) => {
                 self.msg = received_msg;
-                self.msg.get_type().clone().unwrap()
+                Ok(self.msg.get_type().unwrap())
             }
-            Err(_) => MessageType::NoResponse,
-        }; //could handle Err incase of disconnection
-        msg_type
+            Err(err) => Err(err),
+        }
     }
     /*fn receive_timeout(&mut self, timeout: u64) -> MessageType */
 }
@@ -147,7 +128,6 @@ impl<T> Agent<T> {
         data: T,
         deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
-        //tcb: ControlBlock,
         hap: String,
     ) -> Result<Self, &'static str> {
         if priority > (MAX_PRIORITY - 1) {
@@ -164,40 +144,44 @@ impl<T> Agent<T> {
             data,
         })
     }
-    pub fn add_contact(&mut self, agent: &str) -> ErrorCode {
+    pub fn add_contact(&mut self, agent: &str) -> Result<(), ErrorCode> {
         self.msg.set_type(MessageType::Request);
         self.msg
             .set_content(Content::Request(RequestType::Search(agent.to_string())));
-        loop {
-            let send_result = self.send_to("AMS");
-            if send_result == ErrorCode::Timeout {
-                continue;
-            }
-            break;
+        let send_result = self.send_to("AMS");
+        if let Err(err) = send_result {
+            return Err(err);
         }
-        let search_result = self.receive();
-        match search_result {
-            MessageType::Inform => {
-                if let Some(Content::AID(x)) = self.msg.get_content() {
-                    self.add_contact_aid(agent, x);
-                    ErrorCode::NoError
-                } else {
-                    ErrorCode::Invalid
+        let recv_result = self.receive();
+        if let Ok(msg_type) = recv_result {
+            match msg_type {
+                MessageType::Inform => {
+                    if let Some(Content::AID(x)) = self.msg.get_content() {
+                        self.add_contact_aid(agent, x)
+                    } else {
+                        Err(ErrorCode::Invalid)
+                    }
                 }
-            }
-            MessageType::Failure => ErrorCode::NotRegistered,
+                MessageType::Failure => Err(ErrorCode::NotRegistered),
 
-            _ => ErrorCode::Invalid,
+                _ => Err(ErrorCode::Invalid),
+            }
+        } else {
+            Err(ErrorCode::Disconnected)
         }
     }
-    pub fn add_contact_aid(&mut self, nickname: &str, description: Description) -> ErrorCode {
+    pub fn add_contact_aid(
+        &mut self,
+        nickname: &str,
+        description: Description,
+    ) -> Result<(), ErrorCode> {
         if self.directory.len().eq(&MAX_SUBSCRIBERS) {
-            ErrorCode::ListFull
+            Err(ErrorCode::ListFull)
         } else if self.directory.contains_key(nickname) {
-            ErrorCode::Duplicated
+            Err(ErrorCode::Duplicated)
         } else {
             self.directory.insert(nickname.to_string(), description);
-            ErrorCode::NoError
+            Ok(())
         }
     }
 }

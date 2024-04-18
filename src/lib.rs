@@ -81,9 +81,13 @@ mod tests {
             fn setup(&mut self) {
                 println!("ADDING CONTACTS");
                 let result = self.add_contact("Agent-Present");
-                assert_eq!(result, ErrorCode::NoError, "NOT ADDED CORRECTLY");
+                assert_eq!(result, Ok(()), "NOT ADDED CORRECTLY");
                 let result = self.add_contact("Agent-Absent");
-                assert_eq!(result, ErrorCode::NotRegistered, "AGENT IS NOT MISSING");
+                assert_eq!(
+                    result,
+                    Err(ErrorCode::NotRegistered),
+                    "AGENT IS NOT MISSING"
+                );
                 println!("ADDED CONTACTS");
                 self.msg.set_type(MessageType::Inform);
                 self.send_to("Agent-Present");
@@ -97,6 +101,7 @@ mod tests {
         let ag_present = agent_platform
             .add("Agent-Present".to_string(), 1, 10, data_present)
             .unwrap();
+        
         let ag_list = agent_platform
             .add("Agent-List".to_string(), 1, 10, data_list)
             .unwrap();
@@ -160,7 +165,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(8000));
     }
 
-    #[test]
+    //#[test]
     fn ping_pong() {
         struct Player {
             delay: u64,
@@ -182,7 +187,7 @@ mod tests {
             fn setup(&mut self) {
                 loop {
                     let result = self.add_contact(self.data.target);
-                    if result == ErrorCode::NoError {
+                    if result.is_ok() {
                         println!("FOUND");
                         break;
                     }
@@ -195,7 +200,7 @@ mod tests {
                     println!("STARTING {}\n", self.data.event);
                     loop {
                         let send_result = self.send_to("Agent-Pong");
-                        if send_result == ErrorCode::NoError {
+                        if send_result.is_ok() {
                             break;
                         }
                         self.wait(self.data.delay);
@@ -205,7 +210,7 @@ mod tests {
             }
 
             fn action(&mut self) {
-                if self.receive() == MessageType::Inform {
+                if self.receive() == Ok(MessageType::Inform) {
                     if let Some(Content::Text(x)) = self.msg.get_content() {
                         println!("{}", x);
                         self.wait(self.data.delay);

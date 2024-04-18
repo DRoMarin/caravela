@@ -64,28 +64,36 @@ impl Message {
             content: None,
         }
     }
+
     pub fn set_type(&mut self, msg_type: MessageType) {
         self.message_type = Some(msg_type);
     }
+
     pub fn set_content(&mut self, msg_content: Content) {
         self.content = Some(msg_content);
     }
+
     pub fn set_receiver(&mut self, receiver: Description) {
         self.receiver_aid = Some(receiver);
     }
+
     pub fn set_sender(&mut self, sender: Description) {
         self.sender_aid = Some(sender)
     }
-    pub fn get_type(&mut self) -> Option<MessageType> {
+
+    pub fn get_type(&self) -> Option<MessageType> {
         self.message_type.clone()
     }
-    pub fn get_content(&mut self) -> Option<Content> {
+
+    pub fn get_content(&self) -> Option<Content> {
         self.content.clone()
     }
-    pub fn get_sender(&mut self) -> Option<Description> {
+
+    pub fn get_sender(&self) -> Option<Description> {
         self.sender_aid.clone()
     }
-    pub fn get_receiver(&mut self) -> Option<Description> {
+
+    pub fn get_receiver(&self) -> Option<Description> {
         self.receiver_aid.clone()
     }
 }
