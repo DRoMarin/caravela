@@ -1,86 +1,137 @@
-use crate::platform::entity::Entity;
-use private::TaskControl;
+use crate::platform::{
+    agent::Agent,
+    entity::{
+        messaging::{Content, Message, MessageType, RequestType},
+        Description, ExecutionResources,
+    },
+    ErrorCode,
+};
+use std::{
+    sync::{atomic::Ordering, mpsc::RecvError},
+    thread,
+    time::Duration,
+};
+use private::ControlToken;
 
-pub(crate) mod private {
-    use crate::platform::{
-        agent::Agent,
-        entity::{
-            messaging::{Content, MessageType, RequestType},
-            Entity,
-        }, //AgentState,
-    };
-    use std::{sync::atomic::Ordering, thread, time::Duration};
+mod private {
+    pub struct ControlToken;
+    use crate::platform::agent::Agent;
+    pub trait SealedBehavior {}
+    impl<T> SealedBehavior for Agent<T> {}
+}
 
-    pub trait TaskControl {
-        //TBD
-        fn init(&mut self) -> bool;
-        fn set_thread(&mut self);
-        fn suspend(&mut self);
-        fn wait(&self, time: u64);
-        fn quit(&self) -> bool;
-        fn takedown(&mut self) -> bool;
+pub trait AgentBehavior: private::SealedBehavior {
+    //this trait will define top level gets and actions like recv and send msg
+    fn get_aid(&self) -> Description;
+    fn get_nickname(&self) -> String;
+    fn get_hap(&self) -> String;
+    fn get_resources(&self) -> ExecutionResources;
+    fn get_msg(&self) -> Message;
+    fn set_msg(&mut self, msg_type: MessageType, msg_content: Content);
+    fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode>;
+    fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode>;
+    //fn send_to_with_timeout(&mut self, agent: &str, timeout: u64) -> ErrorCode;
+    //fn send_to_all(&self) -> ErrorCode;
+    fn receive(&mut self) -> Result<MessageType, RecvError>;
+    //fn get_thread_id(&self) -> Option<ID>;
+}
+
+impl<T> AgentBehavior for Agent<T> {
+    fn get_aid(&self) -> Description {
+        self.hub.get_aid()
     }
 
-    impl<T> TaskControl for Agent<T> {
-        fn set_thread(&mut self) {
-            self.hub.aid.set_thread();
-        }
+    fn get_nickname(&self) -> String {
+        self.hub.get_nickname()
+    }
 
-        fn init(&mut self) -> bool {
-            println!("{}: STARTING", self.get_nickname());
-            self.hub.tcb.active.store(true, Ordering::Relaxed);
-            /*let ams = "AMS".to_string(); // + "@" + &self.hub.hap;
-            self.msg.set_type(MessageType::Request);
-            self.msg.set_content(Content::Request(RequestType::Register(
-                self.get_nickname(),
-                //self.get_aid(),
-            )));
-            loop {
-                let send_result = self.send_to(&ams);
-                if send_result == ErrorCode::Timeout {
-                    continue;
-                }
-                break;
-            }
-            self.hub.tcb.init.wait();
-            self.receive();
-            */
-            true
-        }
+    fn get_hap(&self) -> String {
+        self.hub.get_hap()
+    }
 
-        fn suspend(&mut self) {
-            if self.hub.tcb.suspend.load(Ordering::Relaxed) {
-                self.hub.tcb.suspend.store(true, Ordering::Relaxed);
-                thread::park();
-                self.hub.tcb.suspend.store(false, Ordering::Relaxed);
-            }
-        }
+    fn get_resources(&self) -> ExecutionResources {
+        self.hub.get_resources()
+    }
 
-        fn wait(&self, time: u64) {
-            self.hub.tcb.wait.store(true, Ordering::Relaxed);
-            let dur = Duration::from_millis(time);
-            thread::sleep(dur);
-            self.hub.tcb.wait.store(false, Ordering::Relaxed);
-        }
+    fn get_msg(&self) -> Message {
+        self.hub.get_msg()
+    }
 
-        fn quit(&self) -> bool {
-            self.hub.tcb.quit.load(Ordering::Relaxed)
-        }
+    fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
+        self.hub.set_msg(msg_type, msg_content)
+    }
 
-        fn takedown(&mut self) -> bool {
-            let ams = "AMS".to_string();
-            self.msg.set_type(MessageType::Request);
-            self.msg
-                .set_content(Content::Request(RequestType::Deregister(
-                    self.get_nickname(),
-                )));
-            let _ = self.send_to(&ams);
-            true
+    //TBD: add block/nonblock parameter
+    fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+        if let Some(agent) = self.directory.get(agent) {
+            self.hub.send_to_aid(agent.clone())
+        } else {
+            self.hub.send_to(agent)
         }
+    }
+
+    fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
+        self.hub.send_to_aid(description)
+    }
+
+    fn receive(&mut self) -> Result<MessageType, RecvError> {
+        self.hub.receive()
+    }
+    /*fn receive_timeout(&mut self, timeout: u64) -> MessageType */
+}
+
+pub trait AgentControl {
+    //TBD
+    fn init(&mut self, _: &private::ControlToken) -> bool;
+    fn set_thread(&mut self, _: &private::ControlToken);
+    fn suspend(&mut self, _: &private::ControlToken);
+    fn wait(&self, time: u64);
+    fn quit(&self, _: &private::ControlToken) -> bool;
+    fn takedown(&mut self, _: &private::ControlToken) -> bool;
+}
+
+impl<T> AgentControl for Agent<T> {
+    fn wait(&self, time: u64) {
+        self.tcb.wait.store(true, Ordering::Relaxed);
+        let dur = Duration::from_millis(time);
+        thread::sleep(dur);
+        self.tcb.wait.store(false, Ordering::Relaxed);
+    }
+
+    fn set_thread(&mut self, _: &private::ControlToken) {
+        self.hub.aid.set_thread();
+    }
+
+    fn init(&mut self, _: &private::ControlToken) -> bool {
+        println!("{}: STARTING", self.get_nickname());
+        self.tcb.active.store(true, Ordering::Relaxed);
+        true
+    }
+
+    fn suspend(&mut self, _: &private::ControlToken) {
+        if self.tcb.suspend.load(Ordering::Relaxed) {
+            self.tcb.suspend.store(true, Ordering::Relaxed);
+            thread::park();
+            self.tcb.suspend.store(false, Ordering::Relaxed);
+        }
+    }
+
+    fn quit(&self, _: &private::ControlToken) -> bool {
+        self.tcb.quit.load(Ordering::Relaxed)
+    }
+
+    fn takedown(&mut self, _: &private::ControlToken) -> bool {
+        let ams = "AMS".to_string();
+        let msg_type = MessageType::Request;
+        let msg_content = Content::Request(RequestType::Deregister(self.get_nickname()));
+        self.set_msg(msg_type, msg_content);
+        let _ = self.send_to(&ams);
+        true
     }
 }
 
-pub trait Behavior: Entity {
+pub trait Behavior: AgentControl + AgentBehavior {
+    //: Entity {
     fn setup(&mut self) {
         println!("{}: no setup implemented", self.get_nickname());
     }
@@ -111,13 +162,14 @@ pub trait Behavior: Entity {
     }
 }
 
-pub(crate) fn execute(mut behavior: impl Behavior + TaskControl) {
-    behavior.set_thread();
-    if behavior.init() {
+pub(crate) fn execute(mut behavior: impl Behavior) {
+    let token = ControlToken;
+    behavior.set_thread(&token);
+    if behavior.init(&token) {
         behavior.setup();
         loop {
-            behavior.suspend();
-            if behavior.quit() {
+            behavior.suspend(&token);
+            if behavior.quit(&token) {
                 break;
             }
             behavior.action();
@@ -126,7 +178,7 @@ pub(crate) fn execute(mut behavior: impl Behavior + TaskControl) {
                 behavior.failure_recovery();
             }
             if behavior.done() {
-                behavior.takedown();
+                behavior.takedown(&token);
                 break;
             }
         }

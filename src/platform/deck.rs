@@ -7,7 +7,6 @@ use std::{
     },
     thread::JoinHandle,
 };
-
 use crate::platform::{
     agent::ControlBlock, entity::messaging::Message, entity::Description, AgentState, ErrorCode,
     MAX_SUBSCRIBERS,

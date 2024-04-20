@@ -6,11 +6,11 @@ use std::sync::{
 use thread_priority::*;
 use {
     agent::{
-        behavior::{execute, private::TaskControl, Behavior},
+        behavior::{execute, AgentBehavior, Behavior},
         Agent, ControlBlock,
     },
     deck::Deck,
-    entity::{messaging::Message, Description, Entity},
+    entity::{messaging::Message, Description},
     service::{DefaultConditions, Service},
 };
 
@@ -72,12 +72,12 @@ impl Platform {
         let ams_name = "AMS".to_string();
         let mut deck = self.deck.write().unwrap();
         deck.white_pages_directory
-            .insert(ams_name.clone(), ams.get_aid());
-        self.ams_aid = Some(ams.get_aid());
+            .insert(ams_name.clone(), ams.hub.get_aid());
+        self.ams_aid = Some(ams.hub.get_aid());
         let ams_handle = std::thread::Builder::new().spawn_with_priority(
-            ThreadPriority::Crossplatform(ams.service_hub.resources.get_priority()),
+            ThreadPriority::Crossplatform(ams.hub.resources.get_priority()),
             move |_| {
-                println!("\nBOOTING AMS: {}\n", ams.service_hub.aid.get_name());
+                println!("\nBOOTING AMS: {}\n", ams.hub.aid.get_name());
                 ams.service_function();
             },
         );
@@ -135,10 +135,7 @@ impl Platform {
         }
     }
 
-    pub fn start(
-        &mut self,
-        agent: impl Behavior + TaskControl + Send + 'static,
-    ) -> Result<(), &str> {
+    pub fn start(&mut self, agent: impl Behavior + Send + 'static) -> Result<(), &str> {
         let nickname = agent.get_nickname();
         let prio = agent.get_resources().get_priority();
         let mut platform = self.deck.write().unwrap();

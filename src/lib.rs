@@ -4,13 +4,10 @@ pub mod platform;
 mod tests {
     use crate::platform::{
         agent::{
-            behavior::{private::TaskControl, Behavior},
+            behavior::{AgentBehavior, AgentControl, Behavior},
             Agent,
         },
-        entity::{
-            messaging::{Content, MessageType},
-            Entity,
-        },
+        entity::messaging::{Content, MessageType},
         ErrorCode, Platform,
     };
 
@@ -89,7 +86,7 @@ mod tests {
                     "AGENT IS NOT MISSING"
                 );
                 println!("ADDED CONTACTS");
-                self.msg.set_type(MessageType::Inform);
+                self.set_msg(MessageType::Inform, Content::None);
                 self.send_to("Agent-Present");
             }
         }
@@ -101,7 +98,7 @@ mod tests {
         let ag_present = agent_platform
             .add("Agent-Present".to_string(), 1, 10, data_present)
             .unwrap();
-        
+
         let ag_list = agent_platform
             .add("Agent-List".to_string(), 1, 10, data_list)
             .unwrap();
@@ -149,7 +146,6 @@ mod tests {
         }
 
         //let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
-
         let mut agent_platform = Platform::new("test_concurrent".to_string());
         let _ = agent_platform.boot();
         let ag_fast = agent_platform
@@ -164,84 +160,85 @@ mod tests {
         let _ = agent_platform.start(ag_slow);
         std::thread::sleep(std::time::Duration::from_millis(8000));
     }
+    /*
+        //#[test]
+        fn ping_pong() {
+            struct Player {
+                delay: u64,
+                event: &'static str,
+                target: &'static str,
+            }
+            let ping_data = Player {
+                delay: 500,
+                event: "ping!",
+                target: "Agent-Pong",
+            };
+            let pong_data = Player {
+                delay: 500,
+                event: "pong!",
+                target: "Agent-Ping",
+            };
 
-    //#[test]
-    fn ping_pong() {
-        struct Player {
-            delay: u64,
-            event: &'static str,
-            target: &'static str,
-        }
-        let ping_data = Player {
-            delay: 500,
-            event: "ping!",
-            target: "Agent-Pong",
-        };
-        let pong_data = Player {
-            delay: 500,
-            event: "pong!",
-            target: "Agent-Ping",
-        };
-
-        impl Behavior for Agent<Player> {
-            fn setup(&mut self) {
-                loop {
-                    let result = self.add_contact(self.data.target);
-                    if result.is_ok() {
-                        println!("FOUND");
-                        break;
-                    }
-                }
-                if self.get_nickname() == "Agent-Ping" {
-                    self.msg.set_type(MessageType::Inform);
-                    self.msg
-                        .set_content(Content::Text(self.data.event.to_string()));
-
-                    println!("STARTING {}\n", self.data.event);
+            impl Behavior for Agent<Player> {
+                fn setup(&mut self) {
                     loop {
-                        let send_result = self.send_to("Agent-Pong");
-                        if send_result.is_ok() {
+                        let result = self.add_contact(self.data.target);
+                        if result.is_ok() {
+                            println!("FOUND");
                             break;
                         }
-                        self.wait(self.data.delay);
-                        println!("RETRY {}\n", self.data.event);
                     }
+                    if self.get_nickname() == "Agent-Ping" {
+                        self.msg.set_type(MessageType::Inform);
+                        self.msg
+                            .set_content(Content::Text(self.data.event.to_string()));
+
+                        println!("STARTING {}\n", self.data.event);
+                        loop {
+                            let send_result = self.send_to("Agent-Pong");
+                            if send_result.is_ok() {
+                                break;
+                            }
+                            self.wait(self.data.delay);
+                            println!("RETRY {}\n", self.data.event);
+                        }
+                    }
+                }
+
+                fn action(&mut self) {
+                    if self.receive() == Ok(MessageType::Inform) {
+                        if let Some(Content::Text(x)) = self.msg.get_content() {
+                            println!("{}", x);
+                            self.wait(self.data.delay);
+                        }
+                        self.msg.set_type(MessageType::Inform);
+                        self.msg
+                            .set_content(Content::Text(self.data.event.to_string()));
+                        self.send_to(self.data.target);
+                    }
+                }
+
+                fn done(&mut self) -> bool {
+                    false
+                }
+                fn failure_detection(&mut self) -> bool {
+                    false
                 }
             }
 
-            fn action(&mut self) {
-                if self.receive() == Ok(MessageType::Inform) {
-                    if let Some(Content::Text(x)) = self.msg.get_content() {
-                        println!("{}", x);
-                        self.wait(self.data.delay);
-                    }
-                    self.msg.set_type(MessageType::Inform);
-                    self.msg
-                        .set_content(Content::Text(self.data.event.to_string()));
-                    self.send_to(self.data.target);
-                }
-            }
+            let mut agent_platform = Platform::new("demo".to_string());
+            agent_platform.boot();
+            let ag_ping = agent_platform
+                .add("Agent-Ping".to_string(), 1, 10, ping_data)
+                .unwrap();
+            let ag_pong = agent_platform
+                .add("Agent-Pong".to_string(), 1, 10, pong_data)
+                .unwrap();
 
-            fn done(&mut self) -> bool {
-                false
-            }
-            fn failure_detection(&mut self) -> bool {
-                false
-            }
+            agent_platform.start(ag_pong);
+
+            agent_platform.start(ag_ping);
+            std::thread::sleep(std::time::Duration::from_millis(10000));
         }
-
-        let mut agent_platform = Platform::new("demo".to_string());
-        agent_platform.boot();
-        let ag_ping = agent_platform
-            .add("Agent-Ping".to_string(), 1, 10, ping_data)
-            .unwrap();
-        let ag_pong = agent_platform
-            .add("Agent-Pong".to_string(), 1, 10, pong_data)
-            .unwrap();
-
-        agent_platform.start(ag_pong);
-
-        agent_platform.start(ag_ping);
-        std::thread::sleep(std::time::Duration::from_millis(10000));
-    }
+    */
 }

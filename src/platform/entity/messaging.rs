@@ -23,6 +23,7 @@ pub enum MessageType {
     RequestWhenever,
     Subscribe,
     NoResponse,
+    None,
 }
 
 #[derive(Clone)]
@@ -51,8 +52,8 @@ pub enum Content {
 pub struct Message {
     sender_aid: Option<Description>,
     receiver_aid: Option<Description>,
-    message_type: Option<MessageType>,
-    content: Option<Content>,
+    message_type: MessageType,
+    content: Content,
 }
 
 impl Message {
@@ -60,32 +61,32 @@ impl Message {
         Message {
             sender_aid: None,
             receiver_aid: None,
-            message_type: None,
-            content: None,
+            message_type: MessageType::None,
+            content: Content::None,
         }
     }
 
-    pub fn set_type(&mut self, msg_type: MessageType) {
-        self.message_type = Some(msg_type);
+    pub(super) fn set_type(&mut self, msg_type: MessageType) {
+        self.message_type = msg_type;
     }
 
-    pub fn set_content(&mut self, msg_content: Content) {
-        self.content = Some(msg_content);
+    pub(super) fn set_content(&mut self, msg_content: Content) {
+        self.content = msg_content;
     }
 
-    pub fn set_receiver(&mut self, receiver: Description) {
+    pub(super) fn set_receiver(&mut self, receiver: Description) {
         self.receiver_aid = Some(receiver);
     }
 
-    pub fn set_sender(&mut self, sender: Description) {
+    pub(super) fn set_sender(&mut self, sender: Description) {
         self.sender_aid = Some(sender)
     }
 
-    pub fn get_type(&self) -> Option<MessageType> {
+    pub fn get_type(&self) -> MessageType {
         self.message_type.clone()
     }
 
-    pub fn get_content(&self) -> Option<Content> {
+    pub fn get_content(&self) -> Content {
         self.content.clone()
     }
 

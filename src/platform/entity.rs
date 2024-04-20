@@ -1,7 +1,13 @@
-use crate::platform::{ErrorCode, Priority, StackSize, TX};
-use messaging::MessageType;
+use crate::platform::{
+    deck::{Deck, SyncType},
+    ErrorCode, Priority, StackSize, RX, TX,
+};
+use messaging::{Content, Message, MessageType};
 use std::{
-    sync::mpsc::RecvError,
+    sync::{
+        mpsc::{sync_channel, RecvError},
+        Arc, RwLock,
+    },
     thread::{current, ThreadId},
 };
 
@@ -10,14 +16,24 @@ pub mod messaging;
 #[derive(Clone)]
 pub struct Description {
     name: String,
-    tx: TX, 
+    tx: TX,
     pub(crate) thread: Option<ThreadId>,
 }
 
 #[derive(Clone)]
 pub struct ExecutionResources {
-    priority: Priority, 
+    priority: Priority,
     stack_size: StackSize,
+}
+
+pub(crate) struct Hub {
+    pub nickname: String,
+    pub hap: String,
+    pub aid: Description,
+    pub resources: ExecutionResources,
+    pub rx: RX,
+    pub deck: Arc<RwLock<Deck>>,
+    pub msg: Message,
 }
 
 impl Description {
@@ -28,15 +44,15 @@ impl Description {
     pub fn get_name(&self) -> String {
         self.name.clone()
     }
-    
+
     pub fn get_address(&self) -> TX {
         self.tx.clone()
     }
-    
+
     pub fn get_id(&self) -> Option<ThreadId> {
         self.thread.clone()
     }
-    
+
     pub(crate) fn set_thread(&mut self) {
         self.thread = Some(current().id());
     }
@@ -63,12 +79,98 @@ impl ExecutionResources {
         self.stack_size
     }
 }
-pub trait Entity {
+impl Hub {
+    pub(crate) fn new(
+        nickname: String,
+        resources: ExecutionResources,
+        deck: Arc<RwLock<Deck>>,
+        hap: String,
+    ) -> Self {
+        let (tx, rx) = sync_channel::<Message>(1);
+        let name = nickname.clone() + "@" + &hap.clone();
+        let aid = Description::new(name, tx, None);
+        let msg = Message::new();
+        Self {
+            nickname,
+            hap,
+            aid,
+            resources,
+            rx,
+            deck,
+            msg,
+        }
+    }
+}
+impl Hub {
+    pub(crate) fn get_aid(&self) -> Description {
+        self.aid.clone()
+    }
+
+    pub(crate) fn get_nickname(&self) -> String {
+        self.nickname.clone()
+    }
+
+    pub(crate) fn get_hap(&self) -> String {
+        self.hap.clone()
+    }
+
+    pub(crate) fn get_resources(&self) -> ExecutionResources {
+        self.resources.clone()
+    }
+
+    pub(crate) fn get_msg(&self) -> Message {
+        self.msg.clone()
+    }
+
+    pub(crate) fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
+        self.msg.set_type(msg_type);
+        self.msg.set_content(msg_content);
+    }
+
+    pub(crate) fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+        self.msg.set_sender(self.get_aid());
+        self.deck
+            .read()
+            .unwrap()
+            .send(agent, self.msg.clone(), SyncType::Blocking)
+    }
+
+    pub(crate) fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
+        self.msg.set_sender(self.get_aid());
+        self.deck
+            .read()
+            .unwrap()
+            .send_to_aid(description, self.msg.clone(), SyncType::Blocking)
+    }
+
+    pub(crate) fn receive(&mut self) -> Result<MessageType, RecvError> {
+        //TBD: could use recv_timeout
+        let result = self.rx.recv();
+        match result {
+            Ok(received_msg) => {
+                self.msg = received_msg;
+                Ok(self.msg.get_type())
+            }
+            Err(err) => Err(err),
+        }
+    }
+}
+/*
+pub(crate) mod private {
+    use crate::platform::agent::Agent;
+
+    pub trait SealedBehavior {}
+    impl<T> SealedBehavior for Agent<T> {}
+}
+
+pub trait AgentBehavior: private::SealedBehavior {
     //this trait will define top level gets and actions like recv and send msg
     fn get_aid(&self) -> Description;
     fn get_nickname(&self) -> String;
     fn get_hap(&self) -> String;
     fn get_resources(&self) -> ExecutionResources;
+    fn get_msg(&self) -> Message;
+    fn set_msg(&mut self, msg_type: MessageType, msg_content: Content);
     fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode>;
     fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode>;
     //fn send_to_with_timeout(&mut self, agent: &str, timeout: u64) -> ErrorCode;
@@ -76,3 +178,48 @@ pub trait Entity {
     fn receive(&mut self) -> Result<MessageType, RecvError>;
     //fn get_thread_id(&self) -> Option<ID>;
 }
+
+impl<T> AgentBehavior for Agent<T> {
+    fn get_aid(&self) -> Description {
+        self.hub.get_aid()
+    }
+
+    fn get_nickname(&self) -> String {
+        self.hub.get_nickname()
+    }
+
+    fn get_hap(&self) -> String {
+        self.hub.get_hap()
+    }
+
+    fn get_resources(&self) -> ExecutionResources {
+        self.hub.get_resources()
+    }
+
+    fn get_msg(&self) -> Message {
+        self.hub.get_msg()
+    }
+
+    fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
+        self.hub.set_msg(msg_type, msg_content)
+    }
+
+    //TBD: add block/nonblock parameter
+    fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+        if let Some(agent) = self.directory.get(agent) {
+            self.hub.send_to_aid(agent.clone())
+        } else {
+            self.hub.send_to(agent)
+        }
+    }
+
+    fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
+        self.hub.send_to_aid(description)
+    }
+
+    fn receive(&mut self) -> Result<MessageType, RecvError> {
+        self.hub.receive()
+    }
+    /*fn receive_timeout(&mut self, timeout: u64) -> MessageType */
+}
+*/
