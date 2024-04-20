@@ -76,8 +76,9 @@ impl Platform {
         let default = service::DefaultConditions;
         let mut ams = service::ams::Ams::<DefaultConditions>::new(self, default);
         let ams_name = "AMS".to_string();
-        let mut deck = self.deck.write().unwrap();
-        deck.white_pages_directory
+        let mut deck_guard = self.deck.write().unwrap();
+        deck_guard
+            .white_pages_directory
             .insert(ams_name.clone(), ams.hub.get_aid());
         self.ams_aid = Some(ams.hub.get_aid());
         let ams_handle = std::thread::Builder::new().spawn_with_priority(
@@ -91,7 +92,7 @@ impl Platform {
             return Err("AMS ended");
         }*/
         if let Ok(handle) = ams_handle {
-            deck.handle_directory.insert(ams_name, handle);
+            deck_guard.handle_directory.insert(ams_name, handle);
         }
         Ok(())
     }
@@ -122,14 +123,11 @@ impl Platform {
         );
         match agent_creation {
             Ok(mut agent) => {
-                self.deck
-                    .write()
-                    .unwrap()
+                let mut deck_guard = self.deck.write().unwrap();
+                deck_guard
                     .control_block_directory
                     .insert(nickname.clone(), tcb);
-                self.deck
-                    .write()
-                    .unwrap()
+                deck_guard
                     .white_pages_directory
                     .insert(nickname, agent.get_aid());
                 agent
@@ -144,11 +142,11 @@ impl Platform {
     pub fn start(&mut self, agent: impl Behavior + Send + 'static) -> Result<(), &str> {
         let nickname = agent.get_nickname();
         let prio = agent.get_resources().get_priority();
-        let mut platform = self.deck.write().unwrap();
+        let mut platform_guard = self.deck.write().unwrap();
         let agent_handle = std::thread::Builder::new()
             .spawn_with_priority(ThreadPriority::Crossplatform(prio), move |_| execute(agent));
         if let Ok(handle) = agent_handle {
-            platform.handle_directory.insert(nickname, handle);
+            platform_guard.handle_directory.insert(nickname, handle);
         } else {
             return Err("Could not launch agent");
         }
