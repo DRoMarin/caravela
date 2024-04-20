@@ -6,16 +6,16 @@ use crate::platform::{
     },
     ErrorCode,
 };
+use private::ControlToken;
 use std::{
     sync::{atomic::Ordering, mpsc::RecvError},
     thread,
     time::Duration,
 };
-use private::ControlToken;
 
 mod private {
-    pub struct ControlToken;
     use crate::platform::agent::Agent;
+    pub struct ControlToken;
     pub trait SealedBehavior {}
     impl<T> SealedBehavior for Agent<T> {}
 }
@@ -34,6 +34,16 @@ pub trait AgentBehavior: private::SealedBehavior {
     //fn send_to_all(&self) -> ErrorCode;
     fn receive(&mut self) -> Result<MessageType, RecvError>;
     //fn get_thread_id(&self) -> Option<ID>;
+}
+
+pub trait AgentControl {
+    //TBD
+    fn init(&mut self, _: &private::ControlToken) -> bool;
+    fn set_thread(&mut self, _: &private::ControlToken);
+    fn suspend(&mut self, _: &private::ControlToken);
+    fn wait(&self, time: u64);
+    fn quit(&self, _: &private::ControlToken) -> bool;
+    fn takedown(&mut self, _: &private::ControlToken) -> bool;
 }
 
 impl<T> AgentBehavior for Agent<T> {
@@ -80,16 +90,6 @@ impl<T> AgentBehavior for Agent<T> {
     /*fn receive_timeout(&mut self, timeout: u64) -> MessageType */
 }
 
-pub trait AgentControl {
-    //TBD
-    fn init(&mut self, _: &private::ControlToken) -> bool;
-    fn set_thread(&mut self, _: &private::ControlToken);
-    fn suspend(&mut self, _: &private::ControlToken);
-    fn wait(&self, time: u64);
-    fn quit(&self, _: &private::ControlToken) -> bool;
-    fn takedown(&mut self, _: &private::ControlToken) -> bool;
-}
-
 impl<T> AgentControl for Agent<T> {
     fn wait(&self, time: u64) {
         self.tcb.wait.store(true, Ordering::Relaxed);
@@ -99,7 +99,7 @@ impl<T> AgentControl for Agent<T> {
     }
 
     fn set_thread(&mut self, _: &private::ControlToken) {
-        self.hub.aid.set_thread();
+        self.hub.set_thread();
     }
 
     fn init(&mut self, _: &private::ControlToken) -> bool {

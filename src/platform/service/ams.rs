@@ -28,7 +28,11 @@ impl<T: UserConditions> Service for AMS<T> {
     }
 
     fn search_agent(&self, nickname: &str) -> Result<(), ErrorCode> {
-        self.hub.deck.read().unwrap().search_agent(nickname) //ADD ARGS
+        self.hub
+            .get_arc_deck()
+            .read()
+            .unwrap()
+            .search_agent(nickname) //ADD ARGS
     }
 
     fn register_agent(&mut self, nickname: &str) -> Result<(), ErrorCode> {
@@ -40,7 +44,7 @@ impl<T: UserConditions> Service for AMS<T> {
         }
         let description = self.hub.get_msg().get_sender().unwrap();
         self.hub
-            .deck
+            .get_arc_deck()
             .write()
             .unwrap()
             .insert_agent(nickname, description)
@@ -60,11 +64,15 @@ impl<T: UserConditions> Service for AMS<T> {
             nickname
         );
         */
-        self.hub.deck.write().unwrap().remove_agent(nickname)
+        self.hub
+            .get_arc_deck()
+            .write()
+            .unwrap()
+            .remove_agent(nickname)
     }
 
     fn service_function(&mut self) {
-        self.hub.aid.set_thread();
+        self.hub.set_thread();
         loop {
             println!("{}: WAITING...", self.hub.get_nickname());
             let msg_result = self.hub.receive();
@@ -119,7 +127,7 @@ impl<T: UserConditions> Service for AMS<T> {
         match result {
             Ok(()) => {
                 let msg_content = if let RequestType::Search(nickname) = request_type {
-                    Content::AID(self.hub.deck.read().unwrap().get_agent(&nickname))
+                    Content::AID(self.hub.get_arc_deck().read().unwrap().get_agent(&nickname))
                 } else {
                     Content::None
                 };
@@ -138,7 +146,8 @@ impl<T: UserConditions> AMS<T> {
         if let Err(_) = self.search_agent(nickname) {
             return Err(ErrorCode::NotFound);
         }
-        let mut deck_guard = self.hub.deck.write().unwrap();
+        let arc_deck = self.hub.get_arc_deck();
+        let mut deck_guard = arc_deck.write().unwrap();
         let state = deck_guard.get_agent_state(nickname);
         if state != AgentState::Active {
             return Err(ErrorCode::Invalid);
@@ -154,7 +163,8 @@ impl<T: UserConditions> AMS<T> {
         if let Err(_) = self.search_agent(nickname) {
             return Err(ErrorCode::NotFound);
         }
-        let mut deck_guard = self.hub.deck.write().unwrap();
+        let arc_deck = self.hub.get_arc_deck();
+        let mut deck_guard = arc_deck.write().unwrap();
         let state = deck_guard.get_agent_state(nickname);
         if state != AgentState::Active {
             return Err(ErrorCode::Invalid);
@@ -170,13 +180,18 @@ impl<T: UserConditions> AMS<T> {
         if let Err(_) = self.search_agent(nickname) {
             return Err(ErrorCode::NotFound);
         }
-        let mut deck_guard = self.hub.deck.write().unwrap();
+        let arc_deck = self.hub.get_arc_deck();
+        let mut deck_guard = arc_deck.write().unwrap();
         let state = deck_guard.get_agent_state(nickname);
         if state != AgentState::Suspended {
             return Err(ErrorCode::Invalid);
         }
         deck_guard.modify_control_block(nickname, TcbField::Suspend, false);
-        self.hub.deck.write().unwrap().unpark_agent(nickname);
+        self.hub
+            .get_arc_deck()
+            .write()
+            .unwrap()
+            .unpark_agent(nickname);
         Ok(())
     }
 

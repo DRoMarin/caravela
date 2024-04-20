@@ -2,15 +2,15 @@ pub mod platform;
 
 #[cfg(test)]
 mod tests {
-    use crate::platform::{
-        agent::{
-            behavior::{AgentBehavior, AgentControl, Behavior},
-            Agent,
-        },
-        entity::messaging::{Content, MessageType},
-        ErrorCode, Platform,
-    };
-
+    use crate::platform::*;
+    /*        agent::{
+                behavior::{AgentBehavior, AgentControl, Behavior},
+                Agent,
+            },
+            entity::messaging::{Content, MessageType},
+            ErrorCode, Platform,
+        };
+    */
     #[test]
     fn platform_boot() {
         struct A;
@@ -18,7 +18,7 @@ mod tests {
         impl Behavior for Agent<A> {
             fn action(&mut self) {
                 self.get_nickname();
-                println!("\n{}: Hello! I'm Agent A", self.hub.aid.get_name())
+                println!("\n{}: Hello! I'm Agent A", self.hub.get_aid().get_name())
             }
         }
         let mut agent_platform = Platform::new("test_boot".to_string());

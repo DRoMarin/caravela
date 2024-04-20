@@ -11,13 +11,13 @@ use std::{
     thread::{current, ThreadId},
 };
 
-pub mod messaging;
+pub(crate) mod messaging;
 
 #[derive(Clone)]
 pub struct Description {
     name: String,
     tx: TX,
-    pub(crate) thread: Option<ThreadId>,
+    thread: Option<ThreadId>,
 }
 
 #[derive(Clone)]
@@ -27,17 +27,17 @@ pub struct ExecutionResources {
 }
 
 pub(crate) struct Hub {
-    pub nickname: String,
-    pub hap: String,
-    pub aid: Description,
-    pub resources: ExecutionResources,
-    pub rx: RX,
-    pub deck: Arc<RwLock<Deck>>,
-    pub msg: Message,
+    nickname: String,
+    hap: String,
+    aid: Description,
+    resources: ExecutionResources,
+    rx: RX,
+    deck: Arc<RwLock<Deck>>,
+    msg: Message,
 }
 
 impl Description {
-    pub fn new(name: String, tx: TX, thread: Option<ThreadId>) -> Self {
+    fn new(name: String, tx: TX, thread: Option<ThreadId>) -> Self {
         Self { name, tx, thread }
     }
 
@@ -59,7 +59,7 @@ impl Description {
 }
 
 impl ExecutionResources {
-    pub fn new(priority_num: u8, stack_size: StackSize) -> Self {
+    pub(crate) fn new(priority_num: u8, stack_size: StackSize) -> Self {
         let priority = Priority::try_from(priority_num).unwrap();
         Self {
             priority,
@@ -120,6 +120,14 @@ impl Hub {
 
     pub(crate) fn get_msg(&self) -> Message {
         self.msg.clone()
+    }
+
+    pub(crate) fn get_arc_deck(&self) -> Arc<RwLock<Deck>> {
+        self.deck.clone()
+    }
+
+    pub(crate) fn set_thread(&mut self) {
+        self.aid.set_thread();
     }
 
     pub(crate) fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {

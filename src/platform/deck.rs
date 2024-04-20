@@ -1,3 +1,7 @@
+use crate::platform::{
+    agent::ControlBlock, entity::messaging::Message, entity::Description, AgentState, ErrorCode,
+    MAX_SUBSCRIBERS,
+};
 use std::{
     collections::HashMap,
     sync::{
@@ -6,10 +10,6 @@ use std::{
         Arc,
     },
     thread::JoinHandle,
-};
-use crate::platform::{
-    agent::ControlBlock, entity::messaging::Message, entity::Description, AgentState, ErrorCode,
-    MAX_SUBSCRIBERS,
 };
 
 pub(crate) type Directory = HashMap<String, Description>;
@@ -21,7 +21,7 @@ pub(crate) type HandleDirectory = HashMap<String, JoinHandle<()>>;
 
 pub enum SyncType {
     Blocking,
-    NonBlocking,
+    NonBlocking, //USE?
 }
 enum SendResult {
     Blocking(Result<(), SendError<Message>>),

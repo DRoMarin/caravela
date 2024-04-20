@@ -4,20 +4,26 @@ use std::sync::{
     Arc, RwLock,
 };
 use thread_priority::*;
-use {
+
+pub use {
     agent::{
-        behavior::{execute, AgentBehavior, Behavior},
-        Agent, ControlBlock,
+        behavior::{AgentBehavior, AgentControl, Behavior},
+        Agent,
     },
-    deck::Deck,
-    entity::{messaging::Message, Description},
-    service::{DefaultConditions, Service},
+    entity::{messaging::*, Description, ExecutionResources},
+    service::{DefaultConditions, UserConditions},
 };
 
-pub mod agent;
-pub mod deck;
-pub mod entity;
-pub mod service;
+use {
+    agent::{behavior::execute, ControlBlock},
+    deck::Deck,
+    service::Service,
+};
+
+mod agent;
+mod deck;
+mod entity;
+mod service;
 //pub mod organization;
 
 type Priority = ThreadPriorityValue;
@@ -75,9 +81,9 @@ impl Platform {
             .insert(ams_name.clone(), ams.hub.get_aid());
         self.ams_aid = Some(ams.hub.get_aid());
         let ams_handle = std::thread::Builder::new().spawn_with_priority(
-            ThreadPriority::Crossplatform(ams.hub.resources.get_priority()),
+            ThreadPriority::Crossplatform(ams.hub.get_resources().get_priority()),
             move |_| {
-                println!("\nBOOTING AMS: {}\n", ams.hub.aid.get_name());
+                println!("\nBOOTING AMS: {}\n", ams.hub.get_aid().get_name());
                 ams.service_function();
             },
         );
