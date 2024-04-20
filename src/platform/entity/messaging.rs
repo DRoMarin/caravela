@@ -73,7 +73,7 @@ impl Message {
     pub(super) fn set_content(&mut self, msg_content: Content) {
         self.content = msg_content;
     }
-
+    #[allow(dead_code)]
     pub(super) fn set_receiver(&mut self, receiver: Description) {
         self.receiver_aid = Some(receiver);
     }

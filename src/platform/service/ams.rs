@@ -9,14 +9,14 @@ use crate::platform::{
 };
 
 //AMS Needs a atomic control block for thread lifecycle control
-pub(crate) struct AMS<T: UserConditions> {
+pub(crate) struct Ams<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     pub(crate) hub: Hub,
     //pub msg: Message,
     conditions: T,
 }
 
-impl<T: UserConditions> Service for AMS<T> {
+impl<T: UserConditions> Service for Ams<T> {
     type Conditions = T;
     fn new(hap: &Platform, conditions: T) -> Self {
         let nickname = "AMS".to_string();
@@ -39,7 +39,7 @@ impl<T: UserConditions> Service for AMS<T> {
         if !self.conditions.registration_condition() {
             return Err(ErrorCode::Invalid);
         }
-        if let Err(_) = self.search_agent(nickname) {
+        if self.search_agent(nickname).is_err() {
             return Err(ErrorCode::Duplicated);
         }
         let description = self.hub.get_msg().get_sender().unwrap();
@@ -54,7 +54,7 @@ impl<T: UserConditions> Service for AMS<T> {
         if !self.conditions.deregistration_condition() {
             return Err(ErrorCode::Invalid);
         }
-        if let Err(_) = self.search_agent(nickname) {
+        if self.search_agent(nickname).is_err() {
             return Err(ErrorCode::NotFound);
         }
         /*
@@ -138,12 +138,12 @@ impl<T: UserConditions> Service for AMS<T> {
     }
 }
 
-impl<T: UserConditions> AMS<T> {
+impl<T: UserConditions> Ams<T> {
     pub(crate) fn terminate_agent(&mut self, nickname: &str) -> Result<(), ErrorCode> {
         if !self.conditions.termination_condition() {
             return Err(ErrorCode::Invalid);
         }
-        if let Err(_) = self.search_agent(nickname) {
+        if self.search_agent(nickname).is_err() {
             return Err(ErrorCode::NotFound);
         }
         let arc_deck = self.hub.get_arc_deck();
@@ -160,7 +160,7 @@ impl<T: UserConditions> AMS<T> {
         if !self.conditions.suspension_condition() {
             return Err(ErrorCode::Invalid);
         }
-        if let Err(_) = self.search_agent(nickname) {
+        if self.search_agent(nickname).is_err() {
             return Err(ErrorCode::NotFound);
         }
         let arc_deck = self.hub.get_arc_deck();
@@ -177,7 +177,7 @@ impl<T: UserConditions> AMS<T> {
         if !self.conditions.resumption_condition() {
             return Err(ErrorCode::Invalid);
         }
-        if let Err(_) = self.search_agent(nickname) {
+        if self.search_agent(nickname).is_err() {
             return Err(ErrorCode::NotFound);
         }
         let arc_deck = self.hub.get_arc_deck();

@@ -74,7 +74,7 @@ impl Platform {
 
     pub fn boot(&mut self) -> Result<(), &str> {
         let default = service::DefaultConditions;
-        let mut ams = service::ams::AMS::<DefaultConditions>::new(&self, default);
+        let mut ams = service::ams::Ams::<DefaultConditions>::new(self, default);
         let ams_name = "AMS".to_string();
         let mut deck = self.deck.write().unwrap();
         deck.white_pages_directory

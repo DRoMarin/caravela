@@ -50,7 +50,7 @@ impl Description {
     }
 
     pub fn get_id(&self) -> Option<ThreadId> {
-        self.thread.clone()
+        self.thread
     }
 
     pub(crate) fn set_thread(&mut self) {
@@ -68,7 +68,7 @@ impl ExecutionResources {
     }
 
     pub fn get_priority(&self) -> Priority {
-        self.priority.clone()
+        self.priority
     }
 
     pub fn get_priority_value(&self) -> u8 {

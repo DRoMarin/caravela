@@ -21,6 +21,7 @@ pub(crate) type HandleDirectory = HashMap<String, JoinHandle<()>>;
 
 pub enum SyncType {
     Blocking,
+    #[allow(dead_code)]
     NonBlocking, //USE?
 }
 enum SendResult {
@@ -70,7 +71,7 @@ impl Deck {
         if self.white_pages_directory.contains_key(nickname) {
             Ok(())
         } else {
-            for key in self.white_pages_directory.keys().into_iter() {
+            for key in self.white_pages_directory.keys() {
                 println!("{}", key)
             }
             Err(ErrorCode::NotFound)

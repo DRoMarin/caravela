@@ -59,9 +59,10 @@ impl<T> Agent<T> {
         let msg_content = Content::Request(RequestType::Search(agent.to_string()));
         self.set_msg(msg_type, msg_content);
         let send_result = self.send_to("AMS");
-        if let Err(err) = send_result {
+        /*if let Err(err) = send_result {
             return Err(err);
-        }
+        }*/
+        send_result?;
         let recv_result = self.receive();
         if let Ok(msg_type) = recv_result {
             match msg_type {
