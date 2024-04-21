@@ -1,60 +1,18 @@
-use std::sync::{
-    atomic::AtomicBool,
-    mpsc::{Receiver, SyncSender},
-    Arc, RwLock,
+use crate::{
+    deck::Deck,
+    entity::{
+        agent::{
+            behavior::{execute, AgentBehavior, Behavior},
+            Agent, ControlBlock,
+        },
+        service::{ams::Ams, DefaultConditions, Service},
+        Description,
+    },
 };
+use std::sync::{atomic::AtomicBool, Arc, RwLock};
 use thread_priority::*;
 
-pub use {
-    agent::{
-        behavior::{AgentBehavior, AgentControl, Behavior},
-        Agent,
-    },
-    entity::{messaging::*, Description, ExecutionResources},
-    service::{DefaultConditions, UserConditions},
-};
-
-use {
-    agent::{behavior::execute, ControlBlock},
-    deck::Deck,
-    service::Service,
-};
-
-mod agent;
-mod deck;
-mod entity;
-mod service;
 //pub mod organization;
-
-type Priority = ThreadPriorityValue;
-type StackSize = usize;
-type TX = SyncSender<Message>;
-type RX = Receiver<Message>;
-
-pub const DEFAULT_STACK: usize = 8;
-pub const MAX_PRIORITY: u8 = 99;
-pub const MAX_SUBSCRIBERS: usize = 64;
-
-#[derive(PartialEq, Debug)]
-pub enum ErrorCode {
-    Disconnected,
-    HandleNone,
-    ListFull,
-    Duplicated,
-    NotFound,
-    Timeout,
-    Invalid,
-    InvalidRequest,
-    NotRegistered,
-}
-
-#[derive(PartialEq, Clone, Copy)]
-pub enum AgentState {
-    Waiting,
-    Active,
-    Suspended,
-    Initiated,
-}
 
 pub struct Platform {
     pub(crate) name: String,
@@ -73,8 +31,8 @@ impl Platform {
     }
 
     pub fn boot(&mut self) -> Result<(), &str> {
-        let default = service::DefaultConditions;
-        let mut ams = service::ams::Ams::<DefaultConditions>::new(self, default);
+        let default = DefaultConditions;
+        let mut ams = Ams::<DefaultConditions>::new(self, default);
         let ams_name = "AMS".to_string();
         let mut deck_guard = self.deck.write().unwrap();
         deck_guard

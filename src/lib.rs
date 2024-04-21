@@ -1,8 +1,53 @@
-pub mod platform;
+use std::sync::mpsc::{Receiver, SyncSender};
+use thread_priority::*;
+
+pub use entity::{
+    agent::{
+        behavior::{AgentBehavior, AgentControl, Behavior},
+        Agent,
+    },
+    messaging::{Content, Message, MessageType, RequestType},
+    Description, ExecutionResources,
+};
+pub use platform::Platform;
+
+pub(crate) mod deck;
+pub(crate) mod entity;
+pub(crate) mod platform;
+
+pub(crate) type Priority = ThreadPriorityValue;
+pub(crate) type StackSize = usize;
+pub(crate) type TX = SyncSender<Message>;
+pub(crate) type RX = Receiver<Message>;
+
+pub const DEFAULT_STACK: usize = 8;
+pub const MAX_PRIORITY: u8 = 99;
+pub const MAX_SUBSCRIBERS: usize = 64;
+
+#[derive(PartialEq, Debug)]
+pub enum ErrorCode {
+    Disconnected,
+    HandleNone,
+    ListFull,
+    Duplicated,
+    NotFound,
+    Timeout,
+    Invalid,
+    InvalidRequest,
+    NotRegistered,
+}
+
+#[derive(PartialEq, Clone, Copy)]
+pub enum AgentState {
+    Waiting,
+    Active,
+    Suspended,
+    Initiated,
+}
 
 #[cfg(test)]
 mod tests {
-    use crate::platform::*;
+    use super::*;
     /*        agent::{
                 behavior::{AgentBehavior, AgentControl, Behavior},
                 Agent,
@@ -46,8 +91,7 @@ mod tests {
             fn action(&mut self) {}
         }
         let mut agent_platform = Platform::new("test_inst".to_string());
-        let _ = agent_platform.boot();
-
+        agent_platform.boot();
         let ag_b = agent_platform.add("Agent-Valid".to_string(), 98, 4, data_valid);
         assert!(ag_b.is_ok());
         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -94,7 +138,7 @@ mod tests {
         //let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
 
         let mut agent_platform = Platform::new("test_contacts".to_string());
-        let _ = agent_platform.boot();
+        agent_platform.boot();
         let ag_present = agent_platform
             .add("Agent-Present".to_string(), 1, 10, data_present)
             .unwrap();
@@ -104,9 +148,9 @@ mod tests {
             .unwrap();
 
         println!("STARTING PRESENT");
-        let _ = agent_platform.start(ag_present);
+        agent_platform.start(ag_present);
         println!("STARTING LIST");
-        let _ = agent_platform.start(ag_list);
+        agent_platform.start(ag_list);
         std::thread::sleep(std::time::Duration::from_millis(15000));
     }
 
@@ -147,7 +191,7 @@ mod tests {
 
         //let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
         let mut agent_platform = Platform::new("test_concurrent".to_string());
-        let _ = agent_platform.boot();
+        agent_platform.boot();
         let ag_fast = agent_platform
             .add("Agent-Fast".to_string(), 1, 10, data_fast)
             .unwrap();
@@ -155,9 +199,9 @@ mod tests {
             .add("Agent-Slow".to_string(), 1, 10, data_slow)
             .unwrap();
         println!("STARTING FAST");
-        let _ = agent_platform.start(ag_fast);
+        agent_platform.start(ag_fast);
         println!("STARTING SLOW");
-        let _ = agent_platform.start(ag_slow);
+        agent_platform.start(ag_slow);
         std::thread::sleep(std::time::Duration::from_millis(8000));
     }
     /*
