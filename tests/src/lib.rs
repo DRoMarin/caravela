@@ -5,8 +5,8 @@ mod tests {
 
     #[test]
     fn platform_boot() {
-        struct A(Agent);
-        impl Behavior for A {
+        struct Test(Agent);
+        impl Behavior for Test {
             fn action(&mut self) {
                 self.get_agent_ref().get_nickname();
                 println!(
@@ -26,34 +26,48 @@ mod tests {
         let mut agent_platform = Platform::new("test_boot".to_string());
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
-        let agent: A = agent_platform.add("Agent-A".to_string(), 1, 4).unwrap();
+        let agent: Test = agent_platform.add("Agent-A".to_string(), 1, 4).unwrap();
         let start = agent_platform.start(agent);
         std::thread::sleep(std::time::Duration::from_millis(500));
         assert!(start.is_ok());
     }
-    /*
-        #[test]
-        fn instantiating() {
-            struct Valid;
-            struct Invalid;
-            let data_valid = Valid;
-            let data_invalid = Invalid;
 
-            impl Behavior for Agent<Valid> {
-                fn action(&mut self) {}
+    #[test]
+    fn instantiating() {
+        struct Valid(Agent);
+        struct Invalid(Agent);
+
+        impl Behavior for Valid {
+            fn action(&mut self) {}
+
+            fn get_agent_ref(&mut self) -> &mut Agent {
+                &mut self.0
             }
-            impl Behavior for Agent<Invalid> {
-                fn action(&mut self) {}
+
+            fn agent_builder(base_agent: Agent) -> Self {
+                Self(base_agent)
             }
-            let mut agent_platform = Platform::new("test_inst".to_string());
-            agent_platform.boot();
-            let ag_b = agent_platform.add("Agent-Valid".to_string(), 98, 4, data_valid);
-            assert!(ag_b.is_ok());
-            std::thread::sleep(std::time::Duration::from_millis(500));
-            let ag_c = agent_platform.add("Agent-Invalid".to_string(), 99, 4, data_invalid);
-            assert!(ag_c.is_err());
         }
-    */
+        impl Behavior for Invalid {
+            fn action(&mut self) {}
+
+            fn get_agent_ref(&mut self) -> &mut Agent {
+                &mut self.0
+            }
+
+            fn agent_builder(base_agent: Agent) -> Self {
+                Self(base_agent)
+            }
+        }
+        let mut agent_platform = Platform::new("test_inst".to_string());
+        let _ = agent_platform.boot();
+        let ag_b: Result<Valid, &str> = agent_platform.add("Agent-Valid".to_string(), 98, 4);
+        assert!(ag_b.is_ok());
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let ag_c: Result<Invalid, &str> = agent_platform.add("Agent-Invalid".to_string(), 99, 4);
+        assert!(ag_c.is_err());
+    }
+
     /*
     #[test]
     fn contacts() {

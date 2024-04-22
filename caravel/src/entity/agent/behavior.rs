@@ -1,7 +1,8 @@
 use crate::entity::agent::Agent;
 
 pub trait Behavior {
-    //: Entity {
+    fn agent_builder(base_agent: Agent) -> Self;
+    fn get_agent_ref(&mut self) -> &mut Agent;
     fn setup(&mut self) {
         println!(
             "{}: no setup implemented",
@@ -45,8 +46,6 @@ pub trait Behavior {
             self.get_agent_ref().get_nickname()
         );
     }
-    fn get_agent_ref(&mut self) -> &mut Agent;
-    fn agent_builder(base_agent: Agent) -> Self;
 }
 
 pub(crate) fn execute(mut behavior: impl Behavior) {
