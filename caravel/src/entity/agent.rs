@@ -25,11 +25,12 @@ pub(crate) struct ControlBlock {
     pub quit: AtomicBool,
 }
 
+/// The base agent type with AID, task control, and messaging functionality.
 pub struct Agent {
     //pub struct Agent<T> {
     pub(crate) hub: Hub,
     //pub msg: Message,
-    pub directory: Directory,
+    pub(crate) directory: Directory,
     pub(crate) tcb: Arc<ControlBlock>,
     //pub data: T,
     //pub membership,
@@ -58,31 +59,37 @@ impl Agent {
             tcb,
         })
     }
-
+    /// Get the current Agent's Agent Identifier Description (AID) struct
     pub fn get_aid(&self) -> Description {
         self.hub.get_aid()
     }
 
+    /// Get the given nickname to the current Agent
     pub fn get_nickname(&self) -> String {
         self.hub.get_nickname()
     }
 
+    /// Get the name of the Home Agent Platform (HAP) in which the Agent resides
     pub fn get_hap(&self) -> String {
         self.hub.get_hap()
     }
-
+    
+    /// Get the Execution Resources struct of the current Agent
     pub fn get_resources(&self) -> ExecutionResources {
         self.hub.get_resources()
     }
-
+    
+    /// Get the Message struct currently held by the Agent
     pub fn get_msg(&self) -> Message {
         self.hub.get_msg()
     }
-
+    
+    /// Set the contents and type of the message. This is used to format the message before it is sent
     pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.hub.set_msg(msg_type, msg_content)
     }
 
+    /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
         if let Some(agent) = self.directory.get(agent) {
@@ -92,14 +99,17 @@ impl Agent {
         }
     }
 
+    /// Send the currently held message to the target Agent. The Agent needs to be addressed by its nickname.
     pub fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
         self.hub.send_to_aid(description)
     }
 
+    /// Wait for a messsage to arrive. This operation blocks the Agent and will overwrite the currently held Message.
     pub fn receive(&mut self) -> Result<MessageType, ErrorCode> {
         self.hub.receive()
     }
 
+    /// Add a contact to the contact list. The target Agent needs to be addressed by its nickname.
     pub fn add_contact(&mut self, agent: &str) -> Result<(), ErrorCode> {
         let msg_type = MessageType::Request;
         let msg_content = Content::Request(RequestType::Search(agent.to_string()));
@@ -125,6 +135,7 @@ impl Agent {
         }
     }
 
+    /// Add a contact to the contact list. The target Agent needs to be addressed by its Description.
     pub fn add_contact_aid(
         &mut self,
         nickname: &str,
@@ -140,6 +151,7 @@ impl Agent {
         }
     }
 
+    /// Halt the Agent Behavior for a specified duration of time.
     pub fn wait(&self, time: u64) {
         self.tcb.wait.store(true, Ordering::Relaxed);
         let dur = Duration::from_millis(time);

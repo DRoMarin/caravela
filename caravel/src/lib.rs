@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 pub(crate) mod deck;
 pub(crate) mod entity;
 pub(crate) mod platform;

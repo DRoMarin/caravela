@@ -8,9 +8,8 @@ mod tests {
         struct Test(Agent);
         impl Behavior for Test {
             fn action(&mut self) {
-                self.get_agent_ref().get_nickname();
                 println!(
-                    "\n{}: Hello! I'm Agent A",
+                    "\n{}: Hello! I'm Agent Test",
                     self.get_agent_ref().get_aid().get_name()
                 )
             }
@@ -26,8 +25,8 @@ mod tests {
         let mut agent_platform = Platform::new("test_boot".to_string());
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
-        let agent: Test = agent_platform.add("Agent-A".to_string(), 1, 4).unwrap();
-        let start = agent_platform.start(agent);
+        let agent_test: Test = agent_platform.add("AgentTest".to_string(), 1, 4).unwrap();
+        let start = agent_platform.start(agent_test);
         std::thread::sleep(std::time::Duration::from_millis(500));
         assert!(start.is_ok());
     }
@@ -35,7 +34,10 @@ mod tests {
     #[test]
     fn instantiating() {
         struct Valid(Agent);
-        struct Invalid(Agent);
+        struct Invalid {
+            ag: Agent,
+            counter: u32,
+        }
 
         impl Behavior for Valid {
             fn action(&mut self) {}
@@ -52,11 +54,14 @@ mod tests {
             fn action(&mut self) {}
 
             fn get_agent_ref(&mut self) -> &mut Agent {
-                &mut self.0
+                &mut self.ag
             }
 
             fn agent_builder(base_agent: Agent) -> Self {
-                Self(base_agent)
+                Self {
+                    ag: base_agent,
+                    counter: 0,
+                }
             }
         }
         let mut agent_platform = Platform::new("test_inst".to_string());
