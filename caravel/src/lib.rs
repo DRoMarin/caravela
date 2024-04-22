@@ -1,12 +1,9 @@
 pub(crate) mod deck;
 pub(crate) mod entity;
-pub(crate) mod platform;
 pub mod macros;
+pub(crate) mod platform;
 pub use entity::{
-    agent::{
-        behavior::{ Behavior},
-        Agent,
-    },
+    agent::{behavior::Behavior, Agent},
     messaging::{Content, Message, MessageType, RequestType},
     Description, ExecutionResources,
 };
@@ -44,7 +41,7 @@ pub enum AgentState {
     Suspended,
     Initiated,
 }
-/* 
+/*
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -284,6 +281,6 @@ mod tests {
             agent_platform.start(ag_ping);
             std::thread::sleep(std::time::Duration::from_millis(10000));
         }
-    */   
+    */
 }
 */
