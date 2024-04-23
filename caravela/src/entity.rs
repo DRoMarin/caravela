@@ -9,13 +9,15 @@ use crate::{
 pub use agent::{behavior::Behavior, Agent};
 pub use messaging::{Content, Message, MessageType, RequestType};
 use std::{
+    fmt::Display,
     sync::{mpsc::sync_channel, Arc, RwLock},
     thread::{current, ThreadId},
 };
 
 #[derive(Clone)]
 pub struct Description {
-    name: String,
+    nickname: String,
+    hap: String,
     tx: TX,
     thread: Option<ThreadId>,
 }
@@ -27,8 +29,8 @@ pub struct ExecutionResources {
 }
 
 pub(crate) struct Hub {
-    nickname: String,
-    hap: String,
+    //nickname: String,
+    //hap: String,
     aid: Description,
     resources: ExecutionResources,
     rx: RX,
@@ -37,24 +39,46 @@ pub(crate) struct Hub {
 }
 
 impl Description {
-    fn new(name: String, tx: TX, thread: Option<ThreadId>) -> Self {
-        Self { name, tx, thread }
+    fn new(nickname: String, hap: String, tx: TX, thread: Option<ThreadId>) -> Self {
+        //Self { name, tx, thread }
+        Self {
+            nickname,
+            hap,
+            tx,
+            thread,
+        }
     }
 
-    pub fn get_name(&self) -> String {
-        self.name.clone()
+    pub fn nickname(&self) -> String {
+        self.nickname.clone()
+        //REFORMAT
     }
 
-    pub fn get_address(&self) -> TX {
+    pub fn name(&self) -> String {
+        self.to_string()
+        //REFORMAT
+    }
+
+    pub fn hap(&self) -> String {
+        self.hap.clone()
+    }
+
+    pub fn address(&self) -> TX {
         self.tx.clone()
     }
 
-    pub fn get_id(&self) -> Option<ThreadId> {
+    pub fn id(&self) -> Option<ThreadId> {
         self.thread
     }
 
     pub(crate) fn set_thread(&mut self) {
         self.thread = Some(current().id());
+    }
+}
+
+impl Display for Description {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}@{}", self.nickname, self.hap)
     }
 }
 
@@ -67,15 +91,15 @@ impl ExecutionResources {
         }
     }
 
-    pub fn get_priority(&self) -> Priority {
+    pub fn priority(&self) -> Priority {
         self.priority
     }
 
-    pub fn get_priority_value(&self) -> u8 {
+    /*pub fn priority_value(&self) -> u8 {
         self.priority.into()
-    }
+    }*/
 
-    pub fn get_stack_size(&self) -> StackSize {
+    pub fn stack_size(&self) -> StackSize {
         self.stack_size
     }
 }
@@ -87,12 +111,12 @@ impl Hub {
         hap: String,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
-        let name = nickname.clone() + "@" + &hap.clone();
-        let aid = Description::new(name, tx, None);
+        //let name = nickname.clone() + "@" + &hap.clone();
+        let aid = Description::new(nickname, hap, tx, None);
         let msg = Message::new();
         Self {
-            nickname,
-            hap,
+            //nickname,
+            //hap,
             aid,
             resources,
             rx,
@@ -102,27 +126,27 @@ impl Hub {
     }
 }
 impl Hub {
-    pub(crate) fn get_aid(&self) -> Description {
+    pub(crate) fn aid(&self) -> Description {
         self.aid.clone()
     }
 
-    pub(crate) fn get_nickname(&self) -> String {
+    /*pub(crate) fn get_nickname(&self) -> String {
         self.nickname.clone()
     }
 
     pub(crate) fn get_hap(&self) -> String {
         self.hap.clone()
-    }
+    }*/
 
-    pub(crate) fn get_resources(&self) -> ExecutionResources {
+    pub(crate) fn resources(&self) -> ExecutionResources {
         self.resources.clone()
     }
 
-    pub(crate) fn get_msg(&self) -> Message {
+    pub(crate) fn msg(&self) -> Message {
         self.msg.clone()
     }
 
-    pub(crate) fn get_arc_deck(&self) -> Arc<RwLock<Deck>> {
+    pub(crate) fn arc_deck(&self) -> Arc<RwLock<Deck>> {
         self.deck.clone()
     }
 
@@ -136,7 +160,7 @@ impl Hub {
     }
 
     pub(crate) fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        self.msg.set_sender(self.get_aid());
+        self.msg.set_sender(self.aid());
         self.deck
             .read()
             .unwrap()
@@ -144,7 +168,7 @@ impl Hub {
     }
 
     pub(crate) fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
-        self.msg.set_sender(self.get_aid());
+        self.msg.set_sender(self.aid());
         self.deck
             .read()
             .unwrap()
@@ -157,7 +181,7 @@ impl Hub {
         match result {
             Ok(received_msg) => {
                 self.msg = received_msg;
-                Ok(self.msg.get_type())
+                Ok(self.msg.message_type())
             }
             Err(err) => Err(ErrorCode::MpscRecv(err)),
         }

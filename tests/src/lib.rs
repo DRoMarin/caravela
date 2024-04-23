@@ -9,13 +9,10 @@ mod tests {
         struct Test(Agent);
         impl Behavior for Test {
             fn action(&mut self) {
-                println!(
-                    "\n{}: Hello! I'm Agent Test",
-                    self.get_agent_ref().get_aid().get_name()
-                )
+                println!("\n{}: Hello! I'm Agent Test", self.agent_mut_ref().aid())
             }
 
-            fn get_agent_ref(&mut self) -> &mut Agent {
+            fn agent_mut_ref(&mut self) -> &mut Agent {
                 &mut self.0
             }
 
@@ -37,13 +34,12 @@ mod tests {
         struct Valid(Agent);
         struct Invalid {
             ag: Agent,
-            counter: u32,
         }
 
         impl Behavior for Valid {
             fn action(&mut self) {}
 
-            fn get_agent_ref(&mut self) -> &mut Agent {
+            fn agent_mut_ref(&mut self) -> &mut Agent {
                 &mut self.0
             }
 
@@ -54,15 +50,12 @@ mod tests {
         impl Behavior for Invalid {
             fn action(&mut self) {}
 
-            fn get_agent_ref(&mut self) -> &mut Agent {
+            fn agent_mut_ref(&mut self) -> &mut Agent {
                 &mut self.ag
             }
 
             fn agent_builder(base_agent: Agent) -> Self {
-                Self {
-                    ag: base_agent,
-                    counter: 0,
-                }
+                Self { ag: base_agent }
             }
         }
         let mut agent_platform = Platform::new("test_inst".to_string());

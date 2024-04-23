@@ -70,9 +70,9 @@ impl Deck {
                 .insert(description.get_name(), description);
         }
     */
-    pub(crate) fn search_agent(&self, nickname: &str) -> Result<(), ErrorCode> {
-        println!("SEARCHED: {}", nickname);
-        if self.white_pages_directory.contains_key(nickname) {
+    pub(crate) fn search_agent(&self, name: &str) -> Result<(), ErrorCode> {
+        println!("SEARCHED: {}", name);
+        if self.white_pages_directory.contains_key(name) {
             Ok(())
         } else {
             for key in self.white_pages_directory.keys() {
@@ -84,57 +84,57 @@ impl Deck {
 
     pub(crate) fn insert_agent(
         &mut self,
-        nickname: &str,
+        name: &str,
         description: Description,
     ) -> Result<(), ErrorCode> {
         if self.white_pages_directory.len().eq(&MAX_SUBSCRIBERS) {
             Err(ErrorCode::ListFull)
         } else {
             self.white_pages_directory
-                .insert(nickname.to_string(), description);
+                .insert(name.to_string(), description);
             Ok(())
         }
     }
 
     //pub(crate) fn modify_agent(&self) -> ErrorCode {}
 
-    pub(crate) fn remove_agent(&mut self, nickname: &str) -> Result<(), ErrorCode> {
-        if self.white_pages_directory.remove(nickname).is_none() {
+    pub(crate) fn remove_agent(&mut self, name: &str) -> Result<(), ErrorCode> {
+        if self.white_pages_directory.remove(name).is_none() {
             return Err(ErrorCode::Invalid);
         }
 
-        if self.control_block_directory.remove(nickname).is_none() {
+        if self.control_block_directory.remove(name).is_none() {
             return Err(ErrorCode::Invalid);
         }
         Ok(())
     }
 
-    pub(crate) fn get_agent(&self, nickname: &str) -> Description {
-        self.white_pages_directory.get(nickname).unwrap().clone()
+    pub(crate) fn agent_aid(&self, name: &str) -> Description {
+        self.white_pages_directory.get(name).unwrap().clone()
     }
 
-    pub(crate) fn unpark_agent(&mut self, nickname: &str) {
+    pub(crate) fn unpark_agent(&mut self, name: &str) {
         self.handle_directory
-            .entry(nickname.to_string())
+            .entry(name.to_string())
             .and_modify(|handle| handle.thread().unpark());
     }
 
-    pub(crate) fn modify_control_block(&mut self, nickname: &str, field: TcbField, val: bool) {
+    pub(crate) fn modify_control_block(&mut self, name: &str, field: TcbField, val: bool) {
         match field {
             TcbField::Suspend => self
                 .control_block_directory
-                .entry(nickname.to_string())
+                .entry(name.to_string())
                 .and_modify(|x| x.suspend.store(val, Ordering::Relaxed)),
 
             TcbField::Quit => self
                 .control_block_directory
-                .entry(nickname.to_string())
+                .entry(name.to_string())
                 .and_modify(|x| x.quit.store(val, Ordering::Relaxed)),
         };
     }
 
-    pub(crate) fn get_agent_state(&self, nickname: &str) -> AgentState {
-        let block = self.control_block_directory.get(nickname).unwrap();
+    pub(crate) fn agent_state(&self, name: &str) -> AgentState {
+        let block = self.control_block_directory.get(name).unwrap();
         if block.suspend.load(Ordering::Relaxed) {
             AgentState::Suspended
         } else if block.wait.load(Ordering::Relaxed) {
@@ -166,7 +166,7 @@ impl Deck {
         sync: SyncType,
     ) -> Result<(), ErrorCode> {
         //check memberships and roles
-        let address = receiver_aid.get_address();
+        let address = receiver_aid.address();
         let result = match sync {
             SyncType::Blocking => SendResult::Blocking(address.send(msg)),
             SyncType::NonBlocking => SendResult::NonBlocking(address.try_send(msg)),

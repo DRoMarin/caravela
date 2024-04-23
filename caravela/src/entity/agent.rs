@@ -19,12 +19,17 @@ use std::{
     time::Duration,
 };
 
+/// This Enum specifies the different states in an Agent Lifecycle.
 #[derive(PartialEq, Clone, Copy)]
 pub enum AgentState {
-    Waiting,
-    Active,
-    Suspended,
+    /// The Agent is present in the platform, but inactive.
     Initiated,
+    /// THe Agent is Active
+    Active,
+    /// The Agent is temporarily halted.
+    Waiting,
+    /// The Agent is indifinately unavailable.
+    Suspended,
 }
 
 pub(crate) struct ControlBlock {
@@ -69,28 +74,18 @@ impl Agent {
         })
     }
     /// Get the current Agent's Agent Identifier Description (AID) struct
-    pub fn get_aid(&self) -> Description {
-        self.hub.get_aid()
-    }
-
-    /// Get the given nickname to the current Agent
-    pub fn get_nickname(&self) -> String {
-        self.hub.get_nickname()
-    }
-
-    /// Get the name of the Home Agent Platform (HAP) in which the Agent resides
-    pub fn get_hap(&self) -> String {
-        self.hub.get_hap()
+    pub fn aid(&self) -> Description {
+        self.hub.aid()
     }
 
     /// Get the Execution Resources struct of the current Agent
-    pub fn get_resources(&self) -> ExecutionResources {
-        self.hub.get_resources()
+    pub fn resources(&self) -> ExecutionResources {
+        self.hub.resources()
     }
 
     /// Get the Message struct currently held by the Agent
-    pub fn get_msg(&self) -> Message {
-        self.hub.get_msg()
+    pub fn msg(&self) -> Message {
+        self.hub.msg()
     }
 
     /// Set the contents and type of the message. This is used to format the message before it is sent
@@ -129,7 +124,7 @@ impl Agent {
         if let Ok(msg_type) = recv_result {
             match msg_type {
                 MessageType::Inform => {
-                    if let Content::AID(x) = self.get_msg().get_content() {
+                    if let Content::AID(x) = self.msg().content() {
                         self.add_contact_aid(agent, x)
                     } else {
                         Err(ErrorCode::Invalid)
@@ -173,7 +168,8 @@ impl Agent {
     }
 
     pub(crate) fn init(&mut self) -> bool {
-        println!("{}: STARTING", self.get_nickname());
+        //println!("{}: STARTING", self.get_nickname());
+        println!("{}: STARTING", self.aid());
         self.tcb.active.store(true, Ordering::Relaxed);
         true
     }
@@ -193,7 +189,8 @@ impl Agent {
     pub(crate) fn takedown(&mut self) -> bool {
         let ams = "AMS".to_string();
         let msg_type = MessageType::Request;
-        let msg_content = Content::Request(RequestType::Deregister(self.get_nickname()));
+        //let msg_content = Content::Request(RequestType::Deregister(self.get_nickname()));
+        let msg_content = Content::Request(RequestType::Deregister(self.aid().name()));
         self.set_msg(msg_type, msg_content);
         let _ = self.send_to(&ams);
         true

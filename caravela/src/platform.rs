@@ -10,7 +10,7 @@ use crate::{
     },
 };
 use std::sync::{atomic::AtomicBool, Arc, RwLock};
-use thread_priority::*;
+use thread_priority::{ThreadBuilderExt, ThreadPriority};
 
 //pub mod organization;
 
@@ -30,19 +30,24 @@ impl Platform {
         }
     }
 
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    //pub fn boot(&mut self) -> Result<(), &str> {
     pub fn boot(&mut self) -> Result<(), &str> {
         let default = DefaultConditions;
-        let mut ams = Ams::<DefaultConditions>::new(self, default);
-        let ams_name = "AMS".to_string();
+        let mut ams = Ams::<DefaultConditions>::new(self.name(), self.deck.clone(), default);
+        let ams_nickname = "AMS".to_string();
         let mut deck_guard = self.deck.write().unwrap();
         deck_guard
             .white_pages_directory
-            .insert(ams_name.clone(), ams.hub.get_aid());
-        self.ams_aid = Some(ams.hub.get_aid());
+            .insert(ams.hub.aid().name(), ams.hub.aid());
+        self.ams_aid = Some(ams.hub.aid());
         let ams_handle = std::thread::Builder::new().spawn_with_priority(
-            ThreadPriority::Crossplatform(ams.hub.get_resources().get_priority()),
+            ThreadPriority::Crossplatform(ams.hub.resources().priority()),
             move |_| {
-                println!("\nBOOTING AMS: {}\n", ams.hub.get_aid().get_name());
+                println!("\nBOOTING AMS: {}\n", ams.hub.aid());
                 ams.service_function();
             },
         );
@@ -50,9 +55,11 @@ impl Platform {
             return Err("AMS ended");
         }*/
         if let Ok(handle) = ams_handle {
-            deck_guard.handle_directory.insert(ams_name, handle);
+            deck_guard.handle_directory.insert(ams_nickname, handle);
+            Ok(())
+        } else {
+            Err("Could not launch AMS")
         }
-        Ok(())
     }
 
     pub fn add<T: Behavior>(
@@ -78,28 +85,26 @@ impl Platform {
             tcb.clone(),
             hap,
         );
-        match base_agent_creation {
-            Ok(mut base_agent) => {
-                let mut deck_guard = self.deck.write().unwrap();
-                deck_guard
-                    .control_block_directory
-                    .insert(nickname.clone(), tcb);
-                deck_guard
-                    .white_pages_directory
-                    .insert(nickname, base_agent.get_aid());
-                base_agent
-                    .directory
-                    .insert("AMS".to_string(), self.ams_aid.clone().unwrap());
-                let agent = T::agent_builder(base_agent);
-                Ok(agent)
-            }
-            Err(x) => Err(x),
-        }
+        let mut base_agent = base_agent_creation?;
+
+        //    Ok(mut base_agent) => {
+        let mut deck_guard = self.deck.write().unwrap();
+        deck_guard
+            .control_block_directory
+            .insert(nickname.clone(), tcb);
+        deck_guard
+            .white_pages_directory
+            .insert(base_agent.aid().name(), base_agent.aid());
+        base_agent
+            .directory
+            .insert("AMS".to_string(), self.ams_aid.clone().unwrap());
+        let agent = T::agent_builder(base_agent);
+        Ok(agent)
     }
 
     pub fn start(&mut self, mut agent: impl Behavior + Send + 'static) -> Result<(), &str> {
-        let nickname = agent.get_agent_ref().get_nickname();
-        let prio = agent.get_agent_ref().get_resources().get_priority();
+        let nickname = agent.agent_mut_ref().aid().name();
+        let prio = agent.agent_mut_ref().resources().priority();
         let mut platform_guard = self.deck.write().unwrap();
         let agent_handle = std::thread::Builder::new()
             .spawn_with_priority(ThreadPriority::Crossplatform(prio), move |_| execute(agent));

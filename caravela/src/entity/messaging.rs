@@ -82,19 +82,19 @@ impl Message {
         self.sender_aid = Some(sender)
     }
 
-    pub fn get_type(&self) -> MessageType {
+    pub fn message_type(&self) -> MessageType {
         self.message_type.clone()
     }
 
-    pub fn get_content(&self) -> Content {
+    pub fn content(&self) -> Content {
         self.content.clone()
     }
 
-    pub fn get_sender(&self) -> Option<Description> {
+    pub fn sender(&self) -> Option<Description> {
         self.sender_aid.clone()
     }
 
-    pub fn get_receiver(&self) -> Option<Description> {
+    pub fn receiver(&self) -> Option<Description> {
         self.receiver_aid.clone()
     }
 }
