@@ -29,8 +29,6 @@ pub struct ExecutionResources {
 }
 
 pub(crate) struct Hub {
-    //nickname: String,
-    //hap: String,
     aid: Description,
     resources: ExecutionResources,
     rx: RX,
@@ -95,14 +93,11 @@ impl ExecutionResources {
         self.priority
     }
 
-    /*pub fn priority_value(&self) -> u8 {
-        self.priority.into()
-    }*/
-
     pub fn stack_size(&self) -> StackSize {
         self.stack_size
     }
 }
+
 impl Hub {
     pub(crate) fn new(
         nickname: String,
@@ -124,8 +119,7 @@ impl Hub {
             msg,
         }
     }
-}
-impl Hub {
+
     pub(crate) fn aid(&self) -> Description {
         self.aid.clone()
     }

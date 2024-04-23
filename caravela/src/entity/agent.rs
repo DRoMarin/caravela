@@ -41,22 +41,17 @@ pub(crate) struct ControlBlock {
 
 /// The base agent type with AID, task control, and messaging functionality.
 pub struct Agent {
-    //pub struct Agent<T> {
     pub(crate) hub: Hub,
-    //pub msg: Message,
     pub(crate) directory: Directory,
     pub(crate) tcb: Arc<ControlBlock>,
-    //pub data: T,
     //pub membership,
 }
 
 impl Agent {
-    //impl<T> Agent<T> {
     pub(crate) fn new(
         nickname: String,
         priority: u8,
         stack_size: StackSize,
-        //data: T,
         deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
         hap: String,
@@ -73,22 +68,22 @@ impl Agent {
             tcb,
         })
     }
-    /// Get the current Agent's Agent Identifier Description (AID) struct
+    /// Get the current Agent's Agent Identifier Description (AID) struct.
     pub fn aid(&self) -> Description {
         self.hub.aid()
     }
 
-    /// Get the Execution Resources struct of the current Agent
+    /// Get the Execution Resources struct of the current Agent.
     pub fn resources(&self) -> ExecutionResources {
         self.hub.resources()
     }
 
-    /// Get the Message struct currently held by the Agent
+    /// Get the Message struct currently held by the Agent.
     pub fn msg(&self) -> Message {
         self.hub.msg()
     }
 
-    /// Set the contents and type of the message. This is used to format the message before it is sent
+    /// Set the contents and type of the message. This is used to format the message before it is sent.
     pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.hub.set_msg(msg_type, msg_content)
     }
