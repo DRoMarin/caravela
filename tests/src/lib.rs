@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use caravela::agent::*;
     use caravela::*;
     //use caravel_derive::*;
 

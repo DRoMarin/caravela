@@ -1,4 +1,4 @@
-pub(crate) mod agent;
+pub mod agent;
 pub(crate) mod messaging;
 pub(crate) mod service;
 
@@ -6,7 +6,8 @@ use crate::{
     deck::{Deck, SyncType},
     {ErrorCode, Priority, StackSize, RX, TX},
 };
-use messaging::{Content, Message, MessageType};
+pub use agent::{behavior::Behavior, Agent};
+pub use messaging::{Content, Message, MessageType, RequestType};
 use std::{
     sync::{mpsc::sync_channel, Arc, RwLock},
     thread::{current, ThreadId},

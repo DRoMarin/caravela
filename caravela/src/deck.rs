@@ -1,6 +1,10 @@
 use crate::{
-    entity::{agent::ControlBlock, messaging::Message, Description},
-    AgentState, ErrorCode, MAX_SUBSCRIBERS,
+    entity::{
+        agent::{AgentState, ControlBlock},
+        messaging::Message,
+        Description,
+    },
+    ErrorCode, MAX_SUBSCRIBERS,
 };
 use std::{
     collections::HashMap,

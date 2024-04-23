@@ -4,8 +4,8 @@ pub(crate) mod deck;
 pub(crate) mod entity;
 pub(crate) mod platform;
 
+pub use self::entity::agent;
 pub use self::entity::{
-    agent::{behavior::Behavior, Agent},
     messaging::{Content, Message, MessageType, RequestType},
     Description, ExecutionResources,
 };
@@ -34,12 +34,4 @@ pub enum ErrorCode {
     Invalid,
     InvalidRequest,
     NotRegistered,
-}
-
-#[derive(PartialEq, Clone, Copy)]
-pub enum AgentState {
-    Waiting,
-    Active,
-    Suspended,
-    Initiated,
 }

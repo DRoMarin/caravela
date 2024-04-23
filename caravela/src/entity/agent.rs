@@ -1,3 +1,4 @@
+pub use behavior::Behavior;
 pub(crate) mod behavior;
 
 use crate::{
@@ -17,6 +18,14 @@ use std::{
     thread,
     time::Duration,
 };
+
+#[derive(PartialEq, Clone, Copy)]
+pub enum AgentState {
+    Waiting,
+    Active,
+    Suspended,
+    Initiated,
+}
 
 pub(crate) struct ControlBlock {
     pub active: AtomicBool,
@@ -73,17 +82,17 @@ impl Agent {
     pub fn get_hap(&self) -> String {
         self.hub.get_hap()
     }
-    
+
     /// Get the Execution Resources struct of the current Agent
     pub fn get_resources(&self) -> ExecutionResources {
         self.hub.get_resources()
     }
-    
+
     /// Get the Message struct currently held by the Agent
     pub fn get_msg(&self) -> Message {
         self.hub.get_msg()
     }
-    
+
     /// Set the contents and type of the message. This is used to format the message before it is sent
     pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.hub.set_msg(msg_type, msg_content)

@@ -1,12 +1,13 @@
 use crate::{
     deck::TcbField,
     entity::{
+        agent::AgentState,
         messaging::{Content, MessageType, RequestType},
         service::{Service, UserConditions},
         ExecutionResources, Hub,
     },
     platform::Platform,
-    AgentState, ErrorCode, DEFAULT_STACK, MAX_PRIORITY,
+    ErrorCode, DEFAULT_STACK, MAX_PRIORITY,
 };
 
 //AMS Needs a atomic control block for thread lifecycle control
