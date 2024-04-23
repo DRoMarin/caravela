@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use caravel::*;
+    use caravela::*;
     //use caravel_derive::*;
 
     #[test]

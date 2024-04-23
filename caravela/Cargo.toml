@@ -1,5 +1,5 @@
 [package]
-name = "caravel"
+name = "caravela"
 version = "0.1.0"
 edition = "2021"
 description = "A MAS based applications framework"

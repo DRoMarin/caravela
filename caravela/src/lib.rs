@@ -4,12 +4,12 @@ pub(crate) mod deck;
 pub(crate) mod entity;
 pub(crate) mod platform;
 
-pub use entity::{
+pub use self::entity::{
     agent::{behavior::Behavior, Agent},
     messaging::{Content, Message, MessageType, RequestType},
     Description, ExecutionResources,
 };
-pub use platform::Platform;
+pub use self::platform::Platform;
 use std::sync::mpsc::{Receiver, RecvError, SyncSender};
 use thread_priority::*;
 

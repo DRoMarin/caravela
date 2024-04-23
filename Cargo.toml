@@ -3,7 +3,7 @@
 resolver = "2"
 
 members = [
-    "caravel",
+    "caravela",
     #    "caravel_derive",
     "tests",
 ]
