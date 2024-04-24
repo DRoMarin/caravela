@@ -94,10 +94,26 @@ impl Agent {
     /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+        println!("{}: SENDING to {}",self.aid(), agent);
         if let Some(agent) = self.directory.get(agent) {
-            self.hub.send_to_aid(agent.clone())
+            self.msg().set_receiver(agent.clone());
+            self.send_to_aid(agent.clone())
         } else {
-            self.hub.send_to(agent)
+            let ams = "AMS";
+            let _ = self.send_to(ams)?;
+            let search_req_result = self.receive()?;
+            if search_req_result != MessageType::Inform {
+                return Err(ErrorCode::NotFound);
+            }
+            println!("REQUESTED TO AMS, FOUND");
+            self.msg()
+                .set_content(Content::Request(RequestType::Search(agent.to_string())));
+            let msg = self.msg();
+            if let Content::AID(target) = msg.content() {
+                self.send_to_aid(target)
+            } else {
+                Err(ErrorCode::Invalid)
+            }
         }
     }
 
@@ -116,7 +132,8 @@ impl Agent {
         let msg_type = MessageType::Request;
         let msg_content = Content::Request(RequestType::Search(agent.to_string()));
         self.set_msg(msg_type, msg_content);
-        let send_result = self.send_to("AMS");
+        let ams = "AMS";
+        let send_result = self.send_to(ams);
         send_result?;
         let recv_result = self.receive();
         if let Ok(msg_type) = recv_result {
@@ -166,7 +183,6 @@ impl Agent {
     }
 
     pub(crate) fn init(&mut self) -> bool {
-        //println!("{}: STARTING", self.get_nickname());
         println!("{}: STARTING", self.aid());
         self.tcb.active.store(true, Ordering::Relaxed);
         true
@@ -185,12 +201,11 @@ impl Agent {
     }
 
     pub(crate) fn takedown(&mut self) -> bool {
-        let ams = "AMS".to_string();
+        let ams = "AMS";
         let msg_type = MessageType::Request;
-        //let msg_content = Content::Request(RequestType::Deregister(self.get_nickname()));
         let msg_content = Content::Request(RequestType::Deregister(self.aid().name()));
         self.set_msg(msg_type, msg_content);
-        let _ = self.send_to(&ams);
+        let _ = self.send_to(ams);
         true
     }
 }

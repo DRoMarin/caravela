@@ -67,62 +67,74 @@ mod tests {
         assert!(ag_c.is_err());
     }
 
-    /*
     #[test]
     fn contacts() {
-        struct AgentList(Agent<()>, u32);
-        struct AgentPresent(Agent<()>);
-        let data_list = AgentList;
-        let data_present = AgentPresent;
+        struct AgentList(Agent);
+        struct AgentPresent(Agent);
 
         impl Behavior for AgentPresent {
             fn action(&mut self) {
-                println!("{}: waiting", self.get_nickname());
-                self.wait(5000);
-                self.receive();
+                println!("{}: waiting", self.0.aid());
+                self.0.wait(5000);
+                _ = self.0.receive();
+                println!("{}: RECEIVED!", self.0.aid());
             }
 
             fn failure_detection(&mut self) -> bool {
                 false
             }
+
+            fn agent_builder(base_agent: Agent) -> Self {
+                Self(base_agent)
+            }
+
+            fn agent_mut_ref(&mut self) -> &mut Agent {
+                &mut self.0
+            }
         }
 
         impl Behavior for AgentList {
             fn setup(&mut self) {
-                println!("ADDING CONTACTS");
-                let result = self.add_contact("Agent-Present");
+                println!("{}: ADDING CONTACTS", self.0.aid());
+                let result: Result<(), ErrorCode> = self.0.add_contact("Agent-Present");
+
                 assert_eq!(result, Ok(()), "NOT ADDED CORRECTLY");
-                let result = self.add_contact("Agent-Absent");
+
+                let result = self.0.add_contact("Agent-Absent");
                 assert_eq!(
                     result,
                     Err(ErrorCode::NotRegistered),
                     "AGENT IS NOT MISSING"
                 );
-                println!("ADDED CONTACTS");
-                self.set_msg(MessageType::Inform, Content::None);
-                self.send_to("Agent-Present");
+                println!("{}: ADDED CONTACTS", self.0.aid());
+                self.0.set_msg(MessageType::Inform, Content::None);
+                let _ = self.0.send_to("Agent-Present");
+            }
+
+            fn agent_builder(base_agent: Agent) -> Self {
+                Self(base_agent)
+            }
+
+            fn agent_mut_ref(&mut self) -> &mut Agent {
+                &mut self.0
             }
         }
 
-        //let _ = scheduler::set_self_policy(scheduler::Policy::Fifo, 0);
-
         let mut agent_platform = Platform::new("test_contacts".to_string());
-        agent_platform.boot();
-        let ag_present = agent_platform
-            .add("Agent-Present".to_string(), 1, 10, data_present)
+        let _ = agent_platform.boot();
+        let ag_present: AgentPresent = agent_platform
+            .add("Agent-Present".to_string(), 1, 10)
             .unwrap();
 
-        let ag_list = agent_platform
-            .add("Agent-List".to_string(), 1, 10, data_list)
-            .unwrap();
+        let ag_list: AgentList = agent_platform.add("Agent-List".to_string(), 1, 10).unwrap();
 
         println!("STARTING PRESENT");
-        agent_platform.start(ag_present);
+        let _ = agent_platform.start(ag_present);
         println!("STARTING LIST");
-        agent_platform.start(ag_list);
+        let _ = agent_platform.start(ag_list);
         std::thread::sleep(std::time::Duration::from_millis(15000));
     }
-    */
+
     /*
         #[test]
         fn concurrent() {

@@ -4,12 +4,12 @@ pub trait Behavior {
     fn agent_builder(base_agent: Agent) -> Self;
     fn agent_mut_ref(&mut self) -> &mut Agent;
     fn setup(&mut self) {
-        println!("{}: no setup implemented", self.agent_mut_ref().aid());
+        println!("\n{}: no setup implemented", self.agent_mut_ref().aid());
     }
 
     fn done(&mut self) -> bool {
         println!(
-            "{}: execution done, taking down...",
+            "{}: execution done, taking down.\n",
             self.agent_mut_ref().aid()
         );
         true

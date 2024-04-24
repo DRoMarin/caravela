@@ -16,7 +16,6 @@ use crate::{
 pub(crate) struct Ams<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     pub(crate) hub: Hub,
-    //pub msg: Message,
     conditions: T,
 }
 
@@ -25,16 +24,12 @@ impl<T: UserConditions> Service for Ams<T> {
     fn new(hap: String, deck: Arc<RwLock<Deck>>, conditions: T) -> Self {
         let name = "AMS".to_string();
         let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
-        //let platform = hap.name.clone();
-        //let platform = hap.name.clone();
-        //let deck = hap.deck.clone();
-        //let hub = Hub::new(name.clone(), resources, deck, platform);
         let hub = Hub::new(name, resources, deck, hap);
         Self { hub, conditions }
     }
 
     fn search_agent(&self, name: &str) -> Result<(), ErrorCode> {
-        self.hub.arc_deck().read().unwrap().search_agent(name) //ADD ARGS
+        self.hub.arc_deck().read().unwrap().search_agent(name) 
     }
 
     fn register_agent(&mut self, name: &str) -> Result<(), ErrorCode> {
@@ -94,7 +89,6 @@ impl<T: UserConditions> Service for Ams<T> {
                 // setting up reply
                 println!(
                     "{}: REPLYING TO {}",
-                    //self.hub.get_nickname(),
                     self.hub.aid(),
                     receiver
                 );

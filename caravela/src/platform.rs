@@ -96,10 +96,11 @@ impl Platform {
             .insert(nickname.clone(), tcb);
         deck_guard
             .white_pages_directory
-            .insert(base_agent.aid().name(), base_agent.aid());
+            .insert(base_agent.aid().nickname(), base_agent.aid());
         base_agent
             .directory
             .insert("AMS".to_string(), self.ams_aid.clone().unwrap());
+        println!("{}", self.ams_aid.as_ref().unwrap());
         let agent = T::agent_builder(base_agent);
         Ok(agent)
     }

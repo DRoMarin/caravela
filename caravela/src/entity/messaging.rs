@@ -34,7 +34,6 @@ pub enum RequestType {
     Search(String),
     //Modify(String, Description),
     Register(String),
-    //Register(String, Description),
     Deregister(String),
     Suspend(String),
     Resume(String),

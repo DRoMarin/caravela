@@ -76,13 +76,12 @@ impl Deck {
         }
     */
     pub(crate) fn search_agent(&self, name: &str) -> Result<(), ErrorCode> {
-        println!("SEARCHED: {}", name);
         if self.white_pages_directory.contains_key(name) {
             Ok(())
         } else {
-            for key in self.white_pages_directory.keys() {
+            /* for key in self.white_pages_directory.keys() {
                 println!("{}", key)
-            }
+            }*/
             Err(ErrorCode::NotFound)
         }
     }
@@ -151,7 +150,7 @@ impl Deck {
         }
     }
 
-    pub(crate) fn send(
+    /*pub(crate) fn send(
         &self,
         receiver: &str,
         msg: Message,
@@ -162,7 +161,7 @@ impl Deck {
             None => return Err(ErrorCode::NotRegistered),
         };
         self.send_to_aid(receiver_aid, msg, sync)
-    }
+    }*/
 
     pub(crate) fn send_to_aid(
         &self,

@@ -114,12 +114,9 @@ impl Hub {
         hap: String,
     ) -> Self {
         let (tx, rx) = sync_channel::<Message>(1);
-        //let name = nickname.clone() + "@" + &hap.clone();
         let aid = Description::new(nickname, hap, tx, None);
         let msg = Message::new();
         Self {
-            //nickname,
-            //hap,
             aid,
             resources,
             rx,
@@ -161,13 +158,13 @@ impl Hub {
         self.msg.set_content(msg_content);
     }
 
-    pub(crate) fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+    /*pub(crate) fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
         self.msg.set_sender(self.aid());
         self.deck
             .read()
             .unwrap()
             .send(agent, self.msg.clone(), SyncType::Blocking)
-    }
+    }*/
 
     pub(crate) fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
         self.msg.set_sender(self.aid());
