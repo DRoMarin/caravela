@@ -1,14 +1,15 @@
 use super::Description;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug, Default)]
 pub enum MessageType {
     AcceptProposal,
     Agree,
     Cancel,
-    CFP,
+    CallForProposal,
     Confirm,
     Disconfirm,
     Failure,
+    #[default]
     Inform,
     InformIf,
     InformRef,
@@ -26,8 +27,9 @@ pub enum MessageType {
     None,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub enum RequestType {
+    #[default]
     None,
     Search(String),
     //Modify(String, Description),
@@ -40,15 +42,16 @@ pub enum RequestType {
     Terminate(String),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub enum Content {
+    #[default]
     None,
     Text(String),
     Request(RequestType),
     AID(Description),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct Message {
     sender_aid: Option<Description>,
     receiver_aid: Option<Description>,

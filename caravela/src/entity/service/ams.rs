@@ -12,6 +12,7 @@ use crate::{
 };
 
 //AMS Needs a atomic control block for thread lifecycle control
+#[derive(Debug)]
 pub(crate) struct Ams<T: UserConditions> {
     //become Service<AMS> or Service<DF>
     pub(crate) hub: Hub,

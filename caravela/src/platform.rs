@@ -9,11 +9,12 @@ use crate::{
         Description,
     },
 };
-use std::sync::{atomic::AtomicBool, Arc, RwLock};
+use std::sync::{Arc, RwLock};
 use thread_priority::{ThreadBuilderExt, ThreadPriority};
 
 //pub mod organization;
 
+#[derive(Debug)]
 pub struct Platform {
     pub(crate) name: String,
     pub(crate) ams_aid: Option<Description>,
@@ -69,12 +70,13 @@ impl Platform {
         stack_size: usize,
     ) -> Result<T, &str> {
         //) -> Result<Agent<T>, &str> {
-        let tcb = Arc::new(ControlBlock {
+        /*let tcb = Arc::new(ControlBlock {
             active: AtomicBool::new(false),
             wait: AtomicBool::new(false),
             suspend: AtomicBool::new(false),
             quit: AtomicBool::new(false),
-        });
+        });*/
+        let tcb = Arc::new(ControlBlock::default());
         let hap = self.name.clone();
         let deck = self.deck.clone();
         let base_agent_creation = Agent::new(

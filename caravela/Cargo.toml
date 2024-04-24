@@ -6,8 +6,7 @@ description = "A MAS based applications framework"
 repository = "https://github.com/DRoMarin/caravela"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
-
-exclude = ["src/entity,service/organizations.rs"]
+exclude = ["src/entity/service/organization.rs"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

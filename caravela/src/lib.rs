@@ -22,7 +22,7 @@ pub const DEFAULT_STACK: usize = 8;
 pub const MAX_PRIORITY: u8 = 99;
 pub const MAX_SUBSCRIBERS: usize = 64;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Default)]
 pub enum ErrorCode {
     MpscRecv(RecvError),
     Disconnected,
@@ -31,6 +31,7 @@ pub enum ErrorCode {
     Duplicated,
     NotFound,
     Timeout,
+    #[default]
     Invalid,
     InvalidRequest,
     NotRegistered,

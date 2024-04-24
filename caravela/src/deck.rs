@@ -23,21 +23,26 @@ pub(crate) type HandleDirectory = HashMap<String, JoinHandle<()>>;
 //pub(crate) type StateDirectory = HashMap<String, AgentState>;
 //pub(crate) type AddressDirectory = HashMap<String, Sender<Message>>;
 
+#[derive(Debug)]
 pub enum SyncType {
     Blocking,
     #[allow(dead_code)]
     NonBlocking, //USE?
 }
+
+#[derive(Debug)]
 enum SendResult {
     Blocking(Result<(), SendError<Message>>),
     NonBlocking(Result<(), TrySendError<Message>>),
 }
 
+#[derive(Debug)]
 pub(crate) enum TcbField {
     Suspend,
     Quit,
 }
 
+#[derive(Debug)]
 pub struct Deck {
     pub(crate) handle_directory: HandleDirectory,
     pub(crate) white_pages_directory: Directory,

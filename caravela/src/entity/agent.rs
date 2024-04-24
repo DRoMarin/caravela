@@ -20,9 +20,10 @@ use std::{
 };
 
 /// This Enum specifies the different states in an Agent Lifecycle.
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug, Default)]
 pub enum AgentState {
     /// The Agent is present in the platform, but inactive.
+    #[default]
     Initiated,
     /// THe Agent is Active
     Active,
@@ -32,6 +33,7 @@ pub enum AgentState {
     Suspended,
 }
 
+#[derive(Debug, Default)]
 pub(crate) struct ControlBlock {
     pub active: AtomicBool,
     pub wait: AtomicBool,
@@ -40,6 +42,7 @@ pub(crate) struct ControlBlock {
 }
 
 /// The base agent type with AID, task control, and messaging functionality.
+#[derive(Debug)]
 pub struct Agent {
     pub(crate) hub: Hub,
     pub(crate) directory: Directory,

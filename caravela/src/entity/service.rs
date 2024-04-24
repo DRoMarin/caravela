@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::{deck::Deck, entity::messaging::RequestType, ErrorCode};
 
+#[derive(Debug)]
 pub struct DefaultConditions;
 
 pub(crate) trait Service {

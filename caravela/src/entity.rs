@@ -14,7 +14,7 @@ use std::{
     thread::{current, ThreadId},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)] //Default?
 pub struct Description {
     nickname: String,
     hap: String,
@@ -22,12 +22,13 @@ pub struct Description {
     thread: Option<ThreadId>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct ExecutionResources {
     priority: Priority,
     stack_size: StackSize,
 }
 
+#[derive(Debug)]
 pub(crate) struct Hub {
     aid: Description,
     resources: ExecutionResources,
@@ -95,6 +96,13 @@ impl ExecutionResources {
 
     pub fn stack_size(&self) -> StackSize {
         self.stack_size
+    }
+}
+
+impl Display for ExecutionResources {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let prio: u8 = self.priority().into();
+        write!(f, "Priority: {}, Stack Size {}", prio, self.stack_size)
     }
 }
 
