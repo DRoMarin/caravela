@@ -1,11 +1,13 @@
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
+
     use caravela::agent::*;
     use caravela::*;
     //use caravel_derive::*;
 
     #[test]
-    fn platform_boot() {
+    fn platform_boot() -> Result<(), Box<dyn Error>> {
         struct Test(Agent);
         impl Behavior for Test {
             fn action(&mut self) {
@@ -23,14 +25,15 @@ mod tests {
         let mut agent_platform = Platform::new("test_boot".to_string());
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
-        let agent_test: Test = agent_platform.add("AgentTest".to_string(), 1, 4).unwrap();
+        let agent_test: Test = agent_platform.add("AgentTest".to_string(), 1, 4)?;
         let start = agent_platform.start(agent_test);
         std::thread::sleep(std::time::Duration::from_millis(500));
         assert!(start.is_ok());
+        Ok(())
     }
 
     #[test]
-    fn instantiating() {
+    fn instantiating() -> Result<(), Box<dyn Error>> {
         struct Valid(Agent);
         struct Invalid {
             ag: Agent,
@@ -59,16 +62,19 @@ mod tests {
             }
         }
         let mut agent_platform = Platform::new("test_inst".to_string());
-        let _ = agent_platform.boot();
-        let ag_b: Result<Valid, &str> = agent_platform.add("Agent-Valid".to_string(), 98, 4);
-        assert!(ag_b.is_ok());
+        agent_platform.boot()?;
+        let ag_valid: Result<Valid, ErrorCode> =
+            agent_platform.add("Agent-Valid".to_string(), 98, 4);
+        assert!(ag_valid.is_ok());
         std::thread::sleep(std::time::Duration::from_millis(500));
-        let ag_c: Result<Invalid, &str> = agent_platform.add("Agent-Invalid".to_string(), 99, 4);
-        assert!(ag_c.is_err());
+        let ag_invalid: Result<Invalid, ErrorCode> =
+            agent_platform.add("Agent-Invalid".to_string(), 99, 4);
+        assert!(ag_invalid.is_err());
+        Ok(())
     }
 
     #[test]
-    fn contacts() {
+    fn contacts() -> Result<(), Box<dyn Error>> {
         struct AgentList(Agent);
         struct AgentPresent(Agent);
 
@@ -121,18 +127,16 @@ mod tests {
         }
 
         let mut agent_platform = Platform::new("test_contacts".to_string());
-        let _ = agent_platform.boot();
-        let ag_present: AgentPresent = agent_platform
-            .add("Agent-Present".to_string(), 1, 10)
-            .unwrap();
+        agent_platform.boot()?;
 
-        let ag_list: AgentList = agent_platform.add("Agent-List".to_string(), 1, 10).unwrap();
-
+        let ag_present: AgentPresent = agent_platform.add("Agent-Present".to_string(), 1, 10)?;
+        let ag_list: AgentList = agent_platform.add("Agent-List".to_string(), 1, 10)?;
         println!("STARTING PRESENT");
-        let _ = agent_platform.start(ag_present);
+        agent_platform.start(ag_present)?;
         println!("STARTING LIST");
-        let _ = agent_platform.start(ag_list);
+        agent_platform.start(ag_list)?;
         std::thread::sleep(std::time::Duration::from_millis(15000));
+        Ok(())
     }
 
     /*

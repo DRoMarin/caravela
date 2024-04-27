@@ -21,20 +21,22 @@ pub(crate) struct Ams<T: UserConditions> {
 
 impl<T: UserConditions> Service for Ams<T> {
     type Conditions = T;
-    fn new(hap: String, deck: Arc<RwLock<Deck>>, conditions: T) -> Self {
+    fn new(hap: String, deck: Arc<RwLock<Deck>>, conditions: T) -> Result<Self, ErrorCode> {
         let name = "AMS".to_string();
-        let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK);
+        let resources = ExecutionResources::new(MAX_PRIORITY, DEFAULT_STACK)?;
         let hub = Hub::new(name, resources, deck, hap);
-        Self { hub, conditions }
+        Ok(Self { hub, conditions })
     }
 
     fn search_agent(&self, name: &str) -> Result<(), ErrorCode> {
-        self.hub.arc_deck().read().unwrap().search_agent(name) 
+        self.hub.arc_deck().read().unwrap().search_agent(name)
     }
 
     fn register_agent(&mut self, name: &str) -> Result<(), ErrorCode> {
         if !self.conditions.registration_condition() {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidConditions(RequestType::Register(
+                name.to_string(),
+            )));
         }
         if self.search_agent(name).is_err() {
             return Err(ErrorCode::Duplicated);
@@ -49,11 +51,13 @@ impl<T: UserConditions> Service for Ams<T> {
 
     fn deregister_agent(&mut self, name: &str) -> Result<(), ErrorCode> {
         if !self.conditions.deregistration_condition() {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidConditions(RequestType::Deregister(
+                name.to_string(),
+            )));
         }
-        if self.search_agent(name).is_err() {
-            return Err(ErrorCode::NotFound);
-        }
+        //if self.search_agent(name).is_err() {
+        //    return Err(ErrorCode::NotFound);
+        //}
         /*
         println!(
             "{}: SUCCESSFULLY DEREGISTERED {}",
@@ -87,11 +91,7 @@ impl<T: UserConditions> Service for Ams<T> {
                     self.hub.set_msg(MessageType::NotUnderstood, Content::None);
                 }
                 // setting up reply
-                println!(
-                    "{}: REPLYING TO {}",
-                    self.hub.aid(),
-                    receiver
-                );
+                println!("{}: REPLYING TO {}", self.hub.aid(), receiver);
                 let _ = self.hub.send_to_aid(receiver);
             }
             /*println!(
@@ -135,7 +135,9 @@ impl<T: UserConditions> Service for Ams<T> {
 impl<T: UserConditions> Ams<T> {
     pub(crate) fn terminate_agent(&mut self, name: &str) -> Result<(), ErrorCode> {
         if !self.conditions.termination_condition() {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidConditions(RequestType::Terminate(
+                name.to_string(),
+            )));
         }
         if self.search_agent(name).is_err() {
             return Err(ErrorCode::NotFound);
@@ -144,15 +146,18 @@ impl<T: UserConditions> Ams<T> {
         let mut deck_guard = arc_deck.write().unwrap();
         let state = deck_guard.agent_state(name);
         if state != AgentState::Active {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidStateChange(state, AgentState::Terminated));
         }
         deck_guard.modify_control_block(name, TcbField::Quit, true);
         deck_guard.remove_agent(name)
+        //TBD: REMOVE HANDLE AND JOIN THREAD
     }
 
     pub(crate) fn suspend_agent(&self, name: &str) -> Result<(), ErrorCode> {
         if !self.conditions.suspension_condition() {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidConditions(RequestType::Suspend(
+                name.to_string(),
+            )));
         }
         if self.search_agent(name).is_err() {
             return Err(ErrorCode::NotFound);
@@ -161,7 +166,7 @@ impl<T: UserConditions> Ams<T> {
         let mut deck_guard = arc_deck.write().unwrap();
         let state = deck_guard.agent_state(name);
         if state != AgentState::Active {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidStateChange(state, AgentState::Suspended));
         }
         deck_guard.modify_control_block(name, TcbField::Suspend, true);
         Ok(())
@@ -169,7 +174,9 @@ impl<T: UserConditions> Ams<T> {
 
     pub(crate) fn resume_agent(&mut self, name: &str) -> Result<(), ErrorCode> {
         if !self.conditions.resumption_condition() {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidConditions(RequestType::Resume(
+                name.to_string(),
+            )));
         }
         if self.search_agent(name).is_err() {
             return Err(ErrorCode::NotFound);
@@ -178,7 +185,7 @@ impl<T: UserConditions> Ams<T> {
         let mut deck_guard = arc_deck.write().unwrap();
         let state = deck_guard.agent_state(name);
         if state != AgentState::Suspended {
-            return Err(ErrorCode::Invalid);
+            return Err(ErrorCode::InvalidStateChange(state, AgentState::Suspended));
         }
         deck_guard.modify_control_block(name, TcbField::Suspend, false);
         self.hub.arc_deck().write().unwrap().unpark_agent(name);

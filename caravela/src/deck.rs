@@ -103,13 +103,9 @@ impl Deck {
     //pub(crate) fn modify_agent(&self) -> ErrorCode {}
 
     pub(crate) fn remove_agent(&mut self, name: &str) -> Result<(), ErrorCode> {
-        if self.white_pages_directory.remove(name).is_none() {
-            return Err(ErrorCode::Invalid);
-        }
-
-        if self.control_block_directory.remove(name).is_none() {
-            return Err(ErrorCode::Invalid);
-        }
+        self.search_agent(name)?;
+        let _ = self.white_pages_directory.remove(name).is_none();
+        let _ = self.control_block_directory.remove(name).is_none();
         Ok(())
     }
 
@@ -178,10 +174,10 @@ impl Deck {
         match result {
             SendResult::Blocking(Ok(_)) => Ok(()),
             SendResult::NonBlocking(Ok(_)) => Ok(()),
-            SendResult::Blocking(Err(SendError(_))) => Err(ErrorCode::Invalid),
+            SendResult::Blocking(Err(SendError(_))) => Err(ErrorCode::Disconnected),
             SendResult::NonBlocking(Err(error)) => match error {
                 TrySendError::Disconnected(_) => Err(ErrorCode::Disconnected), //LIST MAY BE OUTDATED
-                TrySendError::Full(_) => Err(ErrorCode::Timeout),
+                TrySendError::Full(_) => Err(ErrorCode::FullChannel),
             },
         }
     }

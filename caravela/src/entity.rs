@@ -82,11 +82,14 @@ impl Display for Description {
 }
 
 impl ExecutionResources {
-    pub(crate) fn new(priority_num: u8, stack_size: StackSize) -> Self {
-        let priority = Priority::try_from(priority_num).unwrap();
-        Self {
-            priority,
-            stack_size,
+    pub(crate) fn new(priority_num: u8, stack_size: StackSize) -> Result<Self, ErrorCode> {
+        if let Ok(priority) = Priority::try_from(priority_num) {
+            Ok(Self {
+                priority,
+                stack_size,
+            })
+        } else {
+            Err(ErrorCode::InvalidPriority)
         }
     }
 

@@ -8,6 +8,7 @@ use crate::{
         service::{ams::Ams, DefaultConditions, Service},
         Description,
     },
+    ErrorCode,
 };
 use std::sync::{Arc, RwLock};
 use thread_priority::{ThreadBuilderExt, ThreadPriority};
@@ -35,16 +36,17 @@ impl Platform {
         self.name.clone()
     }
 
-    //pub fn boot(&mut self) -> Result<(), &str> {
-    pub fn boot(&mut self) -> Result<(), &str> {
-        let default = DefaultConditions;
-        let mut ams = Ams::<DefaultConditions>::new(self.name(), self.deck.clone(), default);
+    pub fn boot(&mut self) -> Result<(), ErrorCode> {
         let ams_nickname = "AMS".to_string();
+        let default = DefaultConditions;
+        let mut ams = Ams::<DefaultConditions>::new(self.name(), self.deck.clone(), default)?;
         let mut deck_guard = self.deck.write().unwrap();
+
         deck_guard
             .white_pages_directory
             .insert(ams.hub.aid().name(), ams.hub.aid());
         self.ams_aid = Some(ams.hub.aid());
+
         let ams_handle = std::thread::Builder::new().spawn_with_priority(
             ThreadPriority::Crossplatform(ams.hub.resources().priority()),
             move |_| {
@@ -59,7 +61,7 @@ impl Platform {
             deck_guard.handle_directory.insert(ams_nickname, handle);
             Ok(())
         } else {
-            Err("Could not launch AMS")
+            Err(ErrorCode::AmsBoot)
         }
     }
 
@@ -68,14 +70,7 @@ impl Platform {
         nickname: String,
         priority: u8,
         stack_size: usize,
-    ) -> Result<T, &str> {
-        //) -> Result<Agent<T>, &str> {
-        /*let tcb = Arc::new(ControlBlock {
-            active: AtomicBool::new(false),
-            wait: AtomicBool::new(false),
-            suspend: AtomicBool::new(false),
-            quit: AtomicBool::new(false),
-        });*/
+    ) -> Result<T, ErrorCode> {
         let tcb = Arc::new(ControlBlock::default());
         let hap = self.name.clone();
         let deck = self.deck.clone();
@@ -88,9 +83,8 @@ impl Platform {
             hap,
         );
         let mut base_agent = base_agent_creation?;
-
-        //    Ok(mut base_agent) => {
         let mut deck_guard = self.deck.write().unwrap();
+
         deck_guard
             .control_block_directory
             .insert(nickname.clone(), tcb);
@@ -100,12 +94,13 @@ impl Platform {
         base_agent
             .directory
             .insert("AMS".to_string(), self.ams_aid.clone().unwrap());
+
         println!("{}", self.ams_aid.as_ref().unwrap());
         let agent = T::agent_builder(base_agent);
         Ok(agent)
     }
 
-    pub fn start(&mut self, mut agent: impl Behavior + Send + 'static) -> Result<(), &str> {
+    pub fn start(&mut self, mut agent: impl Behavior + Send + 'static) -> Result<(), ErrorCode> {
         let nickname = agent.agent_mut_ref().aid().name();
         let prio = agent.agent_mut_ref().resources().priority();
         let mut platform_guard = self.deck.write().unwrap();
@@ -114,7 +109,7 @@ impl Platform {
         if let Ok(handle) = agent_handle {
             platform_guard.handle_directory.insert(nickname, handle);
         } else {
-            return Err("Could not launch agent");
+            return Err(ErrorCode::AgentLaunch);
         }
         Ok(())
     }

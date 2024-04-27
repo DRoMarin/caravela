@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::Description;
 
 #[derive(Clone, PartialEq, Debug, Default)]
@@ -27,7 +29,7 @@ pub enum MessageType {
     None,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum RequestType {
     #[default]
     None,
@@ -56,6 +58,20 @@ pub struct Message {
     receiver_aid: Option<Description>,
     message_type: MessageType,
     content: Content,
+}
+
+impl Display for RequestType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RequestType::None => write!(f, "No request"),
+            RequestType::Search(x) => write!(f, "Agent {} Search Request", x),
+            RequestType::Register(x) => write!(f, "Agent {} Registration Request", x),
+            RequestType::Deregister(x) => write!(f, "Agent {} Deregistration Request", x),
+            RequestType::Suspend(x) => write!(f, "Agent {} Suspension Request", x),
+            RequestType::Resume(x) => write!(f, "Agent {} Resumption Request", x),
+            RequestType::Terminate(x) => write!(f, "Agent {} Termination Request", x),
+        }
+    }
 }
 
 impl Message {

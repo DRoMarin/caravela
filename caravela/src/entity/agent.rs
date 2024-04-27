@@ -11,6 +11,7 @@ use crate::{
 };
 use std::{
     collections::HashMap,
+    fmt::Display,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, RwLock,
@@ -31,6 +32,8 @@ pub enum AgentState {
     Waiting,
     /// The Agent is indifinately unavailable.
     Suspended,
+    /// The Agent is finished
+    Terminated,
 }
 
 #[derive(Debug, Default)]
@@ -50,6 +53,18 @@ pub struct Agent {
     //pub membership,
 }
 
+impl Display for AgentState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentState::Initiated => write!(f, "Initiated"),
+            AgentState::Active => write!(f, "Active"),
+            AgentState::Waiting => write!(f, "Waiting"),
+            AgentState::Suspended => write!(f, "Suspended"),
+            AgentState::Terminated => write!(f, "Terminated"),
+        }
+    }
+}
+
 impl Agent {
     pub(crate) fn new(
         nickname: String,
@@ -58,12 +73,12 @@ impl Agent {
         deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
         hap: String,
-    ) -> Result<Self, &'static str> {
+    ) -> Result<Self, ErrorCode> {
         if priority > (MAX_PRIORITY - 1) {
-            return Err("Priority value invalid");
+            return Err(ErrorCode::InvalidPriority);
         };
         let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
-        let resources = ExecutionResources::new(priority, stack_size);
+        let resources = ExecutionResources::new(priority, stack_size)?;
         let hub = Hub::new(nickname, resources, deck, hap);
         Ok(Self {
             hub,
@@ -94,7 +109,7 @@ impl Agent {
     /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        println!("{}: SENDING to {}",self.aid(), agent);
+        println!("{}: SENDING to {}", self.aid(), agent);
         if let Some(agent) = self.directory.get(agent) {
             self.msg().set_receiver(agent.clone());
             self.send_to_aid(agent.clone())
@@ -112,7 +127,7 @@ impl Agent {
             if let Content::AID(target) = msg.content() {
                 self.send_to_aid(target)
             } else {
-                Err(ErrorCode::Invalid)
+                Err(ErrorCode::InvalidContent)
             }
         }
     }
@@ -142,12 +157,12 @@ impl Agent {
                     if let Content::AID(x) = self.msg().content() {
                         self.add_contact_aid(agent, x)
                     } else {
-                        Err(ErrorCode::Invalid)
+                        Err(ErrorCode::InvalidContent)
                     }
                 }
                 MessageType::Failure => Err(ErrorCode::NotRegistered),
 
-                _ => Err(ErrorCode::Invalid),
+                _ => Err(ErrorCode::InvalidMessageType),
             }
         } else {
             Err(ErrorCode::Disconnected)

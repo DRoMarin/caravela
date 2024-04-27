@@ -9,7 +9,13 @@ pub struct DefaultConditions;
 
 pub(crate) trait Service {
     type Conditions;
-    fn new(hap: String, deck: Arc<RwLock<Deck>>, conditions: Self::Conditions) -> Self;
+    fn new(
+        hap: String,
+        deck: Arc<RwLock<Deck>>,
+        conditions: Self::Conditions,
+    ) -> Result<Self, ErrorCode>
+    where
+        Self: Sized;
     fn register_agent(&mut self, name: &str) -> Result<(), ErrorCode>;
     fn deregister_agent(&mut self, name: &str) -> Result<(), ErrorCode>;
     fn search_agent(&self, name: &str) -> Result<(), ErrorCode>;
