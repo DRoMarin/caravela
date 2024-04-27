@@ -188,7 +188,7 @@ impl Agent {
     /// Halt the Agent Behavior for a specified duration of time.
     pub fn wait(&self, time: u64) {
         self.tcb.wait.store(true, Ordering::Relaxed);
-        let dur = Duration::from_millis(time);
+        let dur = Duration::from_millis(time); //TBD could remove
         thread::sleep(dur);
         self.tcb.wait.store(false, Ordering::Relaxed);
     }
