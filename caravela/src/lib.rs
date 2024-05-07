@@ -7,7 +7,7 @@ pub(crate) mod platform;
 pub use self::entity::agent;
 pub use self::entity::{
     messaging::{Content, Message, MessageType, RequestType},
-    Description, ExecutionResources,
+    Description,
 };
 pub use self::platform::Platform;
 use entity::agent::AgentState;

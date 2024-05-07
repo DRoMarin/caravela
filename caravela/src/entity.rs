@@ -5,7 +5,7 @@ pub(crate) mod service;
 use crate::{
     deck::{Deck, SyncType},
     platform::env::AID_ENV,
-    ErrorCode, Priority, StackSize, RX, TX,
+    ErrorCode, RX, TX,
 };
 pub use agent::{behavior::Behavior, Agent};
 pub use messaging::{Content, Message, MessageType, RequestType};
@@ -16,7 +16,7 @@ use std::{
     thread::{current, ThreadId},
 };
 
-#[derive(Clone, Debug, Default)] //Default?
+#[derive(Clone, Debug, Default)]
 pub struct Description {
     nickname: String,
     hap: String,
@@ -46,39 +46,21 @@ impl Hash for Description {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)] //Default?
-pub struct DescriptionEX {
-    nickname: String,
-    hap: String,
-    //tx: TX,
-    thread: Option<ThreadId>,
-}
-
 #[derive(Debug, Clone)]
 pub struct AidHandler {
     lock: OnceLock<Description>,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct ExecutionResources {
-    priority: Priority,
-    stack_size: StackSize,
-}
-
 #[derive(Debug)]
 pub(crate) struct Hub {
-    //hanlder: &'static AidHandler,
     aid: Description,
-    //resources: ExecutionResources,
     rx: RX,
     deck: Arc<RwLock<Deck>>,
     msg: Message,
 }
 
 impl Description {
-    //fn new(nickname: String, hap: String, tx: TX, thread: Option<ThreadId>) -> Self {
     fn new(nickname: String, hap: String, tx: TX, thread_id: ThreadId) -> Self {
-        //Self { name, tx, thread }
         Self {
             nickname,
             hap,
@@ -89,12 +71,10 @@ impl Description {
 
     pub fn nickname(&self) -> String {
         self.nickname.clone()
-        //REFORMAT
     }
 
     pub fn name(&self) -> String {
         self.to_string()
-        //REFORMAT
     }
 
     pub fn hap(&self) -> String {
@@ -157,31 +137,7 @@ impl TryFrom<&str> for Description {
         self.lock.get()
     }
 }*/
-/*
-impl ExecutionResources {
-    pub(crate) fn new(priority: ThreadPriorityValue, stack_size: StackSize) -> Self {
-        Self {
-            priority,
-            stack_size,
-        }
-    }
 
-    pub fn priority(&self) -> Priority {
-        self.priority
-    }
-
-    pub fn stack_size(&self) -> StackSize {
-        self.stack_size
-    }
-}
-
-impl Display for ExecutionResources {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let prio: u8 = self.priority().into();
-        write!(f, "Priority: {}, Stack Size {}", prio, self.stack_size)
-    }
-}
-*/
 impl Hub {
     pub(crate) fn new(aid: Description, rx: RX, deck: Arc<RwLock<Deck>>) -> Self {
         let msg = Message::new();

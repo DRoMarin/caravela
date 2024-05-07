@@ -5,7 +5,7 @@ use crate::{
     deck::Deck,
     entity::{
         messaging::{Content, Message, MessageType, RequestType},
-        Description, ExecutionResources, Hub,
+        Description, Hub,
     },
     ErrorCode, MAX_SUBSCRIBERS, RX,
 };
@@ -70,13 +70,11 @@ impl Display for AgentState {
 impl Agent {
     pub(crate) fn new(
         aid: Description,
-        resources: ExecutionResources,
         rx: RX,
         deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
     ) -> Self {
         let directory: ContactList = HashMap::with_capacity(MAX_SUBSCRIBERS);
-        //let hub = Hub::new(aid, resources, rx, deck);
         let hub = Hub::new(aid, rx, deck);
         Self {
             hub,
@@ -88,11 +86,6 @@ impl Agent {
     pub fn aid(&self) -> Description {
         self.hub.aid()
     }
-
-    /// Get the Execution Resources struct of the current Agent.
-    /*pub fn resources(&self) -> ExecutionResources {
-        self.hub.resources()
-    }*/
 
     /// Get the Message struct currently held by the Agent.
     pub fn msg(&self) -> Message {
