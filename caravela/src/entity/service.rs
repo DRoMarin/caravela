@@ -2,7 +2,7 @@ pub(crate) mod ams;
 
 use std::sync::{Arc, RwLock};
 
-use crate::{deck::Deck, entity::messaging::RequestType, ErrorCode};
+use crate::{deck::Deck, entity::messaging::RequestType, Description, ErrorCode, RX};
 
 #[derive(Debug)]
 pub struct DefaultConditions;
@@ -10,15 +10,16 @@ pub struct DefaultConditions;
 pub(crate) trait Service {
     type Conditions;
     fn new(
-        hap: String,
+        aid: Description,
+        //resources: ExecutionResources,
+        rx: RX,
         deck: Arc<RwLock<Deck>>,
         conditions: Self::Conditions,
-    ) -> Result<Self, ErrorCode>
-    where
-        Self: Sized;
-    fn register_agent(&mut self, name: &str) -> Result<(), ErrorCode>;
-    fn deregister_agent(&mut self, name: &str) -> Result<(), ErrorCode>;
-    fn search_agent(&self, name: &str) -> Result<(), ErrorCode>;
+    ) -> Self;
+    fn init(&mut self);
+    fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;
+    fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;
+    fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn service_function(&mut self);
     fn service_req_reply_type(&mut self, request_type: RequestType, result: Result<(), ErrorCode>);
 }

@@ -1,8 +1,7 @@
+use super::{service::ams::AmsAgentDescription, Description};
 use std::fmt::Display;
 
-use super::Description;
-
-#[derive(Clone, PartialEq, Debug, Default)]
+#[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub enum MessageType {
     AcceptProposal,
     Agree,
@@ -11,7 +10,6 @@ pub enum MessageType {
     Confirm,
     Disconfirm,
     Failure,
-    #[default]
     Inform,
     InformIf,
     InformRef,
@@ -26,6 +24,7 @@ pub enum MessageType {
     RequestWhenever,
     Subscribe,
     NoResponse,
+    #[default]
     None,
 }
 
@@ -33,14 +32,14 @@ pub enum MessageType {
 pub enum RequestType {
     #[default]
     None,
-    Search(String),
+    Search(Description),
     //Modify(String, Description),
-    Register(String),
-    Deregister(String),
-    Suspend(String),
-    Resume(String),
+    Register(Description),
+    Deregister(Description),
+    Suspend(Description),
+    Resume(Description),
     //Restart(String),
-    Terminate(String),
+    Terminate(Description),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -49,13 +48,13 @@ pub enum Content {
     None,
     Text(String),
     Request(RequestType),
-    AID(Description),
+    AmsAgentDescription(AmsAgentDescription),
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct Message {
-    sender_aid: Option<Description>,
-    receiver_aid: Option<Description>,
+    sender_aid: Description,
+    receiver_aid: Description,
     message_type: MessageType,
     content: Content,
 }
@@ -76,12 +75,7 @@ impl Display for RequestType {
 
 impl Message {
     pub(crate) fn new() -> Self {
-        Message {
-            sender_aid: None,
-            receiver_aid: None,
-            message_type: MessageType::None,
-            content: Content::None,
-        }
+        Message::default()
     }
 
     pub(super) fn set_type(&mut self, msg_type: MessageType) {
@@ -91,13 +85,13 @@ impl Message {
     pub(super) fn set_content(&mut self, msg_content: Content) {
         self.content = msg_content;
     }
-    #[allow(dead_code)]
+
     pub(super) fn set_receiver(&mut self, receiver: Description) {
-        self.receiver_aid = Some(receiver);
+        self.receiver_aid = receiver;
     }
 
     pub(super) fn set_sender(&mut self, sender: Description) {
-        self.sender_aid = Some(sender)
+        self.sender_aid = sender
     }
 
     pub fn message_type(&self) -> MessageType {
@@ -108,11 +102,11 @@ impl Message {
         self.content.clone()
     }
 
-    pub fn sender(&self) -> Option<Description> {
-        self.sender_aid.clone()
+    pub fn sender(&self) -> &Description {
+        &self.sender_aid
     }
 
-    pub fn receiver(&self) -> Option<Description> {
-        self.receiver_aid.clone()
+    pub fn receiver(&self) -> &Description {
+        &self.receiver_aid
     }
 }

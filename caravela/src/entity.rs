@@ -4,22 +4,59 @@ pub(crate) mod service;
 
 use crate::{
     deck::{Deck, SyncType},
-    {ErrorCode, Priority, StackSize, RX, TX},
+    platform::env::AID_ENV,
+    ErrorCode, Priority, StackSize, RX, TX,
 };
 pub use agent::{behavior::Behavior, Agent};
 pub use messaging::{Content, Message, MessageType, RequestType};
 use std::{
     fmt::Display,
-    sync::{mpsc::sync_channel, Arc, RwLock},
+    hash::{self, Hash},
+    sync::{Arc, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
     thread::{current, ThreadId},
 };
 
-#[derive(Clone, Debug)] //Default?
+#[derive(Clone, Debug, Default)] //Default?
 pub struct Description {
     nickname: String,
     hap: String,
-    tx: TX,
+    tx: Option<crate::TX>,
     thread: Option<ThreadId>,
+}
+
+impl Eq for Description {}
+
+impl PartialEq for Description {
+    fn eq(&self, other: &Self) -> bool {
+        (self.nickname != other.nickname)
+            && (self.hap != other.hap)
+            && (self.thread != other.thread)
+    }
+    fn ne(&self, other: &Self) -> bool {
+        (self.nickname == other.nickname)
+            && (self.hap == other.hap)
+            && (self.thread == other.thread)
+    }
+}
+impl Hash for Description {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.nickname.hash(state);
+        self.hap.hash(state);
+        self.thread.hash(state);
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)] //Default?
+pub struct DescriptionEX {
+    nickname: String,
+    hap: String,
+    //tx: TX,
+    thread: Option<ThreadId>,
+}
+
+#[derive(Debug, Clone)]
+pub struct AidHandler {
+    lock: OnceLock<Description>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -30,21 +67,23 @@ pub struct ExecutionResources {
 
 #[derive(Debug)]
 pub(crate) struct Hub {
+    //hanlder: &'static AidHandler,
     aid: Description,
-    resources: ExecutionResources,
+    //resources: ExecutionResources,
     rx: RX,
     deck: Arc<RwLock<Deck>>,
     msg: Message,
 }
 
 impl Description {
-    fn new(nickname: String, hap: String, tx: TX, thread: Option<ThreadId>) -> Self {
+    //fn new(nickname: String, hap: String, tx: TX, thread: Option<ThreadId>) -> Self {
+    fn new(nickname: String, hap: String, tx: TX, thread_id: ThreadId) -> Self {
         //Self { name, tx, thread }
         Self {
             nickname,
             hap,
-            tx,
-            thread,
+            tx: Some(tx),
+            thread: Some(thread_id),
         }
     }
 
@@ -62,8 +101,12 @@ impl Description {
         self.hap.clone()
     }
 
-    pub fn address(&self) -> TX {
-        self.tx.clone()
+    pub(crate) fn address(&self) -> Result<TX, ErrorCode> {
+        if let Some(address) = self.tx {
+            Ok(address.clone())
+        } else {
+            Err(ErrorCode::AddressNone)
+        }
     }
 
     pub fn id(&self) -> Option<ThreadId> {
@@ -81,15 +124,45 @@ impl Display for Description {
     }
 }
 
-impl ExecutionResources {
-    pub(crate) fn new(priority_num: u8, stack_size: StackSize) -> Result<Self, ErrorCode> {
-        if let Ok(priority) = Priority::try_from(priority_num) {
-            Ok(Self {
-                priority,
-                stack_size,
-            })
+impl TryFrom<&str> for Description {
+    type Error = ErrorCode;
+    fn try_from(value: &str) -> Result<Self, ErrorCode> {
+        if let Some(lock) = AID_ENV.get() {
+            if let Ok(aid_env) = lock.read() {
+                if let Some(aid) = aid_env.get(value) {
+                    Ok(aid.clone())
+                } else {
+                    Err(ErrorCode::AidHandleNone)
+                }
+            } else {
+                Err(ErrorCode::PoisonedLock)
+            }
         } else {
-            Err(ErrorCode::InvalidPriority)
+            Err(ErrorCode::UninitEnv)
+        }
+    }
+}
+
+/*impl AidHandler {
+    pub const fn new() -> Self {
+        Self {
+            lock: OnceLock::<Description>::new(),
+        }
+    }
+    pub fn aid(&self) -> Option<&Description> {
+        /*match self.lock.get() {
+            Some(description) => Some(description.to_owned()),
+            None => None,
+        }*/
+        self.lock.get()
+    }
+}*/
+/*
+impl ExecutionResources {
+    pub(crate) fn new(priority: ThreadPriorityValue, stack_size: StackSize) -> Self {
+        Self {
+            priority,
+            stack_size,
         }
     }
 
@@ -108,48 +181,19 @@ impl Display for ExecutionResources {
         write!(f, "Priority: {}, Stack Size {}", prio, self.stack_size)
     }
 }
-
+*/
 impl Hub {
-    pub(crate) fn new(
-        nickname: String,
-        resources: ExecutionResources,
-        deck: Arc<RwLock<Deck>>,
-        hap: String,
-    ) -> Self {
-        let (tx, rx) = sync_channel::<Message>(1);
-        let aid = Description::new(nickname, hap, tx, None);
+    pub(crate) fn new(aid: Description, rx: RX, deck: Arc<RwLock<Deck>>) -> Self {
         let msg = Message::new();
-        Self {
-            aid,
-            resources,
-            rx,
-            deck,
-            msg,
-        }
+        Self { aid, rx, deck, msg }
     }
 
     pub(crate) fn aid(&self) -> Description {
         self.aid.clone()
     }
 
-    /*pub(crate) fn get_nickname(&self) -> String {
-        self.nickname.clone()
-    }
-
-    pub(crate) fn get_hap(&self) -> String {
-        self.hap.clone()
-    }*/
-
-    pub(crate) fn resources(&self) -> ExecutionResources {
-        self.resources.clone()
-    }
-
     pub(crate) fn msg(&self) -> Message {
         self.msg.clone()
-    }
-
-    pub(crate) fn arc_deck(&self) -> Arc<RwLock<Deck>> {
-        self.deck.clone()
     }
 
     pub(crate) fn set_thread(&mut self) {
@@ -161,20 +205,26 @@ impl Hub {
         self.msg.set_content(msg_content);
     }
 
-    /*pub(crate) fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        self.msg.set_sender(self.aid());
-        self.deck
-            .read()
-            .unwrap()
-            .send(agent, self.msg.clone(), SyncType::Blocking)
-    }*/
+    pub(crate) fn deck_write(&self) -> Result<RwLockWriteGuard<Deck>, ErrorCode> {
+        if let Ok(guard) = self.deck.write() {
+            Ok(guard)
+        } else {
+            Err(ErrorCode::PoisonedLock)
+        }
+    }
+    pub(crate) fn deck_read(&self) -> Result<RwLockReadGuard<Deck>, ErrorCode> {
+        if let Ok(guard) = self.deck.read() {
+            Ok(guard)
+        } else {
+            Err(ErrorCode::PoisonedLock)
+        }
+    }
 
-    pub(crate) fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
+    pub(crate) fn send_to_aid(&mut self, description: &Description) -> Result<(), ErrorCode> {
+        self.msg.set_receiver(description.clone());
         self.msg.set_sender(self.aid());
-        self.deck
-            .read()
-            .unwrap()
-            .send_to_aid(description, self.msg.clone(), SyncType::Blocking)
+        self.deck_read()?
+            .send_msg(self.msg.clone(), SyncType::Blocking)
     }
 
     pub(crate) fn receive(&mut self) -> Result<MessageType, ErrorCode> {

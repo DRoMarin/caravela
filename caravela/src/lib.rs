@@ -37,7 +37,7 @@ pub enum ErrorCode {
     ListFull,
     Duplicated,
     NotFound,
-    FullChannel,
+    ChannelFull,
     InvalidConditions(RequestType),
     InvalidContent,
     InvalidMessageType,
@@ -45,6 +45,10 @@ pub enum ErrorCode {
     InvalidRequest,
     InvalidStateChange(AgentState, AgentState),
     NotRegistered,
+    AidHandleNone,
+    PoisonedLock,
+    UninitEnv,
+    AddressNone,
 }
 
 impl Display for ErrorCode {
@@ -58,13 +62,17 @@ impl Display for ErrorCode {
             ErrorCode::ListFull => write!(f,"Max number of Agents reached"),
             ErrorCode::Duplicated => write!(f,"Agent is already registered"),
             ErrorCode::NotFound => write!(f,"Agent could not be found"),
-            ErrorCode::FullChannel => write!(f,"Target Agent channel was full"),
+            ErrorCode::ChannelFull => write!(f,"Target Agent channel was full"),
             ErrorCode::InvalidConditions(x) => write!(f,"Conditions not met for: {}",x),
             ErrorCode::InvalidContent => write!(f,"Invalid Content in message"),
             ErrorCode::InvalidMessageType => todo!("Unexpected message received"),
             ErrorCode::InvalidRequest => write!(f,"Unexpected request received"),
             ErrorCode::InvalidStateChange(current, next) => write!(f,"Transtion from {} to {} is not possible",current,next),
             ErrorCode::NotRegistered => write!(f,"Target agent is not registered"),
+            ErrorCode::AidHandleNone => todo!("ADD AID HANDLE NONE ERROR"),
+            ErrorCode::PoisonedLock => todo!("ADD ERROR MSG TO POISONED LOCK"),
+            ErrorCode::UninitEnv => todo!("ADD ERRO MSG TO UNINIT ENV"),
+            ErrorCode::AddressNone => todo!("ADD ERRO MSG TO ADDRESS NONE"),
         }
     }
 }

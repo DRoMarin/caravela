@@ -2,12 +2,12 @@ pub use behavior::Behavior;
 pub(crate) mod behavior;
 
 use crate::{
-    deck::{Deck, Directory},
+    deck::Deck,
     entity::{
         messaging::{Content, Message, MessageType, RequestType},
         Description, ExecutionResources, Hub,
     },
-    ErrorCode, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS,
+    ErrorCode, MAX_SUBSCRIBERS, RX,
 };
 use std::{
     collections::HashMap,
@@ -19,6 +19,8 @@ use std::{
     thread,
     time::Duration,
 };
+
+type ContactList = HashMap<String, Description>;
 
 /// This Enum specifies the different states in an Agent Lifecycle.
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
@@ -48,7 +50,7 @@ pub(crate) struct ControlBlock {
 #[derive(Debug)]
 pub struct Agent {
     pub(crate) hub: Hub,
-    pub(crate) directory: Directory,
+    pub(crate) directory: ContactList,
     pub(crate) tcb: Arc<ControlBlock>,
     //pub membership,
 }
@@ -67,24 +69,20 @@ impl Display for AgentState {
 
 impl Agent {
     pub(crate) fn new(
-        nickname: String,
-        priority: u8,
-        stack_size: StackSize,
+        aid: Description,
+        resources: ExecutionResources,
+        rx: RX,
         deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
-        hap: String,
-    ) -> Result<Self, ErrorCode> {
-        if priority > (MAX_PRIORITY - 1) {
-            return Err(ErrorCode::InvalidPriority);
-        };
-        let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
-        let resources = ExecutionResources::new(priority, stack_size)?;
-        let hub = Hub::new(nickname, resources, deck, hap);
-        Ok(Self {
+    ) -> Self {
+        let directory: ContactList = HashMap::with_capacity(MAX_SUBSCRIBERS);
+        //let hub = Hub::new(aid, resources, rx, deck);
+        let hub = Hub::new(aid, rx, deck);
+        Self {
             hub,
             directory,
             tcb,
-        })
+        }
     }
     /// Get the current Agent's Agent Identifier Description (AID) struct.
     pub fn aid(&self) -> Description {
@@ -92,9 +90,9 @@ impl Agent {
     }
 
     /// Get the Execution Resources struct of the current Agent.
-    pub fn resources(&self) -> ExecutionResources {
+    /*pub fn resources(&self) -> ExecutionResources {
         self.hub.resources()
-    }
+    }*/
 
     /// Get the Message struct currently held by the Agent.
     pub fn msg(&self) -> Message {
@@ -109,10 +107,11 @@ impl Agent {
     /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+        /*
         println!("{}: SENDING to {}", self.aid(), agent);
-        if let Some(agent) = self.directory.get(agent) {
-            self.msg().set_receiver(agent.clone());
-            self.send_to_aid(agent.clone())
+        if let Some(agent_aid) = self.directory.get(agent) {
+            println!("FOUND IN CONTACT LIST: {}", agent_aid);
+            self.send_to_aid(agent_aid.clone())
         } else {
             let ams = "AMS";
             let _ = self.send_to(ams)?;
@@ -122,7 +121,7 @@ impl Agent {
             }
             println!("REQUESTED TO AMS, FOUND");
             self.msg()
-                .set_content(Content::Request(RequestType::Search(agent.to_string())));
+                .set_content(Content::Request(RequestType::Search(agent)));
             let msg = self.msg();
             if let Content::AID(target) = msg.content() {
                 self.send_to_aid(target)
@@ -130,10 +129,12 @@ impl Agent {
                 Err(ErrorCode::InvalidContent)
             }
         }
+        */
+        todo!()
     }
 
     /// Send the currently held message to the target Agent. The Agent needs to be addressed by its nickname.
-    pub fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
+    pub fn send_to_aid(&mut self, description: &Description) -> Result<(), ErrorCode> {
         self.hub.send_to_aid(description)
     }
 
@@ -144,6 +145,7 @@ impl Agent {
 
     /// Add a contact to the contact list. The target Agent needs to be addressed by its nickname.
     pub fn add_contact(&mut self, agent: &str) -> Result<(), ErrorCode> {
+        /*
         let msg_type = MessageType::Request;
         let msg_content = Content::Request(RequestType::Search(agent.to_string()));
         self.set_msg(msg_type, msg_content);
@@ -167,6 +169,8 @@ impl Agent {
         } else {
             Err(ErrorCode::Disconnected)
         }
+        */
+        todo!()
     }
 
     /// Add a contact to the contact list. The target Agent needs to be addressed by its Description.
@@ -218,7 +222,7 @@ impl Agent {
     pub(crate) fn takedown(&mut self) -> bool {
         let ams = "AMS";
         let msg_type = MessageType::Request;
-        let msg_content = Content::Request(RequestType::Deregister(self.aid().name()));
+        let msg_content = Content::Request(RequestType::Deregister(self.aid()));
         self.set_msg(msg_type, msg_content);
         let _ = self.send_to(ams);
         true
