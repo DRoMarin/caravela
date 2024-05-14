@@ -9,8 +9,7 @@ pub struct DefaultConditions;
 
 pub(crate) trait Service {
     type Conditions;
-    fn new(aid: Description, rx: RX, deck: Arc<RwLock<Deck>>, conditions: Self::Conditions)
-        -> Self;
+    fn new(rx: RX, deck: Arc<RwLock<Deck>>, conditions: Self::Conditions) -> Self;
     fn init(&mut self);
     fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;
     fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;

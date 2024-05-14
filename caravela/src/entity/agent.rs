@@ -38,6 +38,18 @@ pub enum AgentState {
     Terminated,
 }
 
+impl Display for AgentState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentState::Initiated => write!(f, "Initiated"),
+            AgentState::Active => write!(f, "Active"),
+            AgentState::Waiting => write!(f, "Waiting"),
+            AgentState::Suspended => write!(f, "Suspended"),
+            AgentState::Terminated => write!(f, "Terminated"),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct ControlBlock {
     pub active: AtomicBool,
@@ -55,27 +67,15 @@ pub struct Agent {
     //pub membership,
 }
 
-impl Display for AgentState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AgentState::Initiated => write!(f, "Initiated"),
-            AgentState::Active => write!(f, "Active"),
-            AgentState::Waiting => write!(f, "Waiting"),
-            AgentState::Suspended => write!(f, "Suspended"),
-            AgentState::Terminated => write!(f, "Terminated"),
-        }
-    }
-}
-
 impl Agent {
     pub(crate) fn new(
-        aid: Description,
+        //name: String,
         rx: RX,
         deck: Arc<RwLock<Deck>>,
         tcb: Arc<ControlBlock>,
     ) -> Self {
         let directory: ContactList = HashMap::with_capacity(MAX_SUBSCRIBERS);
-        let hub = Hub::new(aid, rx, deck);
+        let hub = Hub::new(rx, deck);
         Self {
             hub,
             directory,
@@ -190,9 +190,9 @@ impl Agent {
         self.tcb.wait.store(false, Ordering::Relaxed);
     }
 
-    pub(crate) fn set_thread(&mut self) {
+    /*pub(crate) fn set_thread(&mut self) {
         self.hub.set_thread();
-    }
+    }*/
 
     pub(crate) fn init(&mut self) -> bool {
         println!("{}: STARTING", self.aid());

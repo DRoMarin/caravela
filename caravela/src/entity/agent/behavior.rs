@@ -43,7 +43,7 @@ pub trait Behavior {
 }
 
 pub(crate) fn execute(mut behavior: impl Behavior) {
-    behavior.agent_mut_ref().set_thread();
+    //behavior.agent_mut_ref().set_thread();
     if behavior.agent_mut_ref().init() {
         behavior.setup();
         loop {

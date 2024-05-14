@@ -4,7 +4,7 @@ pub(crate) mod service;
 
 use crate::{
     deck::{Deck, SyncType},
-    platform::env::AID_ENV,
+    platform::environment::{aid_from_name, aid_from_thread},
     ErrorCode, RX, TX,
 };
 pub use agent::{behavior::Behavior, Agent};
@@ -12,15 +12,15 @@ pub use messaging::{Content, Message, MessageType, RequestType};
 use std::{
     fmt::Display,
     hash::{self, Hash},
-    sync::{Arc, OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
-    thread::{current, ThreadId},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    thread::ThreadId,
 };
 
 #[derive(Clone, Debug, Default)]
 pub struct Description {
-    nickname: String,
-    hap: String,
-    tx: Option<crate::TX>,
+    nickname: &'static str,
+    hap: &'static str,
+    tx: Option<TX>,
     thread: Option<ThreadId>,
 }
 
@@ -32,69 +32,19 @@ impl PartialEq for Description {
             && (self.hap != other.hap)
             && (self.thread != other.thread)
     }
+
     fn ne(&self, other: &Self) -> bool {
         (self.nickname == other.nickname)
             && (self.hap == other.hap)
             && (self.thread == other.thread)
     }
 }
+
 impl Hash for Description {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.nickname.hash(state);
         self.hap.hash(state);
         self.thread.hash(state);
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct AidHandler {
-    lock: OnceLock<Description>,
-}
-
-#[derive(Debug)]
-pub(crate) struct Hub {
-    aid: Description,
-    rx: RX,
-    deck: Arc<RwLock<Deck>>,
-    msg: Message,
-}
-
-impl Description {
-    fn new(nickname: String, hap: String, tx: TX, thread_id: ThreadId) -> Self {
-        Self {
-            nickname,
-            hap,
-            tx: Some(tx),
-            thread: Some(thread_id),
-        }
-    }
-
-    pub fn nickname(&self) -> String {
-        self.nickname.clone()
-    }
-
-    pub fn name(&self) -> String {
-        self.to_string()
-    }
-
-    pub fn hap(&self) -> String {
-        self.hap.clone()
-    }
-
-    pub(crate) fn address(&self) -> Result<TX, ErrorCode> {
-        if let Some(address) = self.tx {
-            Ok(address.clone())
-        } else {
-            Err(ErrorCode::AddressNone)
-        }
-    }
-
-    pub fn id(&self) -> Option<ThreadId> {
-        self.thread
-    }
-
-    pub(crate) fn set_thread(&mut self) {
-        self.thread = Some(current().id());
     }
 }
 
@@ -107,39 +57,68 @@ impl Display for Description {
 impl TryFrom<&str> for Description {
     type Error = ErrorCode;
     fn try_from(value: &str) -> Result<Self, ErrorCode> {
-        if let Some(lock) = AID_ENV.get() {
-            if let Ok(aid_env) = lock.read() {
-                if let Some(aid) = aid_env.get(value) {
-                    Ok(aid.clone())
-                } else {
-                    Err(ErrorCode::AidHandleNone)
-                }
-            } else {
-                Err(ErrorCode::PoisonedLock)
-            }
-        } else {
-            Err(ErrorCode::UninitEnv)
-        }
+        aid_from_name(value)
     }
 }
 
-/*impl AidHandler {
-    pub const fn new() -> Self {
+impl TryFrom<ThreadId> for Description {
+    type Error = ErrorCode;
+    fn try_from(value: ThreadId) -> Result<Self, Self::Error> {
+        aid_from_thread(value)
+    }
+}
+
+impl Description {
+    pub(crate) fn new(nickname: &'static str, hap: &'static str, tx: TX) -> Self {
         Self {
-            lock: OnceLock::<Description>::new(),
+            nickname,
+            hap,
+            tx: Some(tx),
+            thread: None,
         }
     }
-    pub fn aid(&self) -> Option<&Description> {
-        /*match self.lock.get() {
-            Some(description) => Some(description.to_owned()),
-            None => None,
-        }*/
-        self.lock.get()
+
+    pub fn nickname(&self) -> &str {
+        self.nickname
     }
-}*/
+
+    pub fn name(&self) -> String {
+        self.to_string()
+    }
+
+    pub fn hap(&self) -> &str {
+        self.hap
+    }
+
+    pub(crate) fn address(&self) -> Result<TX, ErrorCode> {
+        if let Some(address) = &self.tx {
+            Ok(address.clone())
+        } else {
+            Err(ErrorCode::AddressNone)
+        }
+    }
+
+    pub fn id(&self) -> Option<ThreadId> {
+        self.thread
+    }
+
+    pub(crate) fn set_thread(&mut self, id: ThreadId) {
+        //self.thread = Some(current().id());
+        self.thread = Some(id);
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct Hub {
+    aid: Description,
+    rx: RX,
+    deck: Arc<RwLock<Deck>>,
+    msg: Message,
+}
 
 impl Hub {
-    pub(crate) fn new(aid: Description, rx: RX, deck: Arc<RwLock<Deck>>) -> Self {
+    pub(crate) fn new(rx: RX, deck: Arc<RwLock<Deck>>) -> Self {
+        let aid = Description::default();
         let msg = Message::new();
         Self { aid, rx, deck, msg }
     }
@@ -152,9 +131,13 @@ impl Hub {
         self.msg.clone()
     }
 
-    pub(crate) fn set_thread(&mut self) {
-        self.aid.set_thread();
+    pub(crate) fn set_aid(&mut self, aid: Description) {
+        self.aid = aid;
     }
+
+    /*pub(crate) fn set_thread(&mut self, id: ThreadId) {
+        self.aid.set_thread(id);
+    }*/
 
     pub(crate) fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.msg.set_type(msg_type);

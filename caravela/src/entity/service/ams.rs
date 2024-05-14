@@ -1,8 +1,3 @@
-use std::{
-    fmt::Debug,
-    sync::{Arc, RwLock},
-};
-
 use crate::{
     deck::{Deck, TcbField},
     entity::{
@@ -12,6 +7,10 @@ use crate::{
         Hub,
     },
     Description, ErrorCode, RX,
+};
+use std::{
+    fmt::Debug,
+    sync::{Arc, RwLock},
 };
 
 #[derive(Clone, Debug)]
@@ -29,7 +28,7 @@ impl AmsAgentDescription {
     }
 }
 
-//AMS Needs a atomic control block for thread lifecycle control
+//AMS Needs an atomic control block for thread lifecycle control
 #[derive(Debug)]
 pub(crate) struct Ams<T: UserConditions> {
     //become Service<AMS> or Service<DF>
@@ -39,8 +38,8 @@ pub(crate) struct Ams<T: UserConditions> {
 
 impl<T: UserConditions> Service for Ams<T> {
     type Conditions = T;
-    fn new(aid: Description, rx: RX, deck: Arc<RwLock<Deck>>, conditions: T) -> Self {
-        let hub = Hub::new(aid, rx, deck);
+    fn new(rx: RX, deck: Arc<RwLock<Deck>>, conditions: Self::Conditions) -> Self {
+        let hub = Hub::new(rx, deck);
         Self { hub, conditions }
     }
 
@@ -61,7 +60,7 @@ impl<T: UserConditions> Service for Ams<T> {
         if self.search_agent(aid).is_err() {
             return Err(ErrorCode::Duplicated);
         }
-        let description = self.hub.msg().sender();
+        let description = self.hub.msg().sender().to_owned();
         self.hub.deck_write()?.insert_agent(description)
     }
 
@@ -75,12 +74,12 @@ impl<T: UserConditions> Service for Ams<T> {
     }
 
     fn service_function(&mut self) {
-        self.hub.set_thread();
+        //self.hub.set_thread();
         loop {
             println!("{}: WAITING...", self.hub.aid());
             let msg_result = self.hub.receive();
             dbg!(self.hub.msg());
-            let receiver = self.hub.msg().sender();
+            let receiver = self.hub.msg().sender().clone();
             if Ok(MessageType::Request) == msg_result {
                 if let Content::Request(request_type) = self.hub.msg().content() {
                     let error = match request_type.clone() {
@@ -98,7 +97,7 @@ impl<T: UserConditions> Service for Ams<T> {
                 }
                 // setting up reply
                 println!("{}: REPLYING TO {}", self.hub.aid(), receiver);
-                let _ = self.hub.send_to_aid(receiver);
+                let _ = self.hub.send_to_aid(&receiver);
             }
         }
     }
@@ -111,8 +110,7 @@ impl<T: UserConditions> Service for Ams<T> {
         match result {
             Ok(()) => {
                 let msg_content = if let RequestType::Search(aid) = request_type {
-                    todo!()
-                    //Content::AmsDescription(AmsAgentDescription::new(aid, address))
+                    Content::AmsAgentDescription(AmsAgentDescription::new(aid))
                 } else {
                     Content::None
                 };
@@ -138,7 +136,7 @@ impl<T: UserConditions> Ams<T> {
         if state != AgentState::Active {
             return Err(ErrorCode::InvalidStateChange(state, AgentState::Terminated));
         }
-        deck_guard.modify_control_block(aid, TcbField::Quit, true);
+        deck_guard.modify_control_block(aid, TcbField::Quit, true)?;
         deck_guard.remove_agent(aid)
         //TBD: REMOVE HANDLE AND JOIN THREAD
     }
@@ -174,7 +172,7 @@ impl<T: UserConditions> Ams<T> {
         if state != AgentState::Suspended {
             return Err(ErrorCode::InvalidStateChange(state, AgentState::Suspended));
         }
-        deck_guard.modify_control_block(aid, TcbField::Suspend, false);
+        deck_guard.modify_control_block(aid, TcbField::Suspend, false)?;
         deck_guard.unpark_agent(aid)
     }
 
