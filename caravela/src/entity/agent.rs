@@ -7,6 +7,7 @@ use crate::{
         messaging::{Content, Message, MessageType, RequestType},
         Description, Hub,
     },
+    platform::environment::aid_from_name,
     ErrorCode, MAX_SUBSCRIBERS, RX,
 };
 use std::{
@@ -100,30 +101,15 @@ impl Agent {
     /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        /*
         println!("{}: SENDING to {}", self.aid(), agent);
-        if let Some(agent_aid) = self.directory.get(agent) {
+        let agent_aid = if let Some(agent_aid) = self.directory.get(agent) {
             println!("FOUND IN CONTACT LIST: {}", agent_aid);
-            self.send_to_aid(agent_aid.clone())
+            agent_aid.clone()
         } else {
-            let ams = "AMS";
-            let _ = self.send_to(ams)?;
-            let search_req_result = self.receive()?;
-            if search_req_result != MessageType::Inform {
-                return Err(ErrorCode::NotFound);
-            }
-            println!("REQUESTED TO AMS, FOUND");
-            self.msg()
-                .set_content(Content::Request(RequestType::Search(agent)));
-            let msg = self.msg();
-            if let Content::AID(target) = msg.content() {
-                self.send_to_aid(target)
-            } else {
-                Err(ErrorCode::InvalidContent)
-            }
-        }
-        */
-        todo!()
+            let name = self.fmt_local_agent(agent);
+            aid_from_name(&name)?
+        };
+        self.send_to_aid(&agent_aid)
     }
 
     /// Send the currently held message to the target Agent. The Agent needs to be addressed by its nickname.
@@ -193,6 +179,13 @@ impl Agent {
     /*pub(crate) fn set_thread(&mut self) {
         self.hub.set_thread();
     }*/
+    pub(crate) fn fmt_local_agent(&self, nickname: &str) -> String {
+        let mut name = String::new();
+        name.push_str(nickname);
+        name.push('@');
+        name.push_str(self.aid().hap());
+        name
+    }
 
     pub(crate) fn init(&mut self) -> bool {
         println!("{}: STARTING", self.aid());

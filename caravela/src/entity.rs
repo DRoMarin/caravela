@@ -28,12 +28,6 @@ impl Eq for Description {}
 
 impl PartialEq for Description {
     fn eq(&self, other: &Self) -> bool {
-        (self.nickname != other.nickname)
-            && (self.hap != other.hap)
-            && (self.thread != other.thread)
-    }
-
-    fn ne(&self, other: &Self) -> bool {
         (self.nickname == other.nickname)
             && (self.hap == other.hap)
             && (self.thread == other.thread)
