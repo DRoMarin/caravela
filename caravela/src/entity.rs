@@ -1,4 +1,5 @@
-pub mod agent;
+/// Base agent functionality.
+pub mod agent; 
 pub(crate) mod messaging;
 pub(crate) mod service;
 

@@ -1,30 +1,54 @@
 use super::{service::ams::AmsAgentDescription, Description};
 use std::fmt::Display;
 
+/// All communicative acts defined by the FIPA00037 standard.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub enum MessageType {
+    /// Accept a previously presented proposal to perform some action.
     AcceptProposal,
+    /// Agree to perform some action.
     Agree,
+    /// Inform than the sender no longer wants the receiver to perform some action.
     Cancel,
+    /// Asking for proposal for some action.
     CallForProposal,
+    /// Inform the receiver that a proposition that it knowns but its uncertain about is true.
     Confirm,
+    /// Inform the receiver that a proposition that it knowns but its uncertain about is false.
     Disconfirm,
+    /// Inform the receiver that some action was tried and failed.
     Failure,
+    /// Inform the receiver than a proposition is true.
     Inform,
+    /// Macro action inform based on what the sender believes.
     InformIf,
+    /// Macro action inform to send a descriptor.
     InformRef,
+    /// Inform that the content of a message was not understood.
     NotUnderstood,
+    /// Request the receiver to resend the message to another agent.
     Propagate,
+    /// Present a proposal to the receiver.
     Propose,
+    //Proxy,
+    /// Ask the receiver if a proposition is true.
     QueryIf,
+    /// Ask the receiver for a descriptor of a reference.
     QueryRef,
+    /// Refuse to perform an action.
     Refuse,
+    //RejectProposal
+    /// Request the receiver to perform some action.
     Request,
+    /// Request the receiver to perform some action when a proposition becomes true.
     RequestWhen,
+    /// Request the receiver to perform some action when a proposition becomes true and each time after it becomes true again.
     RequestWhenever,
+    /// Ask a receiver for a descriptor of a refence and each time the reference changes.
     Subscribe,
-    NoResponse,
+    // NoResponse,
     #[default]
+    /// No message type set. Default value.
     None,
 }
 
@@ -51,24 +75,32 @@ impl Display for MessageType {
             MessageType::RequestWhen => write!(f, "RequestWhen Message"),
             MessageType::RequestWhenever => write!(f, "RequestWhenever Message"),
             MessageType::Subscribe => write!(f, "Subscribe Message"),
-            MessageType::NoResponse => write!(f, "NoResponse Message"),
+            //MessageType::NoResponse => write!(f, "NoResponse Message"),
             MessageType::None => write!(f, "None"),
         }
     }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// Request types supported by different services.
 pub enum RequestType {
-    #[default]
-    None,
+    /// Request the receiver to search for an agent.
     Search(Description),
     //Modify(String, Description),
+    /// Request the receiver to register an agent.
     Register(Description),
+    /// Request the receiver to deregister an agent.
     Deregister(Description),
+    /// Request the receiver to suspend an agent. Supported only by the AMS.
     Suspend(Description),
+    /// Request the receiver to resume an agent. Supported only by the AMS.
     Resume(Description),
     //Restart(String),
+    /// Request the receiver to terminate an agent. Supported only by the AMS.
     Terminate(Description),
+    #[default]
+    /// No request type set. Default value.
+    None,
 }
 
 impl Display for RequestType {
@@ -85,15 +117,21 @@ impl Display for RequestType {
     }
 }
 
+/// Different types of content allowed for messaging.
 #[derive(Clone, Debug, Default)]
 pub enum Content {
-    #[default]
-    None,
+    /// Propositions with no specific format.
     Text(String),
+    /// A request to be done.
     Request(RequestType),
+    /// AMS agent description object.
     AmsAgentDescription(AmsAgentDescription),
+    #[default]
+    /// No content set. Default value.
+    None,
 }
 
+/// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
 #[derive(Clone, Debug, Default)]
 pub struct Message {
     sender_aid: Description,
@@ -104,6 +142,7 @@ pub struct Message {
 
 impl Message {
     pub(crate) fn new() -> Self {
+        //TBD check
         Message::default()
     }
 
@@ -123,18 +162,22 @@ impl Message {
         self.sender_aid = sender
     }
 
+    /// Retrieve a message's communicative act type.
     pub fn message_type(&self) -> MessageType {
         self.message_type.clone()
     }
 
+    /// Retrieve a message's contents.
     pub fn content(&self) -> Content {
         self.content.clone()
     }
 
+    /// Get a reference to the sender's [`Description`]
     pub fn sender(&self) -> &Description {
         &self.sender_aid
     }
 
+    /// Get a reference to the receiver's [`Description`]
     pub fn receiver(&self) -> &Description {
         &self.receiver_aid
     }

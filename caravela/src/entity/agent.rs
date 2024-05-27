@@ -26,16 +26,16 @@ type ContactList = HashMap<String, Description>;
 /// The different states in an Agent Lifecycle.
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
 pub enum AgentState {
-    /// The Agent is present in the platform, but inactive.
+    /// The agent is present in the platform, but inactive.
     #[default]
     Initiated,
-    /// THe Agent is Active
+    /// THe agent is Active
     Active,
-    /// The Agent is temporarily halted.
+    /// The agent is temporarily halted.
     Waiting,
-    /// The Agent is indifinately unavailable.
+    /// The agent is indifinately unavailable.
     Suspended,
-    /// The Agent is finished
+    /// The agent is finished
     Terminated,
 }
 
@@ -59,7 +59,7 @@ pub(crate) struct ControlBlock {
     pub quit: AtomicBool,
 }
 
-/// The base agent type with AID, task control, and messaging functionality.
+/// The base agent type with AID, life cycle control, and messaging functionality.
 #[derive(Debug)]
 pub struct Agent {
     pub(crate) hub: Hub,
@@ -83,25 +83,30 @@ impl Agent {
             tcb,
         }
     }
-    /// Get the current Agent's Agent Identifier Description (AID) struct.
+    /// Get the Agent Identifier Description (AID) of the agent as [`Description`].
     pub fn aid(&self) -> Description {
         self.hub.aid()
     }
 
-    /// Get the Message struct currently held by the Agent.
+    /// Get the [`Message`] currently held by the agent.
     pub fn msg(&self) -> Message {
         self.hub.msg()
     }
 
-    /// Set the contents and type of the message. This is used to format the message before it is sent.
+    /// Set the [`Content`] and [`MessageType`] of the message. This is used to format the message before it is sent.
     pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.hub.set_msg(msg_type, msg_content)
     }
 
-    /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
+    /// Send the currently held message to the target agent. The receiver needs to be addressed by its nickname.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        println!("[INFO] {}: Sending {} to {}", self.aid(),self.hub.msg().message_type(), agent);
+        println!(
+            "[INFO] {}: Sending {} to {}",
+            self.aid(),
+            self.hub.msg().message_type(),
+            agent
+        );
         let agent_aid = if let Some(agent_aid) = self.directory.get(agent) {
             agent_aid.to_owned()
         } else {
@@ -112,17 +117,17 @@ impl Agent {
         self.send_to_aid(&agent_aid)
     }
 
-    /// Send the currently held message to the target Agent. The Agent needs to be addressed by its nickname.
+    /// Send the currently held [`Message`] to the target agent. The agent needs to be addressed by its [`Description`].
     pub fn send_to_aid(&mut self, description: &Description) -> Result<(), ErrorCode> {
         self.hub.send_to_aid(description)
     }
 
-    /// Wait for a messsage to arrive. This operation blocks the Agent and will overwrite the currently held Message.
+    /// Wait for a [`Message`] to arrive. This operation blocks the agent and will overwrite the currently held [`Message`].
     pub fn receive(&mut self) -> Result<MessageType, ErrorCode> {
         self.hub.receive()
     }
 
-    /// Add a contact to the contact list. The target Agent needs to be addressed by its nickname.
+    /// Add an agent to the contact list. The target agent needs to be addressed by its nickname.
     pub fn add_contact(&mut self, nickname: &str) -> Result<(), ErrorCode> {
         let msg_type = MessageType::Request;
         //only looking for local agents
@@ -147,7 +152,7 @@ impl Agent {
         }
     }
 
-    /// Add a contact to the contact list. The target Agent needs to be addressed by its Description.
+    /// Add a contact to the contact list. The target agent needs to be addressed by its [`Description`].
     pub fn add_contact_aid(
         &mut self,
         nickname: &str,
@@ -163,7 +168,7 @@ impl Agent {
         }
     }
 
-    /// Halt the Agent Behavior for a specified duration of time.
+    /// Halt the agent's operation for a specified duration of time in milliseconds.
     pub fn wait(&self, time: u64) {
         self.tcb.wait.store(true, Ordering::Relaxed);
         let dur = Duration::from_millis(time); //TBD could remove
