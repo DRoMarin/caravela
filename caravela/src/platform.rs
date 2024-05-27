@@ -21,7 +21,7 @@ use std::{
     },
     thread,
 };
-use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority};
+use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorityValue};
 
 //pub mod organization;
 pub(crate) mod environment;
@@ -71,7 +71,7 @@ impl Platform {
             .spawn_with_priority(ThreadPriority::Max, move |_| {
                 ams_aid_task.set_thread(thread::current().id());
                 ams.hub.set_aid(ams_aid_task);
-                println!("\nBOOTING AMS: {}\n", ams.hub.aid());
+                println!("[INFO] {}: Booting AMS", ams.hub.aid());
                 ams.service_function();
             });
         if let Ok(handle) = ams_handle {
@@ -93,18 +93,23 @@ impl Platform {
         stack_size: usize,
     ) -> Result<Description, ErrorCode> {
         // build agent
-        let hap = self.name.clone();
+        let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
         let tcb = Arc::new(ControlBlock::default());
         let deck = self.deck.clone();
         let base_agent = Agent::new(rx, deck, tcb.clone());
-        if aid_from_name(&base_agent.aid().name()) == Err(ErrorCode::AidHandleNone) {
+        if aid_from_name(&base_agent.aid().name()) != Err(ErrorCode::AidHandleNone) {
             return Err(ErrorCode::Duplicated);
         }
         let agent = T::agent_builder(base_agent);
 
         //check prio
+        if priority == ThreadPriorityValue::MAX {
+            return Err(ErrorCode::InvalidPriority(
+                "Max priority only allowed for Services",
+            ));
+        }
         let priority = match ThreadPriority::try_from(priority) {
             Ok(agent_priority) => agent_priority,
             Err(error) => return Err(ErrorCode::InvalidPriority(error)),
@@ -116,7 +121,7 @@ impl Platform {
         let agent_handle = thread::Builder::new()
             .stack_size(stack_size)
             .spawn_with_priority(ThreadPriority::Min, move |_| {
-                while spinlock.load(Ordering::Acquire) {
+                while !spinlock.load(Ordering::Acquire) {
                     hint::spin_loop();
                 }
                 execute(agent);

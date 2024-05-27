@@ -7,7 +7,7 @@ use crate::{
         messaging::{Content, Message, MessageType, RequestType},
         Description, Hub,
     },
-    platform::environment::aid_from_name,
+    platform::environment::{aid_from_name, aid_from_thread},
     ErrorCode, MAX_SUBSCRIBERS, RX,
 };
 use std::{
@@ -23,7 +23,7 @@ use std::{
 
 type ContactList = HashMap<String, Description>;
 
-/// This Enum specifies the different states in an Agent Lifecycle.
+/// The different states in an Agent Lifecycle.
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
 pub enum AgentState {
     /// The Agent is present in the platform, but inactive.
@@ -101,11 +101,11 @@ impl Agent {
     /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        println!("{}: SENDING to {}", self.aid(), agent);
+        println!("[INFO] {}: Sending {} to {}", self.aid(),self.hub.msg().message_type(), agent);
         let agent_aid = if let Some(agent_aid) = self.directory.get(agent) {
-            println!("FOUND IN CONTACT LIST: {}", agent_aid);
-            agent_aid.clone()
+            agent_aid.to_owned()
         } else {
+            //only looking for local agents
             let name = self.fmt_local_agent(agent);
             aid_from_name(&name)?
         };
@@ -123,33 +123,28 @@ impl Agent {
     }
 
     /// Add a contact to the contact list. The target Agent needs to be addressed by its nickname.
-    pub fn add_contact(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        /*
+    pub fn add_contact(&mut self, nickname: &str) -> Result<(), ErrorCode> {
         let msg_type = MessageType::Request;
-        let msg_content = Content::Request(RequestType::Search(agent.to_string()));
+        //only looking for local agents
+        let name = self.fmt_local_agent(nickname);
+        let agent = aid_from_name(&name)?;
+        let msg_content = Content::Request(RequestType::Search(agent));
         self.set_msg(msg_type, msg_content);
-        let ams = "AMS";
-        let send_result = self.send_to(ams);
-        send_result?;
-        let recv_result = self.receive();
-        if let Ok(msg_type) = recv_result {
-            match msg_type {
-                MessageType::Inform => {
-                    if let Content::AID(x) = self.msg().content() {
-                        self.add_contact_aid(agent, x)
-                    } else {
-                        Err(ErrorCode::InvalidContent)
-                    }
+        self.send_to("AMS")?;
+        let msg_type = self.receive()?;
+        match msg_type {
+            MessageType::Inform => {
+                if let Content::AmsAgentDescription(ams_agent_description) = self.msg().content() {
+                    self.add_contact_aid(nickname, ams_agent_description.aid().clone())?;
+                    Ok(())
+                } else {
+                    Err(ErrorCode::InvalidContent)
                 }
-                MessageType::Failure => Err(ErrorCode::NotRegistered),
-
-                _ => Err(ErrorCode::InvalidMessageType),
             }
-        } else {
-            Err(ErrorCode::Disconnected)
+            MessageType::Failure => Err(ErrorCode::NotRegistered),
+
+            _ => Err(ErrorCode::InvalidMessageType),
         }
-        */
-        todo!()
     }
 
     /// Add a contact to the contact list. The target Agent needs to be addressed by its Description.
@@ -188,9 +183,15 @@ impl Agent {
     }
 
     pub(crate) fn init(&mut self) -> bool {
-        println!("{}: STARTING", self.aid());
-        self.tcb.active.store(true, Ordering::Relaxed);
-        true
+        if let Ok(aid) = aid_from_thread(thread::current().id()) {
+            self.hub.set_aid(aid);
+            println!("[INFO] {}: Starting", self.aid());
+            self.tcb.active.store(true, Ordering::Relaxed);
+            true
+        } else {
+            self.takedown();
+            false
+        }
     }
 
     pub(crate) fn suspend(&mut self) {

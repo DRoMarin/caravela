@@ -40,9 +40,7 @@ pub struct Deck {
 impl Deck {
     pub(crate) fn new() -> Self {
         let wp_directory: AidDirectory = AidDirectory::with_capacity(MAX_SUBSCRIBERS);
-        Self {
-            wp_directory,
-        }
+        Self { wp_directory }
     }
 
     pub(crate) fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
@@ -115,10 +113,10 @@ impl Deck {
 
     pub(crate) fn send_msg(&self, msg: Message, sync: SyncType) -> Result<(), ErrorCode> {
         //check memberships and roles
-        //dbg!(msg.clone());
-        //dbg!(&self.address_directory);
         let receiver_aid = msg.receiver();
-        self.search_agent(receiver_aid)?;
+        if receiver_aid.nickname() != "AMS" {
+            self.search_agent(receiver_aid)?;
+        }
         let address = receiver_aid.address()?;
         let result = match sync {
             SyncType::Blocking => SendResult::Blocking(address.send(msg)),

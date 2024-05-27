@@ -1,4 +1,4 @@
-//#![warn(missing_docs)]
+#![warn(missing_docs)]
 
 pub(crate) mod deck;
 pub(crate) mod entity;

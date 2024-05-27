@@ -1,42 +1,57 @@
 use crate::entity::agent::Agent;
 
+/// Establishes that an object is an agent.
 pub trait Behavior {
+    /// Required function to build the derived agent instance.
     fn agent_builder(base_agent: Agent) -> Self;
+    /// Required function to access  [`Agent`] base functionality.
     fn agent_mut_ref(&mut self) -> &mut Agent;
+    /// Function executed once after starting the agent; just before [`Behavior::action`]. Empty by default.
     fn setup(&mut self) {
-        println!("\n{}: no setup implemented", self.agent_mut_ref().aid());
+        println!(
+            "[DEFAULT] {}: no setup implemented",
+            self.agent_mut_ref().aid()
+        );
     }
-
+    /// Function executed after [`Behavior::action`] used to determined if the agent has reached the end of its life cycle.
+    /// By default it returns `true`.
     fn done(&mut self) -> bool {
         println!(
-            "{}: execution done, taking down.\n",
+            "[DEFAULT] {}: execution done, taking down",
             self.agent_mut_ref().aid()
         );
         true
     }
-
+    /// Function that corresponds to the main repeating activity of the agent executed after [`Behavior::setup`].
+    /// Empty by default.
     fn action(&mut self) {
-        println!("{}: no action implemented", self.agent_mut_ref().aid());
+        println!(
+            "[DEFAULT] {}: no action implemented",
+            self.agent_mut_ref().aid()
+        );
     }
-
+    /// Function used to include Fault Detection as part of the FDIR functionality of the agent.
+    /// Empty by default.
     fn failure_detection(&mut self) -> bool {
         println!(
-            "{}: no failure detection implemented",
+            "[DEFAULT] {}: no failure detection implemented",
             self.agent_mut_ref().aid()
         );
         false
     }
-
+    /// Function used to include Fault Identification as part of the FDIR functionality of the agent.
+    /// Empty by default.
     fn failure_identification(&mut self) {
         println!(
-            "{}: no failure identification implemented",
+            "[DEFAULT] {}: no failure identification implemented",
             self.agent_mut_ref().aid()
         );
     }
-
+    /// Function used to include Fault Recovery as part of the FDIR functionality of the agent.
+    /// Empty by default.
     fn failure_recovery(&mut self) {
         println!(
-            "{}: no failure recovery implemented",
+            "[DEFAULT] {}: no failure recovery implemented",
             self.agent_mut_ref().aid()
         );
     }

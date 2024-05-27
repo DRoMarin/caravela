@@ -11,7 +11,10 @@ mod tests {
         struct Test(Agent);
         impl Behavior for Test {
             fn action(&mut self) {
-                println!("\n{}: Hello! I'm Agent Test", self.agent_mut_ref().aid())
+                println!(
+                    "[TEST] {}: Hello! I'm Agent Test",
+                    self.agent_mut_ref().aid()
+                )
             }
 
             fn agent_mut_ref(&mut self) -> &mut Agent {
@@ -22,18 +25,18 @@ mod tests {
                 Self(base_agent)
             }
         }
-        let mut agent_platform = Platform::new("test_boot".to_string());
+        let mut agent_platform = Platform::new("test_boot");
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
         std::thread::sleep(std::time::Duration::from_millis(5000));
-        let agent_test: Test = agent_platform.add("AgentTest".to_string(), 1, 4)?;
-        let start = agent_platform.start(agent_test);
+        let agent_test = agent_platform.add::<Test>("AgentTest", 1, 4)?;
+        let start = agent_platform.start(&agent_test);
         std::thread::sleep(std::time::Duration::from_millis(500));
         assert!(start.is_ok());
         Ok(())
     }
 
-    //#[test]
+    #[test]
     fn instantiating() -> Result<(), Box<dyn Error>> {
         struct Valid(Agent);
         struct Invalid {
@@ -62,29 +65,27 @@ mod tests {
                 Self { ag: base_agent }
             }
         }
-        let mut agent_platform = Platform::new("test_inst".to_string());
+        let mut agent_platform = Platform::new("test_inst");
         agent_platform.boot()?;
-        let ag_valid: Result<Valid, ErrorCode> =
-            agent_platform.add("Agent-Valid".to_string(), 98, 4);
+        let ag_valid = agent_platform.add::<Valid>("Agent-Valid", 98, 4);
         assert!(ag_valid.is_ok());
         std::thread::sleep(std::time::Duration::from_millis(500));
-        let ag_invalid: Result<Invalid, ErrorCode> =
-            agent_platform.add("Agent-Invalid".to_string(), 99, 4);
+        let ag_invalid = agent_platform.add::<Invalid>("Agent-Invalid", 99, 4);
         assert!(ag_invalid.is_err());
         Ok(())
     }
 
-    //#[test]
+    #[test]
     fn contacts() -> Result<(), Box<dyn Error>> {
         struct AgentList(Agent);
         struct AgentPresent(Agent);
 
         impl Behavior for AgentPresent {
             fn action(&mut self) {
-                println!("{}: waiting", self.0.aid());
+                println!("[TEST] {}: Waiting for message...", self.0.aid());
                 self.0.wait(5000);
                 _ = self.0.receive();
-                println!("{}: RECEIVED!", self.0.aid());
+                println!("[TEST] {}: Received message!", self.0.aid());
             }
 
             fn failure_detection(&mut self) -> bool {
@@ -102,18 +103,17 @@ mod tests {
 
         impl Behavior for AgentList {
             fn setup(&mut self) {
-                println!("{}: ADDING CONTACTS", self.0.aid());
+                println!("[TEST] {}: Adding contact to list", self.0.aid());
                 let result: Result<(), ErrorCode> = self.0.add_contact("Agent-Present");
-
                 assert_eq!(result, Ok(()), "NOT ADDED CORRECTLY");
-
+                println!("[TEST] {}: Added {} as contact", self.0.aid(), "Agent-Present");
                 let result = self.0.add_contact("Agent-Absent");
                 assert_eq!(
                     result,
-                    Err(ErrorCode::NotRegistered),
+                    Err(ErrorCode::AidHandleNone),
                     "AGENT IS NOT MISSING"
                 );
-                println!("{}: ADDED CONTACTS", self.0.aid());
+                println!("[TEST] {}: Contact {} not added", self.0.aid(), "Agent-Absent");
                 self.0.set_msg(MessageType::Inform, Content::None);
                 let _ = self.0.send_to("Agent-Present");
             }
@@ -127,15 +127,15 @@ mod tests {
             }
         }
 
-        let mut agent_platform = Platform::new("test_contacts".to_string());
+        let mut agent_platform = Platform::new("test_contacts");
         agent_platform.boot()?;
 
-        let ag_present: AgentPresent = agent_platform.add("Agent-Present".to_string(), 1, 10)?;
-        let ag_list: AgentList = agent_platform.add("Agent-List".to_string(), 1, 10)?;
+        let ag_present = agent_platform.add::<AgentPresent>("Agent-Present", 1, 10)?;
+        let ag_list = agent_platform.add::<AgentList>("Agent-List", 1, 10)?;
         println!("STARTING PRESENT");
-        agent_platform.start(ag_present)?;
+        agent_platform.start(&ag_present)?;
         println!("STARTING LIST");
-        agent_platform.start(ag_list)?;
+        agent_platform.start(&ag_list)?;
         std::thread::sleep(std::time::Duration::from_millis(15000));
         Ok(())
     }

@@ -76,11 +76,13 @@ impl<T: UserConditions> Service for Ams<T> {
     fn service_function(&mut self) {
         //self.hub.set_thread();
         loop {
-            println!("{}: WAITING...", self.hub.aid());
+            println!("[INFO] {}: Wating for a request...", self.hub.aid());
             let msg_result = self.hub.receive();
-            dbg!(self.hub.msg());
-            let receiver = self.hub.msg().sender().clone();
+            //let msg_type = self.hub.receive()?;
+            //let receiver = self.hub.msg().sender().clone();
             if Ok(MessageType::Request) == msg_result {
+                //if MessageType::Request == msg_type {
+                let receiver = self.hub.msg().sender().clone();
                 if let Content::Request(request_type) = self.hub.msg().content() {
                     let error = match request_type.clone() {
                         RequestType::Register(aid) => self.register_agent(&aid),
@@ -91,13 +93,19 @@ impl<T: UserConditions> Service for Ams<T> {
                         RequestType::Search(aid) => self.search_agent(&aid),
                         _ => Err(ErrorCode::InvalidRequest),
                     };
+                    println!(
+                        "[INFO] {}: Replying to {} from {}",
+                        self.hub.aid(),
+                        request_type,
+                        receiver
+                    );
                     self.service_req_reply_type(request_type, error);
                 } else {
                     self.hub.set_msg(MessageType::NotUnderstood, Content::None);
                 }
                 // setting up reply
-                println!("{}: REPLYING TO {}", self.hub.aid(), receiver);
                 let _ = self.hub.send_to_aid(&receiver);
+                //TBD handle these possible errors;
             }
         }
     }
