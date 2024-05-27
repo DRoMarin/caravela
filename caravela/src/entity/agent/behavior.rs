@@ -14,7 +14,7 @@ pub trait Behavior {
         );
     }
     /// Function executed after [`Behavior::action`] used to determined if the agent has reached the end of its life cycle.
-    /// By default it returns `true`.
+    /// Returns `true` by default.
     fn done(&mut self) -> bool {
         println!(
             "[DEFAULT] {}: execution done, taking down",
@@ -31,7 +31,7 @@ pub trait Behavior {
         );
     }
     /// Function used to include Fault Detection as part of the FDIR functionality of the agent.
-    /// Empty by default.
+    /// Returns `false` by default.
     fn failure_detection(&mut self) -> bool {
         println!(
             "[DEFAULT] {}: no failure detection implemented",
