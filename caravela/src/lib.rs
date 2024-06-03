@@ -1,5 +1,10 @@
 #![warn(missing_docs)]
 
+//! This crate offers a platform to create and run programs based on Multi-Agent Systems
+//!  according to the standards set by the Foundation for Intelligent Physical Agents (FIPA).
+//!
+//! The agents run, communicate and interact following on the threading model included in the [`std::sync`] module,
+//!  plus this platform depends on the [`thread_priority`] crate to provide a predictive pre-emptive behavior across agents.
 pub(crate) mod deck;
 pub(crate) mod entity;
 pub(crate) mod platform;
@@ -7,10 +12,12 @@ pub(crate) mod platform;
 pub use self::entity::agent;
 pub use self::entity::{
     messaging::{Content, Message, MessageType, RequestType},
+    service::UserConditions,
     Description,
 };
 pub use self::platform::Platform;
 use entity::agent::AgentState;
+//use std::sync::mpsc::{SendError, TrySendError};
 use std::{
     error::Error,
     fmt::Display,
@@ -18,55 +25,87 @@ use std::{
 };
 //use thread_priority::*;
 
+/// StackSize defined as platform dependant.
 pub type StackSize = usize;
 pub(crate) type TX = SyncSender<Message>;
 pub(crate) type RX = Receiver<Message>;
 
+/// Default stack value for any given platform.
 pub const DEFAULT_STACK: usize = 8;
+/// Maximum priority across all entities.
+///  This value is reserved for platform service entities such as the AMS and cannot be used for user defined agents.
 pub const MAX_PRIORITY: u8 = 99;
-pub const MAX_SUBSCRIBERS: usize = 64;
+pub(crate) const MAX_SUBSCRIBERS: usize = 64;
 
+/// Different error codes associated with possible platform failures provided to support error handling functionality.
 #[derive(PartialEq, Debug, Default)]
 pub enum ErrorCode {
+    /// Could not spawn the AMS agent.
     AmsBoot,
-    AgentLaunch,
+    /// Could not spawn agent.
+    AgentPanic,
+    /// Could not start the agent due to a priority error.
     AgentStart(thread_priority::Error),
+    /// Could not create agent with the given priority.
     InvalidPriority(&'static str),
+    /// The sending half of the channel may have disconnected.
     MpscRecv(RecvError),
+    //MpscSyncSend(TrySendError<Message>),
+    //MpscSend(SendError<Message>),
+    /// The receiving half of the channel may have disconnected.
     Disconnected,
-    ListFull,
-    Duplicated,
-    NotFound,
+    /// The receiving channel is currently full.
     ChannelFull,
+    /// The directory has reached the maximum number of agents.
+    ListFull,
+    /// The agent is already present.
+    Duplicated,
+    /// The agent could not be found.
+    NotFound,
+    /// Conditions not met for a specific request.
     InvalidConditions(RequestType),
+    /// Invalid content in message.
     InvalidContent,
+    /// Unexpected message for a given protocol.
     InvalidMessageType,
+    /// Unexpected request.
     #[default]
     InvalidRequest,
+    /// State change not possible.
     InvalidStateChange(AgentState, AgentState),
+    /// Target is not registered.
     NotRegistered,
+    /// Description not available.
     AidHandleNone,
+    /// Function behind lock could not be accessed due to poisoning.
     PoisonedLock,
+    /// Enviroment not initiated yet.
     UninitEnv,
+    /// Agent adress not assigned yet.
     AddressNone,
+    /// Enviroment behind lock is poisoned.
     PoisonedEnvironment,
 }
 
 impl Display for ErrorCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ErrorCode::AmsBoot => write!(f, "Could not spawn AMS task"),
-            ErrorCode::AgentLaunch => write!(f, " Could not spawn agent"),
+            ErrorCode::AmsBoot => write!(f, "Could not spawn AMS agent"),
+            ErrorCode::AgentPanic => write!(f, " Could not spawn agent"),
             ErrorCode::AgentStart(error) => write!(f, " Could not start agent: {:?}", error),
             ErrorCode::InvalidPriority(error) => {
                 write!(f, "Could not create agent with this priority:{}", error)
             }
             ErrorCode::MpscRecv(_) => write!(f, "SyncSender was disconnected from this Receiver"),
             ErrorCode::Disconnected => write!(f, "Receiver was disconnected from this SyncSender"),
+            ErrorCode::ChannelFull => write!(f, "Target agent channel was full"),
+            //ErrorCode::MpscSyncSend(error) => {
+            //    write!(f, "Receiver could not accept the message:{}",error)
+            //}
+            //ErrorCode::MpscSend(_) => write!(f, "Receiver was disconnected from this SyncSender"),
             ErrorCode::ListFull => write!(f, "Max number of agents reached"),
             ErrorCode::Duplicated => write!(f, "Agent is already present"),
             ErrorCode::NotFound => write!(f, "Agent could not be found"),
-            ErrorCode::ChannelFull => write!(f, "Target agent channel was full"),
             ErrorCode::InvalidConditions(x) => write!(f, "Conditions not met for: {}", x),
             ErrorCode::InvalidContent => write!(f, "Invalid content in message"),
             ErrorCode::InvalidMessageType => write!(f, "Unexpected message received"),

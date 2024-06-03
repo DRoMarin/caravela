@@ -13,7 +13,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AmsAgentDescription {
     aid: Description,
 }

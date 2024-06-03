@@ -1,7 +1,9 @@
 use super::{service::ams::AmsAgentDescription, Description};
 use std::fmt::Display;
 
-/// All communicative acts defined by the FIPA00037 standard.
+/// All communicative acts allowed between agents.
+///
+/// These are defined by the FIPA00037 standard and are meant to be used with a formal logic language model included in the standard.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub enum MessageType {
     /// Accept a previously presented proposal to perform some action.
@@ -118,7 +120,7 @@ impl Display for RequestType {
 }
 
 /// Different types of content allowed for messaging.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum Content {
     /// Propositions with no specific format.
     Text(String),
@@ -132,7 +134,7 @@ pub enum Content {
 }
 
 /// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Message {
     sender_aid: Description,
     receiver_aid: Description,

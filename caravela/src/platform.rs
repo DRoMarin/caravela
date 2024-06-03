@@ -28,6 +28,8 @@ pub(crate) mod environment;
 
 type SpinLockMap = HashMap<Description, (Arc<AtomicBool>, ThreadPriority)>;
 
+/// Represents the Host Agent Platform (HAP) and
+///  provides the user with methods to incorporate agents into it.
 #[derive(Debug)]
 pub struct Platform {
     name: &'static str,
@@ -36,6 +38,7 @@ pub struct Platform {
 }
 
 impl Platform {
+    /// Function that constructs a new [`Platform`] object with the provided name.
     pub fn new(name: &'static str) -> Self {
         let deck = Arc::new(RwLock::new(Deck::new()));
         let spinlock_map = SpinLockMap::new();
@@ -47,15 +50,19 @@ impl Platform {
         }
     }
 
+    /// Returns the name of the platform.
     pub fn name(&self) -> &'static str {
         self.name
     }
-
+    /// This method starts the Agent Management System (AMS) as [`boot_with_ams_conditions`](Self::boot_with_ams_conditions) also does,
+    ///  but with default service conditions.
     pub fn boot(&mut self) -> Result<(), ErrorCode> {
         let default: DefaultConditions = DefaultConditions;
         self.boot_with_ams_conditions(default)
     }
 
+    /// This method starts the Agent Management System (AMS) with specific user given conditions,
+    ///  passed as a type that implements [`UserConditions`].
     pub fn boot_with_ams_conditions<T: UserConditions + Send + 'static>(
         &mut self,
         conditions: T,
@@ -86,6 +93,10 @@ impl Platform {
         }
     }
 
+    /// This method creates agents of the given `T` type that implements [`Behavior`]
+    ///  with the specified parameters (nickname, priority, and stack size).
+    ///  If successful, it will return a `Ok(aid)` with the [`Description`] of the agent.
+    ///  This Agent is not active by default and must be started by [`start`](Self::start)
     pub fn add<T: Behavior + Send + 'static>(
         &mut self,
         nickname: &'static str,
@@ -104,7 +115,7 @@ impl Platform {
         }
         let agent = T::agent_builder(base_agent);
 
-        //check prio
+        // check prio
         if priority == ThreadPriorityValue::MAX {
             return Err(ErrorCode::InvalidPriority(
                 "Max priority only allowed for Services",
@@ -128,9 +139,9 @@ impl Platform {
             });
         // register on env
         if let Ok(handle) = agent_handle {
-            if handle.is_finished() {
-                return Err(ErrorCode::AgentLaunch);
-            }
+            /*if handle.is_finished() {
+                return Err(ErrorCode::AgentFinish);
+            }*/
             //Build description and insert in env lock
             aid.set_thread(handle.thread().id());
             self.spinlock_map
@@ -139,10 +150,11 @@ impl Platform {
             self.deck.write().unwrap().insert_agent(aid.clone())?;
             Ok(aid)
         } else {
-            Err(ErrorCode::AgentLaunch)
+            Err(ErrorCode::AgentPanic)
         }
     }
 
+    /// Transition the agent from the initiated state into the active state, required for it to execute its behavior.
     pub fn start(&mut self, aid: &Description) -> Result<(), ErrorCode> {
         if let Some((spinlock, priority)) = self.spinlock_map.remove(aid) {
             let thread = agent_thread_handle(aid)?;

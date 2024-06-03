@@ -1,5 +1,5 @@
 /// Base agent functionality.
-pub mod agent; 
+pub mod agent;
 pub(crate) mod messaging;
 pub(crate) mod service;
 
@@ -17,6 +17,11 @@ use std::{
     thread::ThreadId,
 };
 
+/// Agent Identifier (AID) that is unique to all entities across platforms. 
+/// 
+/// Each AID has two different parameters:
+/// - `Name` which is given with the format `name nickname@hap` and as [`String`].
+/// - `Id` which is unique among the process since it identifies the thread executing the entity and it is given as type [`ThreadId`].
 #[derive(Clone, Debug, Default)]
 pub struct Description {
     nickname: &'static str,
@@ -73,14 +78,17 @@ impl Description {
         }
     }
 
-    pub fn nickname(&self) -> &str {
-        self.nickname
-    }
-
+    /// Return a `String` with the full name of the AID. Same result as [`ToString::to_string`].
     pub fn name(&self) -> String {
         self.to_string()
     }
 
+    /// Return a `&str` slice with the nickname of the name; the left side of nickname@hap.
+    pub fn nickname(&self) -> &str {
+        self.nickname
+    }
+
+    /// Return a `&str` slice with name of the Host Agent Platform (HAP) of the name; the right side of nickname@hap.
     pub fn hap(&self) -> &str {
         self.hap
     }
@@ -93,6 +101,7 @@ impl Description {
         }
     }
 
+    /// Return an `Option<ThreadId>`: [`Some`] if the Entity is running and [`None`] if not.
     pub fn id(&self) -> Option<ThreadId> {
         self.thread
     }
