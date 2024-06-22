@@ -5,6 +5,9 @@
 //!
 //! The agents run, communicate and interact following on the threading model included in the [`std::sync`] module,
 //!  plus this platform depends on the [`thread_priority`] crate to provide a predictive pre-emptive behavior across agents.
+#[macro_use]
+pub(crate) mod utils;
+
 pub(crate) mod deck;
 pub(crate) mod entity;
 pub(crate) mod platform;

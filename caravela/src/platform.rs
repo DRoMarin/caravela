@@ -78,7 +78,7 @@ impl Platform {
             .spawn_with_priority(ThreadPriority::Max, move |_| {
                 ams_aid_task.set_thread(thread::current().id());
                 ams.hub.set_aid(ams_aid_task);
-                println!("[INFO] {}: Booting AMS", ams.hub.aid());
+                caravela_status!("{}: Booting AMS", ams.hub.aid());
                 ams.service_function();
             });
         if let Ok(handle) = ams_handle {

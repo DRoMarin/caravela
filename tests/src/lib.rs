@@ -11,8 +11,8 @@ mod tests {
         struct Test(Agent);
         impl Behavior for Test {
             fn action(&mut self) {
-                println!(
-                    "[TEST] {}: Hello! I'm Agent Test",
+                caravela_probe!(
+                    "{}: Hello! I'm Agent Test",
                     self.agent_mut_ref().aid()
                 )
             }
@@ -82,10 +82,10 @@ mod tests {
 
         impl Behavior for AgentPresent {
             fn action(&mut self) {
-                println!("[TEST] {}: Waiting for message...", self.0.aid());
+                caravela_probe!("{}: Waiting for message...", self.0.aid());
                 self.0.wait(5000);
                 _ = self.0.receive();
-                println!("[TEST] {}: Received message!", self.0.aid());
+                caravela_probe!("{}: Received message!", self.0.aid());
             }
 
             fn failure_detection(&mut self) -> bool {
@@ -103,17 +103,25 @@ mod tests {
 
         impl Behavior for AgentList {
             fn setup(&mut self) {
-                println!("[TEST] {}: Adding contact to list", self.0.aid());
+                caravela_probe!("{}: Adding contact to list", self.0.aid());
                 let result: Result<(), ErrorCode> = self.0.add_contact("Agent-Present");
                 assert_eq!(result, Ok(()), "NOT ADDED CORRECTLY");
-                println!("[TEST] {}: Added {} as contact", self.0.aid(), "Agent-Present");
+                caravela_probe!(
+                    "{}: Added {} as contact",
+                    self.0.aid(),
+                    "Agent-Present"
+                );
                 let result = self.0.add_contact("Agent-Absent");
                 assert_eq!(
                     result,
                     Err(ErrorCode::AidHandleNone),
                     "AGENT IS NOT MISSING"
                 );
-                println!("[TEST] {}: Contact {} not added", self.0.aid(), "Agent-Absent");
+                caravela_probe!(
+                    "{}: Contact {} not added",
+                    self.0.aid(),
+                    "Agent-Absent"
+                );
                 self.0.set_msg(MessageType::Inform, Content::None);
                 let _ = self.0.send_to("Agent-Present");
             }
@@ -132,9 +140,9 @@ mod tests {
 
         let ag_present = agent_platform.add::<AgentPresent>("Agent-Present", 1, 10)?;
         let ag_list = agent_platform.add::<AgentList>("Agent-List", 1, 10)?;
-        println!("STARTING PRESENT");
+        caravela_probe!("STARTING PRESENT");
         agent_platform.start(&ag_present)?;
-        println!("STARTING LIST");
+        caravela_probe!("STARTING LIST");
         agent_platform.start(&ag_list)?;
         std::thread::sleep(std::time::Duration::from_millis(15000));
         Ok(())
@@ -155,7 +163,7 @@ mod tests {
             impl Behavior for Agent<AgentFast> {
                 fn action(&mut self) {
                     for _ in 0..6 {
-                        println!("beep");
+                        caravela_probe!("beep");
                         self.wait(self.data.rate * 1000);
                     }
                 }
@@ -167,7 +175,7 @@ mod tests {
             impl Behavior for Agent<AgentSlow> {
                 fn action(&mut self) {
                     for _ in 0..3 {
-                        println!("boop");
+                        caravela_probe!("boop");
                         self.wait(self.data.rate * 1000);
                     }
                 }
@@ -185,9 +193,9 @@ mod tests {
             let ag_slow = agent_platform
                 .add("Agent-Slow".to_string(), 1, 10, data_slow)
                 .unwrap();
-            println!("STARTING FAST");
+            caravela_probe!("STARTING FAST");
             agent_platform.start(ag_fast);
-            println!("STARTING SLOW");
+            caravela_probe!("STARTING SLOW");
             agent_platform.start(ag_slow);
             std::thread::sleep(std::time::Duration::from_millis(8000));
         }
@@ -215,7 +223,7 @@ mod tests {
                         loop {
                             let result = self.add_contact(self.data.target);
                             if result.is_ok() {
-                                println!("FOUND");
+                                caravela_probe!("FOUND");
                                 break;
                             }
                         }
@@ -224,14 +232,14 @@ mod tests {
                             self.msg
                                 .set_content(Content::Text(self.data.event.to_string()));
 
-                            println!("STARTING {}\n", self.data.event);
+                            caravela_probe!("STARTING {}\n", self.data.event);
                             loop {
                                 let send_result = self.send_to("Agent-Pong");
                                 if send_result.is_ok() {
                                     break;
                                 }
                                 self.wait(self.data.delay);
-                                println!("RETRY {}\n", self.data.event);
+                                caravela_probe!("RETRY {}\n", self.data.event);
                             }
                         }
                     }
@@ -239,7 +247,7 @@ mod tests {
                     fn action(&mut self) {
                         if self.receive() == Ok(MessageType::Inform) {
                             if let Some(Content::Text(x)) = self.msg.get_content() {
-                                println!("{}", x);
+                                caravela_probe!("{}", x);
                                 self.wait(self.data.delay);
                             }
                             self.msg.set_type(MessageType::Inform);

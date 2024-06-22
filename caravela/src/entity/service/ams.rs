@@ -76,7 +76,7 @@ impl<T: UserConditions> Service for Ams<T> {
     fn service_function(&mut self) {
         //self.hub.set_thread();
         loop {
-            println!("[INFO] {}: Wating for a request...", self.hub.aid());
+            caravela_messaging!("{}: Wating for a request...", self.hub.aid());
             let msg_result = self.hub.receive();
             //let msg_type = self.hub.receive()?;
             //let receiver = self.hub.msg().sender().clone();
@@ -93,8 +93,8 @@ impl<T: UserConditions> Service for Ams<T> {
                         RequestType::Search(aid) => self.search_agent(&aid),
                         _ => Err(ErrorCode::InvalidRequest),
                     };
-                    println!(
-                        "[INFO] {}: Replying to {} from {}",
+                    caravela_messaging!(
+                        "{}: Replying to {} from {}",
                         self.hub.aid(),
                         request_type,
                         receiver
@@ -147,6 +147,7 @@ impl<T: UserConditions> Ams<T> {
         deck_guard.modify_control_block(aid, TcbField::Quit, true)?;
         deck_guard.remove_agent(aid)
         //TBD: REMOVE HANDLE AND JOIN THREAD
+        //TODO: FIX FLOW TO RELY ON TAKEDOWNS
     }
 
     pub(crate) fn suspend_agent(&self, aid: &Description) -> Result<(), ErrorCode> {

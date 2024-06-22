@@ -101,8 +101,8 @@ impl Agent {
     /// Send the currently held message to the target agent. The receiver needs to be addressed by its nickname.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        println!(
-            "[INFO] {}: Sending {} to {}",
+        caravela_messaging!(
+            "{}: Sending {} to {}",
             self.aid(),
             self.hub.msg().message_type(),
             agent
@@ -171,6 +171,7 @@ impl Agent {
     /// Halt the agent's operation for a specified duration of time in milliseconds.
     pub fn wait(&self, time: u64) {
         self.tcb.wait.store(true, Ordering::Relaxed);
+        caravela_status!("{}: Waiting", self.aid());
         let dur = Duration::from_millis(time); //TBD could remove
         thread::sleep(dur);
         self.tcb.wait.store(false, Ordering::Relaxed);
@@ -190,7 +191,7 @@ impl Agent {
     pub(crate) fn init(&mut self) -> bool {
         if let Ok(aid) = aid_from_thread(thread::current().id()) {
             self.hub.set_aid(aid);
-            println!("[INFO] {}: Starting", self.aid());
+            caravela_status!("{}: Starting", self.aid());
             self.tcb.active.store(true, Ordering::Relaxed);
             true
         } else {
@@ -202,7 +203,9 @@ impl Agent {
     pub(crate) fn suspend(&mut self) {
         if self.tcb.suspend.load(Ordering::Relaxed) {
             self.tcb.suspend.store(true, Ordering::Relaxed);
+            caravela_status!("{}: Suspending", self.aid());
             thread::park();
+            caravela_status!("{}: Resuming", self.aid());
             self.tcb.suspend.store(false, Ordering::Relaxed);
         }
     }
@@ -217,6 +220,7 @@ impl Agent {
         let msg_content = Content::Request(RequestType::Deregister(self.aid()));
         self.set_msg(msg_type, msg_content);
         let _ = self.send_to(ams);
+        caravela_status!("{}: Finishing", self.aid());
         true
     }
 }

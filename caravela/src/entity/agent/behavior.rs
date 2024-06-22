@@ -1,5 +1,4 @@
 use crate::entity::agent::Agent;
-
 /// Establishes that an object is an agent.
 pub trait Behavior {
     /// Required function to build the derived agent instance.
@@ -8,16 +7,13 @@ pub trait Behavior {
     fn agent_mut_ref(&mut self) -> &mut Agent;
     /// Function executed once after starting the agent; just before [`Behavior::action`]. Empty by default.
     fn setup(&mut self) {
-        println!(
-            "[DEFAULT] {}: no setup implemented",
-            self.agent_mut_ref().aid()
-        );
+        caravela_dflt!("{}: no setup implemented", self.agent_mut_ref().aid());
     }
     /// Function executed after [`Behavior::action`] used to determined if the agent has reached the end of its life cycle.
     /// Returns `true` by default.
     fn done(&mut self) -> bool {
-        println!(
-            "[DEFAULT] {}: execution done, taking down",
+        caravela_dflt!(
+            "{}: execution done, taking down",
             self.agent_mut_ref().aid()
         );
         true
@@ -25,16 +21,13 @@ pub trait Behavior {
     /// Function that corresponds to the main repeating activity of the agent executed after [`Behavior::setup`].
     /// Empty by default.
     fn action(&mut self) {
-        println!(
-            "[DEFAULT] {}: no action implemented",
-            self.agent_mut_ref().aid()
-        );
+        caravela_dflt!("{}: no action implemented", self.agent_mut_ref().aid());
     }
     /// Function used to include Fault Detection as part of the FDIR functionality of the agent.
     /// Returns `false` by default.
     fn failure_detection(&mut self) -> bool {
-        println!(
-            "[DEFAULT] {}: no failure detection implemented",
+        caravela_dflt!(
+            "{}: no failure detection implemented",
             self.agent_mut_ref().aid()
         );
         false
@@ -42,16 +35,16 @@ pub trait Behavior {
     /// Function used to include Fault Identification as part of the FDIR functionality of the agent.
     /// Empty by default.
     fn failure_identification(&mut self) {
-        println!(
-            "[DEFAULT] {}: no failure identification implemented",
+        caravela_dflt!(
+            "{}: no failure identification implemented",
             self.agent_mut_ref().aid()
         );
     }
     /// Function used to include Fault Recovery as part of the FDIR functionality of the agent.
     /// Empty by default.
     fn failure_recovery(&mut self) {
-        println!(
-            "[DEFAULT] {}: no failure recovery implemented",
+        caravela_dflt!(
+            "{}: no failure recovery implemented",
             self.agent_mut_ref().aid()
         );
     }
@@ -72,9 +65,9 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
                 behavior.failure_recovery();
             }
             if behavior.done() {
-                behavior.agent_mut_ref().takedown();
                 break;
             }
         }
+        behavior.agent_mut_ref().takedown();
     }
 }
