@@ -1,20 +1,15 @@
 #[cfg(test)]
 mod tests {
     use std::error::Error;
-
     use caravela::agent::*;
     use caravela::*;
-    //use caravel_derive::*;
 
     #[test]
     fn platform_boot() -> Result<(), Box<dyn Error>> {
         struct Test(Agent);
         impl Behavior for Test {
             fn action(&mut self) {
-                caravela_probe!(
-                    "{}: Hello! I'm Agent Test",
-                    self.agent_mut_ref().aid()
-                )
+                caravela_probe!("{}: Hello! I'm Agent Test", self.agent_mut_ref().aid())
             }
 
             fn agent_mut_ref(&mut self) -> &mut Agent {
@@ -106,22 +101,14 @@ mod tests {
                 caravela_probe!("{}: Adding contact to list", self.0.aid());
                 let result: Result<(), ErrorCode> = self.0.add_contact("Agent-Present");
                 assert_eq!(result, Ok(()), "NOT ADDED CORRECTLY");
-                caravela_probe!(
-                    "{}: Added {} as contact",
-                    self.0.aid(),
-                    "Agent-Present"
-                );
+                caravela_probe!("{}: Added {} as contact", self.0.aid(), "Agent-Present");
                 let result = self.0.add_contact("Agent-Absent");
                 assert_eq!(
                     result,
                     Err(ErrorCode::AidHandleNone),
                     "AGENT IS NOT MISSING"
                 );
-                caravela_probe!(
-                    "{}: Contact {} not added",
-                    self.0.aid(),
-                    "Agent-Absent"
-                );
+                caravela_probe!("{}: Contact {} not added", self.0.aid(), "Agent-Absent");
                 self.0.set_msg(MessageType::Inform, Content::None);
                 let _ = self.0.send_to("Agent-Present");
             }
