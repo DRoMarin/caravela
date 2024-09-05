@@ -34,7 +34,7 @@ pub(crate) type TX = SyncSender<Message>;
 pub(crate) type RX = Receiver<Message>;
 
 /// Default stack value for any given platform.
-pub const DEFAULT_STACK: usize = 8;
+pub const DEFAULT_STACK: usize = 30000;
 /// Maximum priority across all entities.
 ///  This value is reserved for platform service entities such as the AMS and cannot be used for user defined agents.
 pub const MAX_PRIORITY: u8 = 99;

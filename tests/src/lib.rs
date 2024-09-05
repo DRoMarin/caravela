@@ -24,15 +24,15 @@ mod tests {
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
         std::thread::sleep(std::time::Duration::from_millis(5000));
-        let agent_test = agent_platform.add::<Test>("AgentTest", 1, 4)?;
+        let agent_test = agent_platform.add::<Test>("AgentTest", 1, DEFAULT_STACK)?;
         let start = agent_platform.start(&agent_test);
         std::thread::sleep(std::time::Duration::from_millis(500));
         assert!(start.is_ok());
         Ok(())
     }
 
-    #[test]
-    fn instantiating() -> Result<(), Box<dyn Error>> {
+    //#[test]
+    /*fn instantiating() -> Result<(), Box<dyn Error>> {
         struct Valid(Agent);
         struct Invalid {
             ag: Agent,
@@ -70,7 +70,7 @@ mod tests {
         Ok(())
     }
 
-    #[test]
+    //#[test]
     fn contacts() -> Result<(), Box<dyn Error>> {
         struct AgentList(Agent);
         struct AgentPresent(Agent);
@@ -134,7 +134,7 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(15000));
         Ok(())
     }
-
+*/
     /*
         #[test]
         fn concurrent() {

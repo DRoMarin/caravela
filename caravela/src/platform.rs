@@ -73,12 +73,13 @@ impl Platform {
         let mut ams = Ams::<T>::new(rx, self.deck.clone(), conditions);
         let mut ams_aid_task = ams_aid.clone();
         //
+        caravela_status!("BOOTING AMS");
         let ams_handle = thread::Builder::new()
             .stack_size(DEFAULT_STACK)
             .spawn_with_priority(ThreadPriority::Max, move |_| {
                 ams_aid_task.set_thread(thread::current().id());
                 ams.hub.set_aid(ams_aid_task);
-                caravela_status!("{}: Booting AMS", ams.hub.aid());
+                caravela_status!("{}: AMS Booted", ams.hub.aid());
                 ams.service_function();
             });
         if let Ok(handle) = ams_handle {
