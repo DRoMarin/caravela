@@ -7,3 +7,7 @@ members = [
     #    "caravel_derive",
     "tests",
 ]
+
+[patch.crates-io]
+libc = {git = "https://github.com/DRoMarin/libc.git", branch = "vxworks/sched"}
+thread-priority = {git = "https://github.com/DRoMarin/thread-priority.git", branch = "vxworks-support"}
