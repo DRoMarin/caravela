@@ -1,17 +1,14 @@
 use crate::{
-    deck::{Deck, TcbField},
+    deck::{DeckAccess, TcbField},
     entity::{
         agent::AgentState,
         messaging::{Content, MessageType, RequestType},
         service::{Service, UserConditions},
-        Hub,
+        Entity, Hub,
     },
     Description, ErrorCode, RX,
 };
-use std::{
-    fmt::Debug,
-    sync::{Arc, RwLock},
-};
+use std::fmt::Debug;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AmsAgentDescription {
@@ -32,23 +29,30 @@ impl AmsAgentDescription {
 #[derive(Debug)]
 pub(crate) struct Ams<T: UserConditions> {
     //become Service<AMS> or Service<DF>
-    pub(crate) hub: Hub,
+    hub: Hub,
     conditions: T,
+}
+
+impl<T: UserConditions> Entity for Ams<T> {
+    fn set_aid(&mut self, aid: Description) {
+        self.hub.set_aid(aid);
+    }
 }
 
 impl<T: UserConditions> Service for Ams<T> {
     type Conditions = T;
-    fn new(rx: RX, deck: Arc<RwLock<Deck>>, conditions: Self::Conditions) -> Self {
-        let hub = Hub::new(rx, deck);
+    fn new(rx: RX, deck: DeckAccess, conditions: Self::Conditions) -> Self {
+        let aid = Description::default();
+        let hub = Hub::new(aid, rx, deck);
         Self { hub, conditions }
     }
 
     fn init(&mut self) {
-        todo!();
+        caravela_status!("{}: Started!", self.hub.aid())
     }
 
     fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
-        self.hub.deck_read()?.search_agent(aid)?;
+        self.hub.deck()?.search_agent(aid)?;
         Ok(())
     }
     fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {
@@ -57,11 +61,12 @@ impl<T: UserConditions> Service for Ams<T> {
                 aid.clone(),
             )));
         }
-        if self.search_agent(aid).is_err() {
+        if self.search_agent(aid).is_ok() {
             return Err(ErrorCode::Duplicated);
         }
-        let description = self.hub.msg().sender().to_owned();
-        self.hub.deck_write()?.insert_agent(description)
+        /* NOT CURRENTLY SUPPORTED: does nothing besides checking if agent is
+        already registed and only checks if the conditions allow it */
+        Ok(())
     }
 
     fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {
@@ -70,18 +75,20 @@ impl<T: UserConditions> Service for Ams<T> {
                 aid.clone(),
             )));
         }
-        self.hub.deck_write()?.remove_agent(aid)
+        self.hub.deck_mut()?.remove_agent(aid).and_then(|_| Ok(()))
+        //TODO: FIX FLOW
     }
 
     fn service_function(&mut self) {
         //self.hub.set_thread();
+        self.init();
         loop {
             caravela_messaging!("{}: Wating for a request...", self.hub.aid());
             let msg_result = self.hub.receive();
             //let msg_type = self.hub.receive()?;
             //let receiver = self.hub.msg().sender().clone();
             if Ok(MessageType::Request) == msg_result {
-                //if MessageType::Request == msg_type {
+                caravela_messaging!("{}: Received Request!", self.hub.aid());
                 let receiver = self.hub.msg().sender().clone();
                 if let Content::Request(request_type) = self.hub.msg().content() {
                     let error = match request_type.clone() {
@@ -104,7 +111,9 @@ impl<T: UserConditions> Service for Ams<T> {
                     self.hub.set_msg(MessageType::NotUnderstood, Content::None);
                 }
                 // setting up reply
-                let _ = self.hub.send_to_aid(&receiver);
+                self.hub.set_msg_receiver(receiver);
+                self.hub.set_msg_sender(self.hub.aid().clone());
+                let _ = self.hub.send();
                 //TBD handle these possible errors;
             }
         }
@@ -136,16 +145,13 @@ impl<T: UserConditions> Ams<T> {
                 aid.clone(),
             )));
         }
-        if self.search_agent(aid).is_err() {
-            return Err(ErrorCode::NotFound);
-        }
-        let mut deck_guard = self.hub.deck_write()?;
-        let state = deck_guard.agent_state(aid)?;
+        let mut deck_guard = self.hub.deck_mut()?;
+        let state = deck_guard.get_agent(aid)?.control_block().agent_state();
         if state != AgentState::Active {
             return Err(ErrorCode::InvalidStateChange(state, AgentState::Terminated));
         }
         deck_guard.modify_control_block(aid, TcbField::Quit, true)?;
-        deck_guard.remove_agent(aid)
+        deck_guard.remove_agent(aid).and_then(|_| Ok(()))
         //TBD: REMOVE HANDLE AND JOIN THREAD
         //TODO: FIX FLOW TO RELY ON TAKEDOWNS
     }
@@ -156,11 +162,8 @@ impl<T: UserConditions> Ams<T> {
                 aid.clone(),
             )));
         }
-        if self.search_agent(aid).is_err() {
-            return Err(ErrorCode::NotFound);
-        }
-        let mut deck_guard = self.hub.deck_write()?;
-        let state = deck_guard.agent_state(aid)?;
+        let mut deck_guard = self.hub.deck_mut()?;
+        let state = deck_guard.get_agent(aid)?.control_block().agent_state();
         if state != AgentState::Active {
             return Err(ErrorCode::InvalidStateChange(state, AgentState::Suspended));
         }
@@ -173,11 +176,8 @@ impl<T: UserConditions> Ams<T> {
                 aid.clone(),
             )));
         }
-        if self.search_agent(aid).is_err() {
-            return Err(ErrorCode::NotFound);
-        }
-        let mut deck_guard = self.hub.deck_write()?;
-        let state = deck_guard.agent_state(aid)?;
+        let mut deck_guard = self.hub.deck_mut()?;
+        let state = deck_guard.get_agent(aid)?.control_block().agent_state();
         if state != AgentState::Suspended {
             return Err(ErrorCode::InvalidStateChange(state, AgentState::Suspended));
         }

@@ -1,15 +1,13 @@
 pub(crate) mod ams;
 
-use std::sync::{Arc, RwLock};
-
-use crate::{deck::Deck, entity::messaging::RequestType, Description, ErrorCode, RX};
+use crate::{deck::DeckAccess, entity::messaging::RequestType, Description, ErrorCode, RX};
 
 #[derive(Debug)]
 pub struct DefaultConditions;
 
 pub(crate) trait Service {
     type Conditions;
-    fn new(rx: RX, deck: Arc<RwLock<Deck>>, conditions: Self::Conditions) -> Self;
+    fn new(rx: RX, deck: DeckAccess, conditions: Self::Conditions) -> Self;
     fn init(&mut self);
     fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;
     fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;

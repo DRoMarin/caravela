@@ -9,10 +9,9 @@ mod tests {
         struct Test(Agent);
         impl Behavior for Test {
             fn action(&mut self) {
-                caravela_probe!("{}: Hello! I'm Agent Test", self.agent_mut_ref().aid())
+                caravela_probe!("{}: Hello! I'm Agent Test", self.agent().aid())
             }
-
-            fn agent_mut_ref(&mut self) -> &mut Agent {
+            fn agent(&mut self) -> &mut Agent {
                 &mut self.0
             }
 
@@ -23,10 +22,10 @@ mod tests {
         let mut agent_platform = Platform::new("test_boot");
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
-        std::thread::sleep(std::time::Duration::from_millis(5000));
+        std::thread::sleep(std::time::Duration::from_millis(500));
         let agent_test = agent_platform.add::<Test>("AgentTest", 1, DEFAULT_STACK)?;
         let start = agent_platform.start(&agent_test);
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        std::thread::sleep(std::time::Duration::from_millis(2000));
         assert!(start.is_ok());
         Ok(())
     }

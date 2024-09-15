@@ -4,21 +4,20 @@ pub(crate) mod messaging;
 pub(crate) mod service;
 
 use crate::{
-    deck::{Deck, SyncType},
-    platform::environment::{aid_from_name, aid_from_thread},
+    deck::{Deck, DeckAccess, SyncType},
     ErrorCode, RX, TX,
 };
-pub use agent::{behavior::Behavior, Agent};
-pub use messaging::{Content, Message, MessageType, RequestType};
+//pub use agent::{behavior::Behavior, Agent};
+pub use messaging::{Content, Message, MessageType};
 use std::{
     fmt::Display,
     hash::{self, Hash},
-    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{RwLockReadGuard, RwLockWriteGuard},
     thread::ThreadId,
 };
 
-/// Agent Identifier (AID) that is unique to all entities across platforms. 
-/// 
+/// Agent Identifier (AID) that is unique to all entities across platforms.
+///
 /// Each AID has two different parameters:
 /// - `Name` which is given with the format `name nickname@hap` and as [`String`].
 /// - `Id` which is unique among the process since it identifies the thread executing the entity and it is given as type [`ThreadId`].
@@ -51,20 +50,6 @@ impl Hash for Description {
 impl Display for Description {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}@{}", self.nickname, self.hap)
-    }
-}
-
-impl TryFrom<&str> for Description {
-    type Error = ErrorCode;
-    fn try_from(value: &str) -> Result<Self, ErrorCode> {
-        aid_from_name(value)
-    }
-}
-
-impl TryFrom<ThreadId> for Description {
-    type Error = ErrorCode;
-    fn try_from(value: ThreadId) -> Result<Self, Self::Error> {
-        aid_from_thread(value)
     }
 }
 
@@ -116,19 +101,19 @@ impl Description {
 pub(crate) struct Hub {
     aid: Description,
     rx: RX,
-    deck: Arc<RwLock<Deck>>,
+    deck: DeckAccess, //Arc<RwLock<Deck>>,
     msg: Message,
 }
 
 impl Hub {
-    pub(crate) fn new(rx: RX, deck: Arc<RwLock<Deck>>) -> Self {
-        let aid = Description::default();
+    pub(crate) fn new(aid: Description, rx: RX, deck: DeckAccess) -> Self {
+        //let aid = Description::default();
         let msg = Message::new();
         Self { aid, rx, deck, msg }
     }
 
-    pub(crate) fn aid(&self) -> Description {
-        self.aid.clone()
+    pub(crate) fn aid(&self) -> &Description {
+        &self.aid
     }
 
     pub(crate) fn msg(&self) -> Message {
@@ -139,35 +124,33 @@ impl Hub {
         self.aid = aid;
     }
 
-    /*pub(crate) fn set_thread(&mut self, id: ThreadId) {
+    pub(crate) fn set_thread(&mut self, id: ThreadId) {
         self.aid.set_thread(id);
-    }*/
+    }
 
+    pub(crate) fn set_msg_receiver(&mut self, aid: Description) {
+        self.msg.set_receiver(aid);
+    }
+
+    pub(crate) fn set_msg_sender(&mut self, aid: Description) {
+        self.msg.set_sender(aid);
+    }
+
+    //NAME CHANGE
     pub(crate) fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.msg.set_type(msg_type);
         self.msg.set_content(msg_content);
     }
 
-    pub(crate) fn deck_write(&self) -> Result<RwLockWriteGuard<Deck>, ErrorCode> {
-        if let Ok(guard) = self.deck.write() {
-            Ok(guard)
-        } else {
-            Err(ErrorCode::PoisonedLock)
-        }
+    pub(crate) fn deck_mut(&self) -> Result<RwLockWriteGuard<Deck>, ErrorCode> {
+        self.deck.write()
     }
-    pub(crate) fn deck_read(&self) -> Result<RwLockReadGuard<Deck>, ErrorCode> {
-        if let Ok(guard) = self.deck.read() {
-            Ok(guard)
-        } else {
-            Err(ErrorCode::PoisonedLock)
-        }
+    pub(crate) fn deck(&self) -> Result<RwLockReadGuard<Deck>, ErrorCode> {
+        self.deck.read()
     }
 
-    pub(crate) fn send_to_aid(&mut self, description: &Description) -> Result<(), ErrorCode> {
-        self.msg.set_receiver(description.clone());
-        self.msg.set_sender(self.aid());
-        self.deck_read()?
-            .send_msg(self.msg.clone(), SyncType::Blocking)
+    pub(crate) fn send(&self) -> Result<(), ErrorCode> {
+        self.deck()?.send_msg(self.msg.clone(), SyncType::Blocking)
     }
 
     pub(crate) fn receive(&mut self) -> Result<MessageType, ErrorCode> {
@@ -181,4 +164,8 @@ impl Hub {
             Err(err) => Err(ErrorCode::MpscRecv(err)),
         }
     }
+}
+
+pub(crate) trait Entity {
+    fn set_aid(&mut self, aid: Description);
 }
