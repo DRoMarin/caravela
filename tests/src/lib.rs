@@ -1,29 +1,24 @@
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
     use caravela::agent::*;
     use caravela::*;
+    use std::error::Error;
 
     #[test]
     fn platform_boot() -> Result<(), Box<dyn Error>> {
-        struct Test(Agent);
+        agent!(Test);
+
         impl Behavior for Test {
             fn action(&mut self) {
                 caravela_probe!("{}: Hello! I'm Agent Test", self.agent().aid())
             }
-            fn agent(&mut self) -> &mut Agent {
-                &mut self.0
-            }
-
-            fn agent_builder(base_agent: Agent) -> Self {
-                Self(base_agent)
-            }
         }
+
         let mut agent_platform = Platform::new("test_boot");
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
         std::thread::sleep(std::time::Duration::from_millis(500));
-        let agent_test = agent_platform.add::<Test>("AgentTest", 1, DEFAULT_STACK)?;
+        let agent_test = agent_platform.add_agent::<Test>("AgentTest", 1, DEFAULT_STACK)?;
         let start = agent_platform.start(&agent_test);
         std::thread::sleep(std::time::Duration::from_millis(2000));
         assert!(start.is_ok());
@@ -32,108 +27,108 @@ mod tests {
 
     //#[test]
     /*fn instantiating() -> Result<(), Box<dyn Error>> {
-        struct Valid(Agent);
-        struct Invalid {
-            ag: Agent,
+            struct Valid(Agent);
+            struct Invalid {
+                ag: Agent,
+            }
+
+            impl Behavior for Valid {
+                fn action(&mut self) {}
+
+                fn agent_mut_ref(&mut self) -> &mut Agent {
+                    &mut self.0
+                }
+
+                fn agent_builder(base_agent: Agent) -> Self {
+                    Self(base_agent)
+                }
+            }
+            impl Behavior for Invalid {
+                fn action(&mut self) {}
+
+                fn agent_mut_ref(&mut self) -> &mut Agent {
+                    &mut self.ag
+                }
+
+                fn agent_builder(base_agent: Agent) -> Self {
+                    Self { ag: base_agent }
+                }
+            }
+            let mut agent_platform = Platform::new("test_inst");
+            agent_platform.boot()?;
+            let ag_valid = agent_platform.add::<Valid>("Agent-Valid", 98, 4);
+            assert!(ag_valid.is_ok());
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            let ag_invalid = agent_platform.add::<Invalid>("Agent-Invalid", 99, 4);
+            assert!(ag_invalid.is_err());
+            Ok(())
         }
 
-        impl Behavior for Valid {
-            fn action(&mut self) {}
+        //#[test]
+        fn contacts() -> Result<(), Box<dyn Error>> {
+            struct AgentList(Agent);
+            struct AgentPresent(Agent);
 
-            fn agent_mut_ref(&mut self) -> &mut Agent {
-                &mut self.0
+            impl Behavior for AgentPresent {
+                fn action(&mut self) {
+                    caravela_probe!("{}: Waiting for message...", self.0.aid());
+                    self.0.wait(5000);
+                    _ = self.0.receive();
+                    caravela_probe!("{}: Received message!", self.0.aid());
+                }
+
+                fn failure_detection(&mut self) -> bool {
+                    false
+                }
+
+                fn agent_builder(base_agent: Agent) -> Self {
+                    Self(base_agent)
+                }
+
+                fn agent_mut_ref(&mut self) -> &mut Agent {
+                    &mut self.0
+                }
             }
 
-            fn agent_builder(base_agent: Agent) -> Self {
-                Self(base_agent)
+            impl Behavior for AgentList {
+                fn setup(&mut self) {
+                    caravela_probe!("{}: Adding contact to list", self.0.aid());
+                    let result: Result<(), ErrorCode> = self.0.add_contact("Agent-Present");
+                    assert_eq!(result, Ok(()), "NOT ADDED CORRECTLY");
+                    caravela_probe!("{}: Added {} as contact", self.0.aid(), "Agent-Present");
+                    let result = self.0.add_contact("Agent-Absent");
+                    assert_eq!(
+                        result,
+                        Err(ErrorCode::AidHandleNone),
+                        "AGENT IS NOT MISSING"
+                    );
+                    caravela_probe!("{}: Contact {} not added", self.0.aid(), "Agent-Absent");
+                    self.0.set_msg(MessageType::Inform, Content::None);
+                    let _ = self.0.send_to("Agent-Present");
+                }
+
+                fn agent_builder(base_agent: Agent) -> Self {
+                    Self(base_agent)
+                }
+
+                fn agent_mut_ref(&mut self) -> &mut Agent {
+                    &mut self.0
+                }
             }
+
+            let mut agent_platform = Platform::new("test_contacts");
+            agent_platform.boot()?;
+
+            let ag_present = agent_platform.add::<AgentPresent>("Agent-Present", 1, 10)?;
+            let ag_list = agent_platform.add::<AgentList>("Agent-List", 1, 10)?;
+            caravela_probe!("STARTING PRESENT");
+            agent_platform.start(&ag_present)?;
+            caravela_probe!("STARTING LIST");
+            agent_platform.start(&ag_list)?;
+            std::thread::sleep(std::time::Duration::from_millis(15000));
+            Ok(())
         }
-        impl Behavior for Invalid {
-            fn action(&mut self) {}
-
-            fn agent_mut_ref(&mut self) -> &mut Agent {
-                &mut self.ag
-            }
-
-            fn agent_builder(base_agent: Agent) -> Self {
-                Self { ag: base_agent }
-            }
-        }
-        let mut agent_platform = Platform::new("test_inst");
-        agent_platform.boot()?;
-        let ag_valid = agent_platform.add::<Valid>("Agent-Valid", 98, 4);
-        assert!(ag_valid.is_ok());
-        std::thread::sleep(std::time::Duration::from_millis(500));
-        let ag_invalid = agent_platform.add::<Invalid>("Agent-Invalid", 99, 4);
-        assert!(ag_invalid.is_err());
-        Ok(())
-    }
-
-    //#[test]
-    fn contacts() -> Result<(), Box<dyn Error>> {
-        struct AgentList(Agent);
-        struct AgentPresent(Agent);
-
-        impl Behavior for AgentPresent {
-            fn action(&mut self) {
-                caravela_probe!("{}: Waiting for message...", self.0.aid());
-                self.0.wait(5000);
-                _ = self.0.receive();
-                caravela_probe!("{}: Received message!", self.0.aid());
-            }
-
-            fn failure_detection(&mut self) -> bool {
-                false
-            }
-
-            fn agent_builder(base_agent: Agent) -> Self {
-                Self(base_agent)
-            }
-
-            fn agent_mut_ref(&mut self) -> &mut Agent {
-                &mut self.0
-            }
-        }
-
-        impl Behavior for AgentList {
-            fn setup(&mut self) {
-                caravela_probe!("{}: Adding contact to list", self.0.aid());
-                let result: Result<(), ErrorCode> = self.0.add_contact("Agent-Present");
-                assert_eq!(result, Ok(()), "NOT ADDED CORRECTLY");
-                caravela_probe!("{}: Added {} as contact", self.0.aid(), "Agent-Present");
-                let result = self.0.add_contact("Agent-Absent");
-                assert_eq!(
-                    result,
-                    Err(ErrorCode::AidHandleNone),
-                    "AGENT IS NOT MISSING"
-                );
-                caravela_probe!("{}: Contact {} not added", self.0.aid(), "Agent-Absent");
-                self.0.set_msg(MessageType::Inform, Content::None);
-                let _ = self.0.send_to("Agent-Present");
-            }
-
-            fn agent_builder(base_agent: Agent) -> Self {
-                Self(base_agent)
-            }
-
-            fn agent_mut_ref(&mut self) -> &mut Agent {
-                &mut self.0
-            }
-        }
-
-        let mut agent_platform = Platform::new("test_contacts");
-        agent_platform.boot()?;
-
-        let ag_present = agent_platform.add::<AgentPresent>("Agent-Present", 1, 10)?;
-        let ag_list = agent_platform.add::<AgentList>("Agent-List", 1, 10)?;
-        caravela_probe!("STARTING PRESENT");
-        agent_platform.start(&ag_present)?;
-        caravela_probe!("STARTING LIST");
-        agent_platform.start(&ag_list)?;
-        std::thread::sleep(std::time::Duration::from_millis(15000));
-        Ok(())
-    }
-*/
+    */
     /*
         #[test]
         fn concurrent() {
