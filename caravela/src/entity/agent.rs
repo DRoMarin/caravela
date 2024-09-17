@@ -1,4 +1,5 @@
 pub use behavior::Behavior;
+pub use behavior::{AgentBase, AgentBuild, AgentBuildParam};
 pub(crate) mod behavior;
 
 use crate::{
@@ -164,7 +165,10 @@ impl Agent {
     /// Wait for a [`Message`] to arrive. This operation blocks the agent and will overwrite the currently held [`Message`].
     pub fn receive(&mut self) -> Result<MessageType, ErrorCode> {
         caravela_messaging!("{}: waiting for message", self.aid());
-        self.hub.receive()
+        self.hub.receive().and_then(|x| {
+            caravela_messaging!("{}: message received!", self.aid());
+            Ok(x)
+        })
     }
 
     /// Add an agent to the contact list. The target agent needs to be addressed by its nickname.
@@ -216,6 +220,7 @@ impl Agent {
         let dur = Duration::from_millis(time); //TBD could remove
         thread::sleep(dur);
         self.tcb.wait().store(false, Ordering::Relaxed);
+        caravela_status!("{}: Active", self.aid());
     }
 
     /*pub(crate) fn set_thread(&mut self) {

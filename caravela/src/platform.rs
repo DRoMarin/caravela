@@ -1,8 +1,9 @@
 use crate::{
+    agent::AgentBuildParam,
     deck::{Deck, DeckAccess},
     entity::{
         agent::{
-            behavior::{execute, Behavior},
+            behavior::{execute, AgentBuild, Behavior},
             Agent, ControlBlock, ControlBlockAccess,
         },
         service::{ams::Ams, DefaultConditions, Service, UserConditions},
@@ -82,7 +83,7 @@ impl Platform {
     ///  with the specified parameters (nickname, priority, and stack size).
     ///  If successful, it will return a `Ok(aid)` with the [`Description`] of the agent.
     ///  This Agent is not active by default and must be started by [`start`](Self::start)
-    pub fn add<T: Behavior + Send + 'static>(
+    pub fn add_agent<T: Behavior + AgentBuild + Send + 'static>(
         &mut self,
         nickname: &'static str,
         priority: u8,
@@ -101,6 +102,59 @@ impl Platform {
         }
 
         let agent = T::agent_builder(base_agent);
+
+        // check prio
+        if priority == ThreadPriorityValue::MAX {
+            return Err(ErrorCode::InvalidPriority(
+                "Max priority only allowed for Services",
+            ));
+        }
+
+        let thread_priority =
+            ThreadPriority::try_from(priority).map_err(|e| ErrorCode::InvalidPriority(e))?;
+
+        // spawn agent with spinlock
+
+        let agent_handle = thread::Builder::new()
+            .stack_size(stack_size)
+            .spawn_with_priority(ThreadPriority::Min, move |_| {
+                execute(agent);
+            });
+
+        // register on env
+        let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
+
+        //Build description and insert in env lock
+        aid.set_thread(join_handle.thread().id());
+        self.deck.write()?.add_agent(
+            aid.clone(),
+            Some(join_handle),
+            Some(thread_priority),
+            control_block,
+        )?;
+        Ok(aid)
+    }
+
+    pub fn add_agent_with_param<T: Behavior + AgentBuildParam + Send + 'static>(
+        &mut self,
+        nickname: &'static str,
+        priority: u8,
+        stack_size: usize,
+        param: T::Parameter,
+    ) -> Result<Description, ErrorCode> {
+        // build agent
+        let hap = self.name;
+        let (tx, rx) = sync_channel::<Message>(1);
+        let mut aid = Description::new(nickname, hap, tx);
+        let deck = self.deck.clone();
+        let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
+        let mut base_agent = Agent::new(aid.clone(), rx, deck, control_block.clone());
+        base_agent.set_aid(aid.clone());
+        if self.deck.read()?.search_agent(&aid).is_ok() {
+            return Err(ErrorCode::Duplicated);
+        }
+
+        let agent = T::agent_with_param_builder(base_agent, param);
 
         // check prio
         if priority == ThreadPriorityValue::MAX {
