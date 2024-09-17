@@ -1,117 +1,208 @@
 use crate::{
-    deck::Deck,
+    agent::AgentBuildParam,
+    deck::{Deck, DeckAccess},
     entity::{
         agent::{
-            behavior::{execute, Behavior},
-            Agent, ControlBlock,
+            behavior::{execute, AgentBuild, Behavior},
+            Agent, ControlBlock, ControlBlockAccess,
         },
-        service::{ams::Ams, DefaultConditions, Service},
-        Description,
+        service::{ams::Ams, DefaultConditions, Service, UserConditions},
+        Description, Entity,
     },
-    ErrorCode,
+    ErrorCode, Message, DEFAULT_STACK,
 };
-use std::sync::{Arc, RwLock};
-use thread_priority::{ThreadBuilderExt, ThreadPriority};
+use std::{
+    sync::{atomic::Ordering, mpsc::sync_channel, Arc, RwLock},
+    thread,
+};
+use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorityValue};
 
 //pub mod organization;
 
+/// Represents the Host Agent Platform (HAP) and
+///  provides the user with methods to incorporate agents into it.
 #[derive(Debug)]
 pub struct Platform {
-    pub(crate) name: String,
-    pub(crate) ams_aid: Option<Description>,
-    pub(crate) deck: Arc<RwLock<Deck>>,
+    name: &'static str,
+    deck: DeckAccess,
 }
 
 impl Platform {
-    pub fn new(name: String) -> Self {
-        let deck = Arc::new(RwLock::new(Deck::new()));
-        Self {
-            name,
-            ams_aid: None,
-            deck,
-        }
+    /// Function that constructs a new [`Platform`] object with the provided name.
+    pub fn new(name: &'static str) -> Self {
+        let deck = DeckAccess(Arc::new(RwLock::new(Deck::new())));
+        Self { name, deck }
     }
 
-    pub fn name(&self) -> String {
-        self.name.clone()
+    /// Returns the name of the platform.
+    pub fn name(&self) -> &'static str {
+        self.name
     }
-
+    /// This method starts the Agent Management System (AMS) as [`boot_with_ams_conditions`](Self::boot_with_ams_conditions) also does,
+    ///  but with default service conditions.
     pub fn boot(&mut self) -> Result<(), ErrorCode> {
-        let ams_nickname = "AMS".to_string();
-        let default = DefaultConditions;
-        let mut ams = Ams::<DefaultConditions>::new(self.name(), self.deck.clone(), default)?;
-        let mut deck_guard = self.deck.write().unwrap();
+        let default: DefaultConditions = DefaultConditions;
+        self.boot_with_ams_conditions(default)
+    }
 
-        deck_guard
-            .white_pages_directory
-            .insert(ams.hub.aid().name(), ams.hub.aid());
-        self.ams_aid = Some(ams.hub.aid());
-
-        let ams_handle = std::thread::Builder::new().spawn_with_priority(
-            ThreadPriority::Crossplatform(ams.hub.resources().priority()),
-            move |_| {
-                println!("\nBOOTING AMS: {}\n", ams.hub.aid());
+    /// This method starts the Agent Management System (AMS) with specific user given conditions,
+    ///  passed as a type that implements [`UserConditions`].
+    pub fn boot_with_ams_conditions<T: UserConditions + Send + 'static>(
+        &mut self,
+        conditions: T,
+    ) -> Result<(), ErrorCode> {
+        //
+        let (tx, rx) = sync_channel::<Message>(1);
+        let mut ams_aid = Description::new("AMS", self.name(), tx);
+        let mut ams = Ams::<T>::new(rx, self.deck.clone(), conditions);
+        let mut ams_aid_task = ams_aid.clone();
+        //
+        caravela_status!("BOOTING AMS");
+        let ams_handle = thread::Builder::new()
+            .stack_size(DEFAULT_STACK)
+            .spawn_with_priority(ThreadPriority::Max, move |_| {
+                ams_aid_task.set_thread(thread::current().id());
+                ams.set_aid(ams_aid_task);
                 ams.service_function();
-            },
-        );
-        /*if ams_handle.is_finished() {
-            return Err("AMS ended");
-        }*/
-        if let Ok(handle) = ams_handle {
-            deck_guard.handle_directory.insert(ams_nickname, handle);
+            });
+
+        if let Ok(join_handle) = ams_handle {
+            if join_handle.is_finished() {
+                return Err(ErrorCode::AmsBoot);
+            }
+            //Build description and insert in env lock
+            ams_aid.set_thread(join_handle.thread().id());
+            self.deck.write()?.assign_ams(ams_aid, join_handle);
             Ok(())
         } else {
             Err(ErrorCode::AmsBoot)
         }
     }
 
-    pub fn add<T: Behavior>(
+    /// This method creates agents of the given `T` type that implements [`Behavior`]
+    ///  with the specified parameters (nickname, priority, and stack size).
+    ///  If successful, it will return a `Ok(aid)` with the [`Description`] of the agent.
+    ///  This Agent is not active by default and must be started by [`start`](Self::start)
+    pub fn add_agent<T: Behavior + AgentBuild + Send + 'static>(
         &mut self,
-        nickname: String,
+        nickname: &'static str,
         priority: u8,
         stack_size: usize,
-    ) -> Result<T, ErrorCode> {
-        let tcb = Arc::new(ControlBlock::default());
-        let hap = self.name.clone();
+    ) -> Result<Description, ErrorCode> {
+        // build agent
+        let hap = self.name;
+        let (tx, rx) = sync_channel::<Message>(1);
+        let mut aid = Description::new(nickname, hap, tx);
         let deck = self.deck.clone();
-        let base_agent_creation = Agent::new(
-            nickname.clone(),
-            priority,
-            stack_size,
-            deck,
-            tcb.clone(),
-            hap,
-        );
-        let mut base_agent = base_agent_creation?;
-        let mut deck_guard = self.deck.write().unwrap();
+        let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
+        let mut base_agent = Agent::new(aid.clone(), rx, deck, control_block.clone());
+        base_agent.set_aid(aid.clone());
+        if self.deck.read()?.search_agent(&aid).is_ok() {
+            return Err(ErrorCode::Duplicated);
+        }
 
-        deck_guard
-            .control_block_directory
-            .insert(nickname.clone(), tcb);
-        deck_guard
-            .white_pages_directory
-            .insert(base_agent.aid().nickname(), base_agent.aid());
-        base_agent
-            .directory
-            .insert("AMS".to_string(), self.ams_aid.clone().unwrap());
-
-        println!("{}", self.ams_aid.as_ref().unwrap());
         let agent = T::agent_builder(base_agent);
-        Ok(agent)
+
+        // check prio
+        if priority == ThreadPriorityValue::MAX {
+            return Err(ErrorCode::InvalidPriority(
+                "Max priority only allowed for Services",
+            ));
+        }
+
+        let thread_priority =
+            ThreadPriority::try_from(priority).map_err(|e| ErrorCode::InvalidPriority(e))?;
+
+        // spawn agent with spinlock
+
+        let agent_handle = thread::Builder::new()
+            .stack_size(stack_size)
+            .spawn_with_priority(ThreadPriority::Min, move |_| {
+                execute(agent);
+            });
+
+        // register on env
+        let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
+
+        //Build description and insert in env lock
+        aid.set_thread(join_handle.thread().id());
+        self.deck.write()?.add_agent(
+            aid.clone(),
+            Some(join_handle),
+            Some(thread_priority),
+            control_block,
+        )?;
+        Ok(aid)
     }
 
-    pub fn start(&mut self, mut agent: impl Behavior + Send + 'static) -> Result<(), ErrorCode> {
-        let nickname = agent.agent_mut_ref().aid().name();
-        let prio = agent.agent_mut_ref().resources().priority();
-        let mut platform_guard = self.deck.write().unwrap();
-        let agent_handle = std::thread::Builder::new()
-            .spawn_with_priority(ThreadPriority::Crossplatform(prio), move |_| execute(agent));
-        if let Ok(handle) = agent_handle {
-            platform_guard.handle_directory.insert(nickname, handle);
-        } else {
-            return Err(ErrorCode::AgentLaunch);
+    pub fn add_agent_with_param<T: Behavior + AgentBuildParam + Send + 'static>(
+        &mut self,
+        nickname: &'static str,
+        priority: u8,
+        stack_size: usize,
+        param: T::Parameter,
+    ) -> Result<Description, ErrorCode> {
+        // build agent
+        let hap = self.name;
+        let (tx, rx) = sync_channel::<Message>(1);
+        let mut aid = Description::new(nickname, hap, tx);
+        let deck = self.deck.clone();
+        let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
+        let mut base_agent = Agent::new(aid.clone(), rx, deck, control_block.clone());
+        base_agent.set_aid(aid.clone());
+        if self.deck.read()?.search_agent(&aid).is_ok() {
+            return Err(ErrorCode::Duplicated);
         }
+
+        let agent = T::agent_with_param_builder(base_agent, param);
+
+        // check prio
+        if priority == ThreadPriorityValue::MAX {
+            return Err(ErrorCode::InvalidPriority(
+                "Max priority only allowed for Services",
+            ));
+        }
+
+        let thread_priority =
+            ThreadPriority::try_from(priority).map_err(|e| ErrorCode::InvalidPriority(e))?;
+
+        // spawn agent with spinlock
+
+        let agent_handle = thread::Builder::new()
+            .stack_size(stack_size)
+            .spawn_with_priority(ThreadPriority::Min, move |_| {
+                execute(agent);
+            });
+
+        // register on env
+        let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
+
+        //Build description and insert in env lock
+        aid.set_thread(join_handle.thread().id());
+        self.deck.write()?.add_agent(
+            aid.clone(),
+            Some(join_handle),
+            Some(thread_priority),
+            control_block,
+        )?;
+        Ok(aid)
+    }
+
+    /// Transition the agent from the initiated state into the active state, required for it to execute its behavior.
+    pub fn start(&mut self, aid: &Description) -> Result<(), ErrorCode> {
+        let deck = self.deck.read()?;
+        let entry = deck.get_agent(aid)?;
+        let thread = entry.thread().ok_or(ErrorCode::AidHandleNone)?;
+        let priority = entry.priority().ok_or(ErrorCode::InvalidPriority("None"))?;
+        if let Err(error) = thread.set_priority(priority) {
+            return Err(ErrorCode::AgentStart(error));
+        }
+        entry
+            .control_block()
+            .active()
+            .store(true, Ordering::Release);
         Ok(())
     }
+
     //COULD ADD PLATFORM FUNCTIONS AND CALL THEM FROM AMS AGENT
 }

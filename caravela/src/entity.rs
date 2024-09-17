@@ -1,77 +1,49 @@
+/// Base agent functionality.
 pub mod agent;
 pub(crate) mod messaging;
 pub(crate) mod service;
 
 use crate::{
-    deck::{Deck, SyncType},
-    {ErrorCode, Priority, StackSize, RX, TX},
+    deck::{Deck, DeckAccess, SyncType},
+    ErrorCode, RX, TX,
 };
-pub use agent::{behavior::Behavior, Agent};
-pub use messaging::{Content, Message, MessageType, RequestType};
+//pub use agent::{behavior::Behavior, Agent};
+pub use messaging::{Content, Message, MessageType};
 use std::{
     fmt::Display,
-    sync::{mpsc::sync_channel, Arc, RwLock},
-    thread::{current, ThreadId},
+    hash::{self, Hash},
+    sync::{RwLockReadGuard, RwLockWriteGuard},
+    thread::ThreadId,
 };
 
-#[derive(Clone, Debug)] //Default?
+/// Agent Identifier (AID) that is unique to all entities across platforms.
+///
+/// Each AID has two different parameters:
+/// - `Name` which is given with the format `name nickname@hap` and as [`String`].
+/// - `Id` which is unique among the process since it identifies the thread executing the entity and it is given as type [`ThreadId`].
+#[derive(Clone, Debug, Default)]
 pub struct Description {
-    nickname: String,
-    hap: String,
-    tx: TX,
+    nickname: &'static str,
+    hap: &'static str,
+    tx: Option<TX>,
     thread: Option<ThreadId>,
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct ExecutionResources {
-    priority: Priority,
-    stack_size: StackSize,
+impl Eq for Description {}
+
+impl PartialEq for Description {
+    fn eq(&self, other: &Self) -> bool {
+        (self.nickname == other.nickname)
+            && (self.hap == other.hap)
+            && (self.thread == other.thread)
+    }
 }
 
-#[derive(Debug)]
-pub(crate) struct Hub {
-    aid: Description,
-    resources: ExecutionResources,
-    rx: RX,
-    deck: Arc<RwLock<Deck>>,
-    msg: Message,
-}
-
-impl Description {
-    fn new(nickname: String, hap: String, tx: TX, thread: Option<ThreadId>) -> Self {
-        //Self { name, tx, thread }
-        Self {
-            nickname,
-            hap,
-            tx,
-            thread,
-        }
-    }
-
-    pub fn nickname(&self) -> String {
-        self.nickname.clone()
-        //REFORMAT
-    }
-
-    pub fn name(&self) -> String {
-        self.to_string()
-        //REFORMAT
-    }
-
-    pub fn hap(&self) -> String {
-        self.hap.clone()
-    }
-
-    pub fn address(&self) -> TX {
-        self.tx.clone()
-    }
-
-    pub fn id(&self) -> Option<ThreadId> {
-        self.thread
-    }
-
-    pub(crate) fn set_thread(&mut self) {
-        self.thread = Some(current().id());
+impl Hash for Description {
+    fn hash<H: hash::Hasher>(&self, state: &mut H) {
+        self.nickname.hash(state);
+        self.hap.hash(state);
+        self.thread.hash(state);
     }
 }
 
@@ -81,100 +53,104 @@ impl Display for Description {
     }
 }
 
-impl ExecutionResources {
-    pub(crate) fn new(priority_num: u8, stack_size: StackSize) -> Result<Self, ErrorCode> {
-        if let Ok(priority) = Priority::try_from(priority_num) {
-            Ok(Self {
-                priority,
-                stack_size,
-            })
-        } else {
-            Err(ErrorCode::InvalidPriority)
+impl Description {
+    pub(crate) fn new(nickname: &'static str, hap: &'static str, tx: TX) -> Self {
+        Self {
+            nickname,
+            hap,
+            tx: Some(tx),
+            thread: None,
         }
     }
 
-    pub fn priority(&self) -> Priority {
-        self.priority
+    /// Return a `String` with the full name of the AID. Same result as [`ToString::to_string`].
+    pub fn name(&self) -> String {
+        self.to_string()
     }
 
-    pub fn stack_size(&self) -> StackSize {
-        self.stack_size
+    /// Return a `&str` slice with the nickname of the name; the left side of nickname@hap.
+    pub fn nickname(&self) -> &str {
+        self.nickname
+    }
+
+    /// Return a `&str` slice with name of the Host Agent Platform (HAP) of the name; the right side of nickname@hap.
+    pub fn hap(&self) -> &str {
+        self.hap
+    }
+
+    pub(crate) fn address(&self) -> Result<TX, ErrorCode> {
+        if let Some(address) = &self.tx {
+            Ok(address.clone())
+        } else {
+            Err(ErrorCode::AddressNone)
+        }
+    }
+
+    /// Return an `Option<ThreadId>`: [`Some`] if the Entity is running and [`None`] if not.
+    pub fn id(&self) -> Option<ThreadId> {
+        self.thread
+    }
+
+    pub(crate) fn set_thread(&mut self, id: ThreadId) {
+        //self.thread = Some(current().id());
+        self.thread = Some(id);
     }
 }
 
-impl Display for ExecutionResources {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let prio: u8 = self.priority().into();
-        write!(f, "Priority: {}, Stack Size {}", prio, self.stack_size)
-    }
+#[derive(Debug)]
+pub(crate) struct Hub {
+    aid: Description,
+    rx: RX,
+    deck: DeckAccess, //Arc<RwLock<Deck>>,
+    msg: Message,
 }
 
 impl Hub {
-    pub(crate) fn new(
-        nickname: String,
-        resources: ExecutionResources,
-        deck: Arc<RwLock<Deck>>,
-        hap: String,
-    ) -> Self {
-        let (tx, rx) = sync_channel::<Message>(1);
-        let aid = Description::new(nickname, hap, tx, None);
+    pub(crate) fn new(aid: Description, rx: RX, deck: DeckAccess) -> Self {
+        //let aid = Description::default();
         let msg = Message::new();
-        Self {
-            aid,
-            resources,
-            rx,
-            deck,
-            msg,
-        }
+        Self { aid, rx, deck, msg }
     }
 
-    pub(crate) fn aid(&self) -> Description {
-        self.aid.clone()
-    }
-
-    /*pub(crate) fn get_nickname(&self) -> String {
-        self.nickname.clone()
-    }
-
-    pub(crate) fn get_hap(&self) -> String {
-        self.hap.clone()
-    }*/
-
-    pub(crate) fn resources(&self) -> ExecutionResources {
-        self.resources.clone()
+    pub(crate) fn aid(&self) -> &Description {
+        &self.aid
     }
 
     pub(crate) fn msg(&self) -> Message {
         self.msg.clone()
     }
 
-    pub(crate) fn arc_deck(&self) -> Arc<RwLock<Deck>> {
-        self.deck.clone()
+    pub(crate) fn set_aid(&mut self, aid: Description) {
+        self.aid = aid;
     }
 
-    pub(crate) fn set_thread(&mut self) {
-        self.aid.set_thread();
+    pub(crate) fn set_thread(&mut self, id: ThreadId) {
+        self.aid.set_thread(id);
     }
 
+    pub(crate) fn set_msg_receiver(&mut self, aid: Description) {
+        self.msg.set_receiver(aid);
+    }
+
+    pub(crate) fn set_msg_sender(&mut self, aid: Description) {
+        self.msg.set_sender(aid);
+    }
+
+    //NAME CHANGE
     pub(crate) fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.msg.set_type(msg_type);
         self.msg.set_content(msg_content);
     }
 
-    /*pub(crate) fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        self.msg.set_sender(self.aid());
-        self.deck
-            .read()
-            .unwrap()
-            .send(agent, self.msg.clone(), SyncType::Blocking)
-    }*/
+    pub(crate) fn deck_mut(&self) -> Result<RwLockWriteGuard<Deck>, ErrorCode> {
+        self.deck.write()
+    }
+    pub(crate) fn deck(&self) -> Result<RwLockReadGuard<Deck>, ErrorCode> {
+        self.deck.read()
+    }
 
-    pub(crate) fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
-        self.msg.set_sender(self.aid());
-        self.deck
-            .read()
-            .unwrap()
-            .send_to_aid(description, self.msg.clone(), SyncType::Blocking)
+    pub(crate) fn send(&self) -> Result<(), ErrorCode> {
+        self.deck()?.send_msg(self.msg.clone(), SyncType::Blocking)
     }
 
     pub(crate) fn receive(&mut self) -> Result<MessageType, ErrorCode> {
@@ -188,4 +164,8 @@ impl Hub {
             Err(err) => Err(ErrorCode::MpscRecv(err)),
         }
     }
+}
+
+pub(crate) trait Entity {
+    fn set_aid(&mut self, aid: Description);
 }

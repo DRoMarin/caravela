@@ -1,56 +1,47 @@
 pub use behavior::Behavior;
+pub use behavior::{AgentBase, AgentBuild, AgentBuildParam};
 pub(crate) mod behavior;
 
 use crate::{
-    deck::{Deck, Directory},
+    deck::DeckAccess,
     entity::{
         messaging::{Content, Message, MessageType, RequestType},
-        Description, ExecutionResources, Hub,
+        Description, Hub,
     },
-    ErrorCode, StackSize, MAX_PRIORITY, MAX_SUBSCRIBERS,
+    //platform::environment::{aid_from_name, aid_from_thread},
+    ErrorCode,
+    MAX_SUBSCRIBERS,
+    RX,
 };
 use std::{
     collections::HashMap,
     fmt::Display,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, RwLock,
+        Arc,
     },
-    thread,
+    thread::{self, current},
     time::Duration,
 };
 
-/// This Enum specifies the different states in an Agent Lifecycle.
+use super::Entity;
+
+type ContactList = HashMap<String, Description>;
+
+/// The different states in an Agent Lifecycle.
 #[derive(PartialEq, Clone, Copy, Debug, Default)]
 pub enum AgentState {
-    /// The Agent is present in the platform, but inactive.
+    /// The agent is present in the platform, but inactive.
     #[default]
     Initiated,
-    /// THe Agent is Active
+    /// THe agent is Active
     Active,
-    /// The Agent is temporarily halted.
+    /// The agent is temporarily halted.
     Waiting,
-    /// The Agent is indifinately unavailable.
+    /// The agent is indifinately unavailable.
     Suspended,
-    /// The Agent is finished
+    /// The agent is finished
     Terminated,
-}
-
-#[derive(Debug, Default)]
-pub(crate) struct ControlBlock {
-    pub active: AtomicBool,
-    pub wait: AtomicBool,
-    pub suspend: AtomicBool,
-    pub quit: AtomicBool,
-}
-
-/// The base agent type with AID, task control, and messaging functionality.
-#[derive(Debug)]
-pub struct Agent {
-    pub(crate) hub: Hub,
-    pub(crate) directory: Directory,
-    pub(crate) tcb: Arc<ControlBlock>,
-    //pub membership,
 }
 
 impl Display for AgentState {
@@ -65,111 +56,148 @@ impl Display for AgentState {
     }
 }
 
+#[derive(Debug, Default)]
+pub(crate) struct ControlBlock {
+    pub active: AtomicBool,
+    pub wait: AtomicBool,
+    pub suspend: AtomicBool,
+    pub quit: AtomicBool,
+}
+
+#[derive(Debug, Default, Clone)]
+pub(crate) struct ControlBlockAccess(pub(crate) Arc<ControlBlock>);
+
+impl ControlBlockAccess {
+    pub(crate) fn agent_state(&self) -> AgentState {
+        if self.quit().load(Ordering::Relaxed) {
+            AgentState::Terminated
+        } else if self.suspend().load(Ordering::Relaxed) {
+            AgentState::Suspended
+        } else if self.wait().load(Ordering::Relaxed) {
+            AgentState::Waiting
+        } else if self.active().load(Ordering::Relaxed) {
+            AgentState::Active
+        } else {
+            AgentState::Initiated
+        }
+    }
+
+    pub(crate) fn quit(&self) -> &AtomicBool {
+        &self.0.quit
+    }
+    pub(crate) fn suspend(&self) -> &AtomicBool {
+        &self.0.suspend
+    }
+    pub(crate) fn wait(&self) -> &AtomicBool {
+        &self.0.wait
+    }
+    pub(crate) fn active(&self) -> &AtomicBool {
+        &self.0.active
+    }
+}
+
+/// The base agent type with AID, life cycle control, and messaging functionality.
+#[derive(Debug)]
+pub struct Agent {
+    hub: Hub,
+    directory: ContactList,
+    tcb: ControlBlockAccess,
+    //pub membership,
+}
+
+impl Entity for Agent {
+    fn set_aid(&mut self, aid: Description) {
+        self.hub.set_aid(aid);
+    }
+}
+
 impl Agent {
     pub(crate) fn new(
-        nickname: String,
-        priority: u8,
-        stack_size: StackSize,
-        deck: Arc<RwLock<Deck>>,
-        tcb: Arc<ControlBlock>,
-        hap: String,
-    ) -> Result<Self, ErrorCode> {
-        if priority > (MAX_PRIORITY - 1) {
-            return Err(ErrorCode::InvalidPriority);
-        };
-        let directory: Directory = HashMap::with_capacity(MAX_SUBSCRIBERS);
-        let resources = ExecutionResources::new(priority, stack_size)?;
-        let hub = Hub::new(nickname, resources, deck, hap);
-        Ok(Self {
+        //name: String,
+        aid: Description,
+        rx: RX,
+        deck: DeckAccess,
+        tcb: ControlBlockAccess,
+    ) -> Self {
+        let directory: ContactList = HashMap::with_capacity(MAX_SUBSCRIBERS);
+        let hub = Hub::new(aid, rx, deck);
+        Self {
             hub,
             directory,
             tcb,
-        })
+        }
     }
-    /// Get the current Agent's Agent Identifier Description (AID) struct.
-    pub fn aid(&self) -> Description {
+    /// Get the Agent Identifier Description (AID) of the agent as [`Description`].
+    pub fn aid(&self) -> &Description {
         self.hub.aid()
     }
 
-    /// Get the Execution Resources struct of the current Agent.
-    pub fn resources(&self) -> ExecutionResources {
-        self.hub.resources()
-    }
-
-    /// Get the Message struct currently held by the Agent.
+    /// Get the [`Message`] currently held by the agent.
     pub fn msg(&self) -> Message {
         self.hub.msg()
     }
 
-    /// Set the contents and type of the message. This is used to format the message before it is sent.
+    /// Set the [`Content`] and [`MessageType`] of the message. This is used to format the message before it is sent.
     pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
         self.hub.set_msg(msg_type, msg_content)
     }
 
-    /// Send the currently held message to the target Agent. The Agent needs to be addressed by its AID struct.
+    /// Send the currently held message to the target agent. The receiver needs to be addressed by its nickname.
     //TBD: add block/nonblock parameter
     pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
-        println!("{}: SENDING to {}", self.aid(), agent);
-        if let Some(agent) = self.directory.get(agent) {
-            self.msg().set_receiver(agent.clone());
-            self.send_to_aid(agent.clone())
+        let agent_aid = if let Some(agent_aid) = self.directory.get(agent) {
+            agent_aid.to_owned()
         } else {
-            let ams = "AMS";
-            let _ = self.send_to(ams)?;
-            let search_req_result = self.receive()?;
-            if search_req_result != MessageType::Inform {
-                return Err(ErrorCode::NotFound);
-            }
-            println!("REQUESTED TO AMS, FOUND");
-            self.msg()
-                .set_content(Content::Request(RequestType::Search(agent.to_string())));
-            let msg = self.msg();
-            if let Content::AID(target) = msg.content() {
-                self.send_to_aid(target)
-            } else {
-                Err(ErrorCode::InvalidContent)
-            }
-        }
+            //only looking for local agents
+            let name = self.fmt_local_agent(agent);
+            self.hub.deck()?.get_aid_from_name(&name)?
+        };
+        self.send_to_aid(agent_aid)
     }
 
-    /// Send the currently held message to the target Agent. The Agent needs to be addressed by its nickname.
-    pub fn send_to_aid(&mut self, description: Description) -> Result<(), ErrorCode> {
-        self.hub.send_to_aid(description)
+    /// Send the currently held [`Message`] to the target agent. The agent needs to be addressed by its [`Description`].
+    pub fn send_to_aid(&mut self, aid: Description) -> Result<(), ErrorCode> {
+        self.hub.set_msg_receiver(aid);
+        self.hub.set_msg_sender(self.aid().clone());
+        self.hub.send()
     }
 
-    /// Wait for a messsage to arrive. This operation blocks the Agent and will overwrite the currently held Message.
+    /// Wait for a [`Message`] to arrive. This operation blocks the agent and will overwrite the currently held [`Message`].
     pub fn receive(&mut self) -> Result<MessageType, ErrorCode> {
-        self.hub.receive()
+        caravela_messaging!("{}: waiting for message", self.aid());
+        self.hub.receive().and_then(|x| {
+            caravela_messaging!("{}: message received!", self.aid());
+            Ok(x)
+        })
     }
 
-    /// Add a contact to the contact list. The target Agent needs to be addressed by its nickname.
-    pub fn add_contact(&mut self, agent: &str) -> Result<(), ErrorCode> {
+    /// Add an agent to the contact list. The target agent needs to be addressed by its nickname.
+    pub fn add_contact(&mut self, nickname: &str) -> Result<(), ErrorCode> {
         let msg_type = MessageType::Request;
-        let msg_content = Content::Request(RequestType::Search(agent.to_string()));
-        self.set_msg(msg_type, msg_content);
-        let ams = "AMS";
-        let send_result = self.send_to(ams);
-        send_result?;
-        let recv_result = self.receive();
-        if let Ok(msg_type) = recv_result {
-            match msg_type {
-                MessageType::Inform => {
-                    if let Content::AID(x) = self.msg().content() {
-                        self.add_contact_aid(agent, x)
-                    } else {
-                        Err(ErrorCode::InvalidContent)
-                    }
-                }
-                MessageType::Failure => Err(ErrorCode::NotRegistered),
+        //only looking for local agents
+        let name = self.fmt_local_agent(nickname);
+        let agent = self.hub.deck()?.get_aid_from_name(&name)?;
 
-                _ => Err(ErrorCode::InvalidMessageType),
+        let msg_content = Content::Request(RequestType::Search(agent));
+        self.set_msg(msg_type, msg_content);
+        self.send_to("AMS")?;
+        let msg_type = self.receive()?;
+        match msg_type {
+            MessageType::Inform => {
+                if let Content::AmsAgentDescription(ams_agent_description) = self.msg().content() {
+                    self.add_contact_aid(nickname, ams_agent_description.aid().clone())?;
+                    Ok(())
+                } else {
+                    Err(ErrorCode::InvalidContent)
+                }
             }
-        } else {
-            Err(ErrorCode::Disconnected)
+            MessageType::Failure => Err(ErrorCode::NotRegistered),
+
+            _ => Err(ErrorCode::InvalidMessageType),
         }
     }
 
-    /// Add a contact to the contact list. The target Agent needs to be addressed by its Description.
+    /// Add a contact to the contact list. The target agent needs to be addressed by its [`Description`].
     pub fn add_contact_aid(
         &mut self,
         nickname: &str,
@@ -185,42 +213,58 @@ impl Agent {
         }
     }
 
-    /// Halt the Agent Behavior for a specified duration of time.
+    /// Halt the agent's operation for a specified duration of time in milliseconds.
     pub fn wait(&self, time: u64) {
-        self.tcb.wait.store(true, Ordering::Relaxed);
+        self.tcb.wait().store(true, Ordering::Relaxed);
+        caravela_status!("{}: Waiting", self.aid());
         let dur = Duration::from_millis(time); //TBD could remove
         thread::sleep(dur);
-        self.tcb.wait.store(false, Ordering::Relaxed);
+        self.tcb.wait().store(false, Ordering::Relaxed);
+        caravela_status!("{}: Active", self.aid());
     }
 
-    pub(crate) fn set_thread(&mut self) {
+    /*pub(crate) fn set_thread(&mut self) {
         self.hub.set_thread();
+    }*/
+    pub(crate) fn fmt_local_agent(&self, nickname: &str) -> String {
+        let mut name = String::new();
+        name.push_str(nickname);
+        name.push('@');
+        name.push_str(self.aid().hap());
+        name
     }
 
-    pub(crate) fn init(&mut self) -> bool {
-        println!("{}: STARTING", self.aid());
-        self.tcb.active.store(true, Ordering::Relaxed);
-        true
+    pub(crate) fn init(&mut self) {
+        self.hub.set_thread(current().id());
+        //TBD
     }
 
-    pub(crate) fn suspend(&mut self) {
-        if self.tcb.suspend.load(Ordering::Relaxed) {
-            self.tcb.suspend.store(true, Ordering::Relaxed);
+    pub(crate) fn suspend(&self) {
+        if self.tcb.suspend().load(Ordering::Relaxed) {
+            self.tcb.suspend().store(true, Ordering::Relaxed);
+            caravela_status!("{}: Suspending", self.aid());
             thread::park();
-            self.tcb.suspend.store(false, Ordering::Relaxed);
+            caravela_status!("{}: Resuming", self.aid());
+            self.tcb.suspend().store(false, Ordering::Relaxed);
         }
     }
 
     pub(crate) fn quit(&self) -> bool {
-        self.tcb.quit.load(Ordering::Relaxed)
+        self.tcb.quit().load(Ordering::Relaxed)
     }
 
-    pub(crate) fn takedown(&mut self) -> bool {
-        let ams = "AMS";
+    pub(crate) fn takedown(&mut self) -> Result<(), ErrorCode> {
         let msg_type = MessageType::Request;
-        let msg_content = Content::Request(RequestType::Deregister(self.aid().name()));
+        let msg_content = Content::Request(RequestType::Deregister(self.aid().clone()));
         self.set_msg(msg_type, msg_content);
-        let _ = self.send_to(ams);
-        true
+
+        let ams = self.hub.deck_mut()?.ams_aid().clone();
+        {
+            self.send_to_aid(ams)?;
+        };
+        self.receive().and_then(|_| {
+            caravela_status!("{}: Terminated", self.aid());
+            Ok(())
+        })
     }
 }
