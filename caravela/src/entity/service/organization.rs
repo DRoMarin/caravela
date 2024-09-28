@@ -1,10 +1,12 @@
-/*use crate::platform::agent::Description;
-use crate::platform::entity::messaging::MessageType;
-use crate::platform::ErrorCode;
+use crate::{
+    entity::{Description, Hub},
+    ErrorCode, MAX_SUBSCRIBERS,
+};
+use std::collections::HashSet;
 
-use crate::platform::MAX_SUBSCRIBERS;
+use super::Service;
 
-#[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum OrgAffiliation {
     Owner,
     Admin,
@@ -12,7 +14,7 @@ pub enum OrgAffiliation {
     NonMember,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug)]
 pub enum OrgRole {
     Moderator,
     Participant,
@@ -20,97 +22,112 @@ pub enum OrgRole {
     NoRole,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Default)]
 pub enum OrgType {
     Hierarchy,
+    #[default]
     Team,
 }
 
-#[derive(Clone)]
-pub struct OrgInfo<'a> {
-    pub org_type: OrgType,
-    pub members: Vec<&'a Description>,
-    pub banned: Vec<&'a Description>,
-    pub owner: Option<&'a Description>,
-    pub admin: Option<&'a Description>,
-    pub moderator: Option<&'a Description>,
+#[derive(Debug, Clone)]
+struct OrgRecord {
+    members: HashSet<Description>,
+    banned: HashSet<Description>,
+    owner: Option<Description>,
+    admin: Option<Description>,
+    moderator: Option<Description>,
 }
 
-#[derive(Clone)]
-pub struct Organization<'a> {
-    info: OrgInfo<'a>,
+#[derive(Debug)]
+struct Organization {
+    org_type: OrgType,
+    record: OrgRecord,
+    hub: Hub,
 }
 
-pub fn new<'a>(org_type: OrgType) -> Organization<'a> {
-    let info = OrgInfo {
-        org_type,
-        members: Vec::<&'a Description>::with_capacity(MAX_SUBSCRIBERS),
-        banned: Vec::<&'a Description>::with_capacity(MAX_SUBSCRIBERS),
+fn new(org_type: OrgType, hub: Hub) -> Organization {
+    let record = OrgRecord {
+        members: HashSet::<Description>::with_capacity(MAX_SUBSCRIBERS),
+        banned: HashSet::<Description>::with_capacity(MAX_SUBSCRIBERS),
         owner: None,
         admin: None,
         moderator: None,
     };
-    Organization { info }
+    Organization {
+        org_type,
+        record,
+        hub,
+    }
 }
 
-impl<'a> Organization<'a> {
-    /*fn open(&self) -> ErrorCode {
-        if current().id() ==  {
-            return ErrorCode::Invalid;
-        }
-        else if self.info.owner == None {
-            return ErrorCode::NoError;
-        }
-        else {
-            return ErrorCode::Invalid;
-        }
-    }*/
-    //AFTER WHITE PAGES DONE
-    /*
-        fn close() -> ErrorCode {}
+impl OrgRecord {
+    fn set_moderator(&mut self, aid: Description) -> Option<Description> {
+        self.moderator.replace(aid)
+    }
+    fn set_owner(&mut self, aid: Description) -> Option<Description> {
+        self.moderator.replace(aid)
+    }
+    fn add_member(&mut self, aid: Description) -> Result<(), ErrorCode> {
+        self.members
+            .insert(aid)
+            .then_some(())
+            .ok_or(ErrorCode::Duplicated)
+    }
+    fn remove_member(&mut self, aid: Description) -> Result<(), ErrorCode> {
+        self.members
+            .remove(&aid)
+            .then_some(())
+            .ok_or(ErrorCode::NotFound)
+    }
+}
+impl Service for Organization {
+    fn new(rx: crate::RX, deck: DeckAccess, conditions: Self::Conditions) -> Self {}
+    fn init(&mut self) {}
+    fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {}
+    fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {}
+    fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {}
+    fn service_function(&mut self) {}
+    fn service_req_reply_type(
+        &mut self,
+        request_type: crate::messaging::RequestType,
+        result: Result<(), ErrorCode>,
+    ) {
+    }
 
-        fn add_member(target: AID) -> ErrorCode {}
-        fn invite_member(target: AID) -> MessageType {}
-        fn kick_member(target: AID) -> ErrorCode {}
-        fn ban_member(target: AID) -> ErrorCode {}
+    type Conditions;
+}
+/*
+impl Organization {
+    fn add_member(target: AID) -> Result<(), ErrorCode> {}
+    fn invite_member(target: AID) -> MessageType {}
+    fn kick_member(target: AID) -> Result<(), ErrorCode> {}
+    fn ban_member(target: AID) -> Result<(), ErrorCode> {}
 
-        fn change_owner(target: AID) -> ErrorCode {}
+    fn change_owner(target: AID) -> Result<(), ErrorCode> {}
 
-        fn set_admin(target: AID) -> ErrorCode {}
-        fn set_moderator(target: AID) -> ErrorCode {}
-        fn set_participant(target: AID) -> ErrorCode {}
-        fn set_visitor(target: AID) -> ErrorCode {}
+    fn set_admin(target: AID) -> Result<(), ErrorCode> {}
+    fn set_moderator(target: AID) -> Result<(), ErrorCode> {}
+    fn set_participant(target: AID) -> Result<(), ErrorCode> {}
+    fn set_visitor(target: AID) -> Result<(), ErrorCode> {}
 
-        fn lift_ban(target: AID) -> ErrorCode {}
-        fn clear_ban_list() -> ErrorCode {}
+    fn lift_ban(target: AID) -> Result<(), ErrorCode> {}
+    fn clear_ban_list() -> Result<(), ErrorCode> {}
 
-        fn get_size(&self) -> usize {
-            self.info.members.len()
-        }
-        fn get_info(&self) -> OrgInfo {
-            self.info
-        }
-        fn get_org_type(&self) -> OrgType {
-            self.info.org_type
-        }
+    fn get_size(&self) -> usize {
+        self.info.members.len()
+    }
+    fn get_description(&self) -> &OrgRecord {
+        &self.info
+    }
+    fn get_org_type(&self) -> OrgType {
+        self.org_type
+    }
 
-        fn is_member(&self, target:&AgentInfoDescription<'_> ) -> ErrorCode {
-            if self.info.members.contains(&target) {
-                return ErrorCode::Found;
-            }
-            else {
-                return ErrorCode::NotFound;
-            }
-        }
-
-        fn is_banned(&self, target:&AgentInfoDescription<'_> ) -> ErrorCode {
-            if self.info.banned.contains(&target) {
-                return ErrorCode::Found;
-            }
-            else {
-                return ErrorCode::NotFound;
-            }
-        }
-    */
+    fn is_member(&self, target: &Description) -> bool {
+        self.info.members.contains(target)
+    }
+    fn is_banned(&self, target: &Description) -> bool {
+        self.info.banned.contains(target)
+    }
 }
 */
