@@ -1,14 +1,11 @@
-pub use behavior::Behavior;
-pub use behavior::{AgentBase, AgentBuild, AgentBuildParam};
-pub(crate) mod behavior;
+pub mod behavior;
 
 use crate::{
     deck::DeckAccess,
-    entity::{
+    entity::{Entity,
         messaging::{Content, Message, MessageType, RequestType},
         Description, Hub,
     },
-    //platform::environment::{aid_from_name, aid_from_thread},
     ErrorCode,
     MAX_SUBSCRIBERS,
     RX,
@@ -23,8 +20,6 @@ use std::{
     thread::{self, current},
     time::Duration,
 };
-
-use super::Entity;
 
 type ContactList = HashMap<String, Description>;
 

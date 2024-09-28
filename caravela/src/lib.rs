@@ -12,21 +12,21 @@ pub(crate) mod deck;
 pub(crate) mod entity;
 pub(crate) mod platform;
 
-pub use self::entity::agent;
-pub use self::entity::{
-    messaging::{Content, Message, MessageType, RequestType},
-    service::UserConditions,
-    Description,
+pub use {
+    entity::agent::behavior,
+    entity::{agent, messaging, service, Description},
+    platform::Platform,
 };
-pub use self::platform::Platform;
-use entity::agent::AgentState;
-//use std::sync::mpsc::{SendError, TrySendError};
+
 use std::{
     error::Error,
     fmt::Display,
     sync::mpsc::{Receiver, RecvError, SyncSender},
 };
-//use thread_priority::*;
+use {
+    agent::AgentState,
+    messaging::{Message, RequestType},
+};
 
 /// StackSize defined as platform dependant.
 pub type StackSize = usize;

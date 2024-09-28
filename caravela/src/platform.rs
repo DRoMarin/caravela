@@ -1,23 +1,21 @@
 use crate::{
-    agent::AgentBuildParam,
     deck::{Deck, DeckAccess},
     entity::{
         agent::{
-            behavior::{execute, AgentBuild, Behavior},
+            behavior::{execute, AgentBuild, AgentBuildParam, Behavior},
             Agent, ControlBlock, ControlBlockAccess,
         },
+        messaging::Message,
         service::{ams::Ams, DefaultConditions, Service, UserConditions},
         Description, Entity,
     },
-    ErrorCode, Message, DEFAULT_STACK,
+    ErrorCode, DEFAULT_STACK,
 };
 use std::{
     sync::{atomic::Ordering, mpsc::sync_channel, Arc, RwLock},
     thread,
 };
 use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorityValue};
-
-//pub mod organization;
 
 /// Represents the Host Agent Platform (HAP) and
 ///  provides the user with methods to incorporate agents into it.

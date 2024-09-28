@@ -1,5 +1,4 @@
-use caravela::agent::*;
-use caravela::*;
+use caravela::{agent, agent::Agent, behavior::*, caravela_probe, Platform, DEFAULT_STACK};
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {

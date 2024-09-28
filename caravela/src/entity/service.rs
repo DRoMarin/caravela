@@ -1,9 +1,13 @@
 pub(crate) mod ams;
 
-use crate::{deck::DeckAccess, entity::messaging::RequestType, Description, ErrorCode, RX};
+use crate::{
+    deck::DeckAccess,
+    entity::{messaging::RequestType, Description},
+    ErrorCode, RX,
+};
 
 #[derive(Debug)]
-pub struct DefaultConditions;
+pub(crate) struct DefaultConditions;
 
 pub(crate) trait Service {
     type Conditions;

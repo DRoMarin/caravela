@@ -1,14 +1,13 @@
 /// Base agent functionality.
 pub mod agent;
-pub(crate) mod messaging;
-pub(crate) mod service;
+pub mod messaging;
+pub mod service;
 
 use crate::{
     deck::{Deck, DeckAccess, SyncType},
     ErrorCode, RX, TX,
 };
-//pub use agent::{behavior::Behavior, Agent};
-pub use messaging::{Content, Message, MessageType};
+use messaging::{Content, Message, MessageType};
 use std::{
     fmt::Display,
     hash::{self, Hash},

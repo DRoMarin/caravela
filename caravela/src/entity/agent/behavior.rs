@@ -1,8 +1,6 @@
+use crate::entity::agent::{Agent, AgentState};
 use std::hint;
 
-use crate::entity::agent::Agent;
-
-use super::AgentState;
 /// Establishes that an object is an agent.
 pub trait Behavior: AgentBase {
     /// Required function to build the derived agent instance.

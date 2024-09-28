@@ -1,4 +1,4 @@
-use super::{service::ams::AmsAgentDescription, Description};
+use crate::entity::{service::ams::AmsAgentDescription, Description};
 use std::fmt::Display;
 
 /// All communicative acts allowed between agents.

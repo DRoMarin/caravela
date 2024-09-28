@@ -4,9 +4,9 @@ use crate::{
         agent::AgentState,
         messaging::{Content, MessageType, RequestType},
         service::{Service, UserConditions},
-        Entity, Hub,
+        Description, Entity, Hub,
     },
-    Description, ErrorCode, RX,
+    ErrorCode, RX,
 };
 use std::fmt::Debug;
 

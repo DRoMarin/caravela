@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use caravela::agent::*;
+    use caravela::behavior::*;
     use caravela::*;
     use std::error::Error;
 

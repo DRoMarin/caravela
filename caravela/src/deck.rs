@@ -1,8 +1,5 @@
-use thread_priority::ThreadPriority;
-
 use crate::{
-    agent::ControlBlockAccess,
-    entity::{messaging::Message, Description},
+    entity::{agent::ControlBlockAccess, messaging::Message, Description},
     ErrorCode, MAX_SUBSCRIBERS,
 };
 use std::{
@@ -14,6 +11,7 @@ use std::{
     },
     thread::{JoinHandle, Thread, ThreadId},
 };
+use thread_priority::ThreadPriority;
 
 pub(crate) type AgentDirectory = HashMap<Description, AgentEntry>;
 
