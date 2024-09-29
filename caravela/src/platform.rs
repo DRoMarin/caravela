@@ -2,8 +2,8 @@ use crate::{
     deck::{Deck, DeckAccess},
     entity::{
         agent::{
-            behavior::{execute, AgentBuild, AgentBuildParam, Behavior},
-            Agent, ControlBlock, ControlBlockAccess,
+            behavior::{execute, Behavior},
+            Agent, AgentBuild, AgentBuildParam, ControlBlock, ControlBlockAccess,
         },
         messaging::Message,
         service::{ams::Ams, DefaultConditions, Service, UserConditions},
@@ -78,7 +78,7 @@ impl Platform {
     }
 
     /// This method creates agents of the given `T` type that implements [`Behavior`]
-    ///  with the specified parameters (nickname, priority, and stack size).
+    ///  with the specified values (nickname, priority, and stack size).
     ///  If successful, it will return a `Ok(aid)` with the [`Description`] of the agent.
     ///  This Agent is not active by default and must be started by [`start`](Self::start)
     pub fn add_agent<T: Behavior + AgentBuild + Send + 'static>(
@@ -116,7 +116,7 @@ impl Platform {
         let agent_handle = thread::Builder::new()
             .stack_size(stack_size)
             .spawn_with_priority(ThreadPriority::Min, move |_| {
-                execute(agent);
+                execute(agent)
             });
 
         // register on env
@@ -133,6 +133,10 @@ impl Platform {
         Ok(aid)
     }
 
+    /// This method creates agents of the given `T` type that implements [`Behavior`]
+    ///  with the specified values (nickname, priority, and stack size, parameter).
+    ///  If successful, it will return a `Ok(aid)` with the [`Description`] of the agent.
+    ///  This Agent is not active by default and must be started by [`start`](Self::start)
     pub fn add_agent_with_param<T: Behavior + AgentBuildParam + Send + 'static>(
         &self,
         nickname: &'static str,

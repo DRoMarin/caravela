@@ -1,3 +1,4 @@
+/// A collection of traits that give agents their behavior and formally defines them as agents.
 pub mod behavior;
 
 use crate::{
@@ -155,6 +156,7 @@ impl Agent {
         self.hub.send()
     }
 
+    /// Send the currently held ['Message'] to all the agents in the contact list.
     pub fn send_to_all(&mut self) -> Result<(), ErrorCode> {
         self.hub.set_msg_sender(self.aid().clone());
         let agents = self.directory.values();
@@ -252,4 +254,26 @@ impl Agent {
             Ok(())
         })
     }
+}
+
+/// This trait gives the platform access to the base agent element. It is required to execute the agent life cycle accordingly.
+pub trait AgentBase {
+    /// Required function to access  [`Agent`] base functionality.
+    fn agent(&mut self) -> &mut Agent;
+}
+/// This trait defines how an agent without patameters must be built by the platform.
+pub trait AgentBuild {
+    /// Required function to build the derived agent instance without a parameter field.
+    fn agent_builder(base_agent: Agent) -> Self;
+}
+
+/// This trait defines how an agent with patameters must be built by the platform.
+pub trait AgentBuildParam {
+    /// Associated parameter type
+    type Parameter;
+    /// Required function to build the derived agent instance with a parameter field.
+    fn agent_with_param_builder(base_agent: Agent, param: Self::Parameter) -> Self;
+
+    /// Required function to give the platform access to parameter field.
+    fn param(&mut self) -> &mut Self::Parameter;
 }

@@ -1,6 +1,8 @@
 /// Base agent functionality.
 pub mod agent;
+/// Messaging related types and operations.
 pub mod messaging;
+/// Service related features.
 pub mod service;
 
 use crate::{

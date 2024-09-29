@@ -1,3 +1,4 @@
+/// Macro used for simple messages activated by the user as a feature.
 #[macro_export]
 #[cfg(feature = "dbg-probe")]
 macro_rules! caravela_probe {
@@ -31,8 +32,9 @@ macro_rules! caravela_dflt {
     }};
 }
 
+/// Macro to define agent types without parameters
 #[macro_export]
-macro_rules! agent{
+macro_rules! make_agent {
     ($vis: vis $agent: ident) => {
         #[derive(Debug)]
         $vis struct $agent{
@@ -52,13 +54,9 @@ macro_rules! agent{
     };
 }
 
-//($vis: vis $agent: ident $(< $( $gen_lt:tt $( : $fbd:tt $(+ $sbd:tt )* )? ),+ >)? ) => {
-
+/// Macro to define agent types with parameters
 #[macro_export]
-macro_rules! agent_with_param {
-    //($vis: vis $agent: ident, $pvis: vis $pty:ident $(< $( $glt:tt $(:$fbd:tt $(+ $sbd:tt )* )? ),+ >)? ) => {
-    //todo!();
-    //};
+macro_rules! make_agent_with_param {
     ($vis: vis $agent: ident, $param_vis: vis $param_ty:ty) => {
         #[derive(Debug)]
         $vis struct $agent{

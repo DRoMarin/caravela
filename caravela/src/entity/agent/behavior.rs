@@ -1,4 +1,4 @@
-use crate::entity::agent::{Agent, AgentState};
+use crate::entity::agent::{AgentBase, AgentState};
 use std::hint;
 
 /// Establishes that an object is an agent.
@@ -43,24 +43,6 @@ pub trait Behavior: AgentBase {
     }
 }
 
-pub trait AgentBase {
-    /// Required function to access  [`Agent`] base functionality.
-    fn agent(&mut self) -> &mut Agent;
-}
-pub trait AgentBuild {
-    /// Required function to build the derived agent instance without a parameter field.
-    fn agent_builder(base_agent: Agent) -> Self;
-}
-
-pub trait AgentBuildParam {
-    type Parameter;
-    /// Required function to build the derived agent instance with a parameter field.
-    fn agent_with_param_builder(base_agent: Agent, param: Self::Parameter) -> Self;
-
-    /// Required function to access parameter field.
-    fn param(&mut self) -> &mut Self::Parameter;
-}
-
 pub(crate) fn execute(mut behavior: impl Behavior) {
     //behavior.agent_mut_ref().set_thread();
     behavior.agent().init();
@@ -84,5 +66,5 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
             break;
         }
     }
-    behavior.agent().takedown();
+    let _ = behavior.agent().takedown();
 }
