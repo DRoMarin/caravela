@@ -38,7 +38,7 @@ impl Platform {
     }
     /// This method starts the Agent Management System (AMS) as [`boot_with_ams_conditions`](Self::boot_with_ams_conditions) also does,
     ///  but with default service conditions.
-    pub fn boot(&mut self) -> Result<(), ErrorCode> {
+    pub fn boot(&self) -> Result<(), ErrorCode> {
         let default: DefaultConditions = DefaultConditions;
         self.boot_with_ams_conditions(default)
     }
@@ -46,7 +46,7 @@ impl Platform {
     /// This method starts the Agent Management System (AMS) with specific user given conditions,
     ///  passed as a type that implements [`UserConditions`].
     pub fn boot_with_ams_conditions<T: UserConditions + Send + 'static>(
-        &mut self,
+        &self,
         conditions: T,
     ) -> Result<(), ErrorCode> {
         //
@@ -82,7 +82,7 @@ impl Platform {
     ///  If successful, it will return a `Ok(aid)` with the [`Description`] of the agent.
     ///  This Agent is not active by default and must be started by [`start`](Self::start)
     pub fn add_agent<T: Behavior + AgentBuild + Send + 'static>(
-        &mut self,
+        &self,
         nickname: &'static str,
         priority: u8,
         stack_size: usize,
@@ -134,7 +134,7 @@ impl Platform {
     }
 
     pub fn add_agent_with_param<T: Behavior + AgentBuildParam + Send + 'static>(
-        &mut self,
+        &self,
         nickname: &'static str,
         priority: u8,
         stack_size: usize,
@@ -187,7 +187,7 @@ impl Platform {
     }
 
     /// Transition the agent from the initiated state into the active state, required for it to execute its behavior.
-    pub fn start(&mut self, aid: &Description) -> Result<(), ErrorCode> {
+    pub fn start(&self, aid: &Description) -> Result<(), ErrorCode> {
         let deck = self.deck.read()?;
         let entry = deck.get_agent(aid)?;
         let thread = entry.thread().ok_or(ErrorCode::AidHandleNone)?;
