@@ -7,7 +7,7 @@ mod tests {
 
     #[test]
     fn platform_boot() -> Result<(), Box<dyn Error>> {
-        agent!(Test);
+        make_agent!(Test);
 
         impl Behavior for Test {
             fn action(&mut self) {
@@ -15,7 +15,7 @@ mod tests {
             }
         }
 
-        let mut agent_platform = Platform::new("test_boot");
+        let agent_platform = Platform::new("test_boot");
         let boot = agent_platform.boot();
         assert!(boot.is_ok());
         std::thread::sleep(std::time::Duration::from_millis(500));

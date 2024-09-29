@@ -4,12 +4,16 @@
 
 // Importing crate components
 use caravela::{
-    agent, agent::Agent, behavior::*, caravela_probe, messaging::*, Platform, DEFAULT_STACK,
+    agent::{Agent, AgentBase, AgentBuild},
+    behavior::Behavior,
+    caravela_probe, make_agent,
+    messaging::{Content, MessageType},
+    Platform, DEFAULT_STACK,
 };
 use std::error::Error;
 //Defining agent types
-agent!(Sender);
-agent!(Receiver);
+make_agent!(Sender);
+make_agent!(Receiver);
 
 //implementing behaviors for each type
 impl Behavior for Sender {
