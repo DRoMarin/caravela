@@ -2,13 +2,11 @@ pub mod behavior;
 
 use crate::{
     deck::DeckAccess,
-    entity::{Entity,
+    entity::{
         messaging::{Content, Message, MessageType, RequestType},
-        Description, Hub,
+        Description, Entity, Hub,
     },
-    ErrorCode,
-    MAX_SUBSCRIBERS,
-    RX,
+    ErrorCode, MAX_SUBSCRIBERS, RX,
 };
 use std::{
     collections::HashMap,
@@ -157,6 +155,16 @@ impl Agent {
         self.hub.send()
     }
 
+    pub fn send_to_all(&mut self) -> Result<(), ErrorCode> {
+        self.hub.set_msg_sender(self.aid().clone());
+        let agents = self.directory.values();
+        for aid in agents {
+            self.hub.set_msg_receiver(aid.clone());
+            self.hub.send()?;
+        }
+        Ok(())
+    }
+
     /// Wait for a [`Message`] to arrive. This operation blocks the agent and will overwrite the currently held [`Message`].
     pub fn receive(&mut self) -> Result<MessageType, ErrorCode> {
         caravela_messaging!("{}: waiting for message", self.aid());
@@ -168,28 +176,10 @@ impl Agent {
 
     /// Add an agent to the contact list. The target agent needs to be addressed by its nickname.
     pub fn add_contact(&mut self, nickname: &str) -> Result<(), ErrorCode> {
-        let msg_type = MessageType::Request;
         //only looking for local agents
         let name = self.fmt_local_agent(nickname);
         let agent = self.hub.deck()?.get_aid_from_name(&name)?;
-
-        let msg_content = Content::Request(RequestType::Search(agent));
-        self.set_msg(msg_type, msg_content);
-        self.send_to("AMS")?;
-        let msg_type = self.receive()?;
-        match msg_type {
-            MessageType::Inform => {
-                if let Content::AmsAgentDescription(ams_agent_description) = self.msg().content() {
-                    self.add_contact_aid(nickname, ams_agent_description.aid().clone())?;
-                    Ok(())
-                } else {
-                    Err(ErrorCode::InvalidContent)
-                }
-            }
-            MessageType::Failure => Err(ErrorCode::NotRegistered),
-
-            _ => Err(ErrorCode::InvalidMessageType),
-        }
+        self.add_contact_aid(nickname, agent)
     }
 
     /// Add a contact to the contact list. The target agent needs to be addressed by its [`Description`].
