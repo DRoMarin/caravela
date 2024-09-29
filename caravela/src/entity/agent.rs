@@ -170,9 +170,9 @@ impl Agent {
     /// Wait for a [`Message`] to arrive. This operation blocks the agent and will overwrite the currently held [`Message`].
     pub fn receive(&mut self) -> Result<MessageType, ErrorCode> {
         caravela_messaging!("{}: waiting for message", self.aid());
-        self.hub.receive().and_then(|x| {
+        self.hub.receive().map(|x| {
             caravela_messaging!("{}: message received!", self.aid());
-            Ok(x)
+            x
         })
     }
 
@@ -249,9 +249,8 @@ impl Agent {
         {
             self.send_to_aid(ams)?;
         };
-        self.receive().and_then(|_| {
+        self.receive().map(|_| {
             caravela_status!("{}: Terminated", self.aid());
-            Ok(())
         })
     }
 }

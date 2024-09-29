@@ -75,7 +75,7 @@ impl<T: UserConditions> Service for Ams<T> {
                 aid.clone(),
             )));
         }
-        self.hub.deck_mut()?.remove_agent(aid).and_then(|_| Ok(()))
+        self.hub.deck_mut()?.remove_agent(aid).map(|_| ())
         //TODO: FIX FLOW
     }
 
@@ -151,7 +151,7 @@ impl<T: UserConditions> Ams<T> {
             return Err(ErrorCode::InvalidStateChange(state, AgentState::Terminated));
         }
         deck_guard.modify_control_block(aid, TcbField::Quit, true)?;
-        deck_guard.remove_agent(aid).and_then(|_| Ok(()))
+        deck_guard.remove_agent(aid).map(|_| ())
         //TBD: REMOVE HANDLE AND JOIN THREAD
         //TODO: FIX FLOW TO RELY ON TAKEDOWNS
     }

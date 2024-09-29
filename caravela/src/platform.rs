@@ -109,15 +109,13 @@ impl Platform {
         }
 
         let thread_priority =
-            ThreadPriority::try_from(priority).map_err(|e| ErrorCode::InvalidPriority(e))?;
+            ThreadPriority::try_from(priority).map_err(ErrorCode::InvalidPriority)?;
 
         // spawn agent with spinlock
 
         let agent_handle = thread::Builder::new()
             .stack_size(stack_size)
-            .spawn_with_priority(ThreadPriority::Min, move |_| {
-                execute(agent)
-            });
+            .spawn_with_priority(ThreadPriority::Min, move |_| execute(agent));
 
         // register on env
         let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
@@ -166,7 +164,7 @@ impl Platform {
         }
 
         let thread_priority =
-            ThreadPriority::try_from(priority).map_err(|e| ErrorCode::InvalidPriority(e))?;
+            ThreadPriority::try_from(priority).map_err(ErrorCode::InvalidPriority)?;
 
         // spawn agent with spinlock
 

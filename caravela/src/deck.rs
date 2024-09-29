@@ -79,9 +79,7 @@ impl AgentEntry {
     }
 
     pub(crate) fn thread(&self) -> Option<Thread> {
-        self.join_handle
-            .as_ref()
-            .and_then(|x| Some(x.thread().to_owned()))
+        self.join_handle.as_ref().map(|x| x.thread().to_owned())
     }
 }
 
@@ -122,7 +120,7 @@ impl Deck {
     }
 
     pub(crate) fn ams_aid(&self) -> &Description {
-        &self.ams_entry.aid()
+        self.ams_entry.aid()
     }
 
     pub(crate) fn ams_join(&mut self) -> Result<(), ErrorCode> {
@@ -183,7 +181,7 @@ impl Deck {
         entry
             .join_handle
             .as_ref()
-            .and_then(|x| Some(x.thread().unpark()))
+            .map(|x| x.thread().unpark())
             .ok_or(ErrorCode::InvalidRequest)
     }
 
