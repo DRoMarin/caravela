@@ -12,3 +12,8 @@ members = [
 [patch.crates-io]
 libc = { git = "https://github.com/DRoMarin/libc.git", branch = "vxworks/sched" }
 thread-priority = { git = "https://github.com/DRoMarin/thread-priority.git", branch = "vxworks-support" }
+
+[profile.release]
+opt-level = 2
+lto = true
+strip=true
