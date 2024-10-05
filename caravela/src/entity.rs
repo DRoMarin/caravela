@@ -6,14 +6,13 @@ pub mod messaging;
 pub mod service;
 
 use crate::{
-    deck::{Deck, DeckAccess, SyncType},
+    deck::{deck, SyncType},
     ErrorCode, RX, TX,
 };
 use messaging::{Content, Message, MessageType};
 use std::{
     fmt::Display,
     hash::{self, Hash},
-    sync::{RwLockReadGuard, RwLockWriteGuard},
     thread::ThreadId,
 };
 
@@ -102,15 +101,15 @@ impl Description {
 pub(crate) struct Hub {
     aid: Description,
     rx: RX,
-    deck: DeckAccess, //Arc<RwLock<Deck>>,
+    //deck: DeckAccess, //Arc<RwLock<Deck>>,
     msg: Message,
 }
 
 impl Hub {
-    pub(crate) fn new(aid: Description, rx: RX, deck: DeckAccess) -> Self {
+    pub(crate) fn new(aid: Description, rx: RX) -> Self {
         //let aid = Description::default();
         let msg = Message::new();
-        Self { aid, rx, deck, msg }
+        Self { aid, rx, msg }
     }
 
     pub(crate) fn aid(&self) -> &Description {
@@ -119,10 +118,6 @@ impl Hub {
 
     pub(crate) fn msg(&self) -> Message {
         self.msg.clone()
-    }
-
-    pub(crate) fn set_aid(&mut self, aid: Description) {
-        self.aid = aid;
     }
 
     pub(crate) fn set_thread(&mut self, id: ThreadId) {
@@ -143,15 +138,10 @@ impl Hub {
         self.msg.set_content(msg_content);
     }
 
-    pub(crate) fn deck_mut(&self) -> Result<RwLockWriteGuard<Deck>, ErrorCode> {
-        self.deck.write()
-    }
-    pub(crate) fn deck(&self) -> Result<RwLockReadGuard<Deck>, ErrorCode> {
-        self.deck.read()
-    }
-
     pub(crate) fn send(&self) -> Result<(), ErrorCode> {
-        self.deck()?.send_msg(self.msg.clone(), SyncType::Blocking)
+        deck()
+            .read()?
+            .send_msg(self.msg.clone(), SyncType::Blocking)
     }
 
     pub(crate) fn receive(&mut self) -> Result<MessageType, ErrorCode> {
@@ -165,8 +155,4 @@ impl Hub {
             Err(err) => Err(ErrorCode::MpscRecv(err)),
         }
     }
-}
-
-pub(crate) trait Entity {
-    fn set_aid(&mut self, aid: Description);
 }

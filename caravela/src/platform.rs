@@ -1,18 +1,18 @@
 use crate::{
-    deck::{Deck, DeckAccess},
+    deck::deck,
     entity::{
         agent::{
             behavior::{execute, Behavior},
-            Agent, AgentBuild, AgentBuildParam, ControlBlock, ControlBlockAccess,
+            Agent, AgentBuild, AgentBuildParam, ControlBlock,
         },
         messaging::Message,
         service::{ams::Ams, DefaultConditions, Service, UserConditions},
-        Description, Entity,
+        Description,
     },
     ErrorCode, DEFAULT_STACK,
 };
 use std::{
-    sync::{atomic::Ordering, mpsc::sync_channel, Arc, RwLock},
+    sync::{atomic::Ordering, mpsc::sync_channel, Arc},
     thread,
 };
 use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorityValue};
@@ -22,14 +22,12 @@ use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorit
 #[derive(Debug)]
 pub struct Platform {
     name: &'static str,
-    deck: DeckAccess,
 }
 
 impl Platform {
     /// Function that constructs a new [`Platform`] object with the provided name.
     pub fn new(name: &'static str) -> Self {
-        let deck = DeckAccess(Arc::new(RwLock::new(Deck::new())));
-        Self { name, deck }
+        Self { name }
     }
 
     /// Returns the name of the platform.
@@ -52,15 +50,15 @@ impl Platform {
         //
         let (tx, rx) = sync_channel::<Message>(1);
         let mut ams_aid = Description::new("AMS", self.name(), tx);
-        let mut ams = Ams::<T>::new(rx, self.deck.clone(), conditions);
-        let mut ams_aid_task = ams_aid.clone();
+        let mut ams = Ams::<T>::new(rx, conditions);
+        //let mut ams_aid_task = ams_aid.clone();
         //
         caravela_status!("BOOTING AMS");
         let ams_handle = thread::Builder::new()
             .stack_size(DEFAULT_STACK)
             .spawn_with_priority(ThreadPriority::Max, move |_| {
-                ams_aid_task.set_thread(thread::current().id());
-                ams.set_aid(ams_aid_task);
+                //ams_aid_task.set_thread(thread::current().id());
+                //ams.set_aid(ams_aid_task);
                 ams.service_function();
             });
 
@@ -70,7 +68,7 @@ impl Platform {
             }
             //Build description and insert in env lock
             ams_aid.set_thread(join_handle.thread().id());
-            self.deck.write()?.assign_ams(ams_aid, join_handle);
+            deck().write()?.assign_ams(ams_aid, join_handle);
             Ok(())
         } else {
             Err(ErrorCode::AmsBoot)
@@ -91,11 +89,11 @@ impl Platform {
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
-        let deck = self.deck.clone();
-        let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
-        let mut base_agent = Agent::new(aid.clone(), rx, deck, control_block.clone());
-        base_agent.set_aid(aid.clone());
-        if self.deck.read()?.search_agent(&aid).is_ok() {
+        //let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
+        let control_block = Arc::new(ControlBlock::default());
+        let base_agent = Agent::new(aid.clone(), rx, control_block.clone());
+        //base_agent.set_aid(aid.clone());
+        if deck().read()?.search_agent(&aid).is_ok() {
             return Err(ErrorCode::Duplicated);
         }
 
@@ -122,7 +120,7 @@ impl Platform {
 
         //Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
-        self.deck.write()?.add_agent(
+        deck().write()?.add_agent(
             aid.clone(),
             Some(join_handle),
             Some(thread_priority),
@@ -146,11 +144,11 @@ impl Platform {
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
-        let deck = self.deck.clone();
-        let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
-        let mut base_agent = Agent::new(aid.clone(), rx, deck, control_block.clone());
-        base_agent.set_aid(aid.clone());
-        if self.deck.read()?.search_agent(&aid).is_ok() {
+        //let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
+        let control_block = Arc::new(ControlBlock::default());
+        let base_agent = Agent::new(aid.clone(), rx, control_block.clone());
+        //base_agent.set_aid(aid.clone());
+        if deck().read()?.search_agent(&aid).is_ok() {
             return Err(ErrorCode::Duplicated);
         }
 
@@ -179,7 +177,7 @@ impl Platform {
 
         //Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
-        self.deck.write()?.add_agent(
+        deck().write()?.add_agent(
             aid.clone(),
             Some(join_handle),
             Some(thread_priority),
@@ -190,8 +188,8 @@ impl Platform {
 
     /// Transition the agent from the initiated state into the active state, required for it to execute its behavior.
     pub fn start(&self, aid: &Description) -> Result<(), ErrorCode> {
-        let deck = self.deck.read()?;
-        let entry = deck.get_agent(aid)?;
+        let guard = deck().read()?;
+        let entry = guard.get_agent(aid)?;
         let thread = entry.thread().ok_or(ErrorCode::AidHandleNone)?;
         let priority = entry.priority().ok_or(ErrorCode::InvalidPriority("None"))?;
         if let Err(error) = thread.set_priority(priority) {

@@ -2,10 +2,10 @@
 pub mod behavior;
 
 use crate::{
-    deck::DeckAccess,
+    deck::deck,
     entity::{
         messaging::{Content, Message, MessageType, RequestType},
-        Description, Entity, Hub,
+        Description, Hub,
     },
     ErrorCode, MAX_SUBSCRIBERS, RX,
 };
@@ -52,41 +52,41 @@ impl Display for AgentState {
 
 #[derive(Debug, Default)]
 pub(crate) struct ControlBlock {
-    pub active: AtomicBool,
-    pub wait: AtomicBool,
-    pub suspend: AtomicBool,
-    pub quit: AtomicBool,
+    active: AtomicBool,
+    wait: AtomicBool,
+    suspend: AtomicBool,
+    quit: AtomicBool,
 }
 
-#[derive(Debug, Default, Clone)]
-pub(crate) struct ControlBlockAccess(pub(crate) Arc<ControlBlock>);
+pub(crate) type ControlBlockArc = Arc<ControlBlock>;
+//#[derive(Debug, Default, Clone)]
+//pub(crate) struct ControlBlockAccess(pub(crate) Arc<ControlBlock>);
 
-impl ControlBlockAccess {
+impl ControlBlock {
     pub(crate) fn agent_state(&self) -> AgentState {
-        if self.quit().load(Ordering::Relaxed) {
+        if self.quit.load(Ordering::Relaxed) {
             AgentState::Terminated
-        } else if self.suspend().load(Ordering::Relaxed) {
+        } else if self.suspend.load(Ordering::Relaxed) {
             AgentState::Suspended
-        } else if self.wait().load(Ordering::Relaxed) {
+        } else if self.wait.load(Ordering::Relaxed) {
             AgentState::Waiting
-        } else if self.active().load(Ordering::Relaxed) {
+        } else if self.active.load(Ordering::Relaxed) {
             AgentState::Active
         } else {
             AgentState::Initiated
         }
     }
-
     pub(crate) fn quit(&self) -> &AtomicBool {
-        &self.0.quit
+        &self.quit
     }
     pub(crate) fn suspend(&self) -> &AtomicBool {
-        &self.0.suspend
+        &self.suspend
     }
     pub(crate) fn wait(&self) -> &AtomicBool {
-        &self.0.wait
+        &self.wait
     }
     pub(crate) fn active(&self) -> &AtomicBool {
-        &self.0.active
+        &self.active
     }
 }
 
@@ -95,14 +95,8 @@ impl ControlBlockAccess {
 pub struct Agent {
     hub: Hub,
     directory: ContactList,
-    tcb: ControlBlockAccess,
+    tcb: ControlBlockArc,
     //pub membership,
-}
-
-impl Entity for Agent {
-    fn set_aid(&mut self, aid: Description) {
-        self.hub.set_aid(aid);
-    }
 }
 
 impl Agent {
@@ -110,11 +104,10 @@ impl Agent {
         //name: String,
         aid: Description,
         rx: RX,
-        deck: DeckAccess,
-        tcb: ControlBlockAccess,
+        tcb: ControlBlockArc,
     ) -> Self {
         let directory: ContactList = HashMap::with_capacity(MAX_SUBSCRIBERS);
-        let hub = Hub::new(aid, rx, deck);
+        let hub = Hub::new(aid, rx);
         Self {
             hub,
             directory,
@@ -144,7 +137,7 @@ impl Agent {
         } else {
             //only looking for local agents
             let name = self.fmt_local_agent(agent);
-            self.hub.deck()?.get_aid_from_name(&name)?
+            deck().read()?.get_aid_from_name(&name)?
         };
         self.send_to_aid(agent_aid)
     }
@@ -180,7 +173,7 @@ impl Agent {
     pub fn add_contact(&mut self, nickname: &str) -> Result<(), ErrorCode> {
         //only looking for local agents
         let name = self.fmt_local_agent(nickname);
-        let agent = self.hub.deck()?.get_aid_from_name(&name)?;
+        let agent = deck().read()?.get_aid_from_name(&name)?;
         self.add_contact_aid(nickname, agent)
     }
 
@@ -245,7 +238,7 @@ impl Agent {
         let msg_content = Content::Request(RequestType::Deregister(self.aid().clone()));
         self.set_msg(msg_type, msg_content);
 
-        let ams = self.hub.deck_mut()?.ams_aid().clone();
+        let ams = deck().read()?.ams_aid().clone();
         {
             self.send_to_aid(ams)?;
         };

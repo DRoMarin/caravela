@@ -1,7 +1,6 @@
 pub(crate) mod ams;
 
 use crate::{
-    deck::DeckAccess,
     entity::{messaging::RequestType, Description},
     ErrorCode, RX,
 };
@@ -11,7 +10,7 @@ pub(crate) struct DefaultConditions;
 
 pub(crate) trait Service {
     type Conditions;
-    fn new(rx: RX, deck: DeckAccess, conditions: Self::Conditions) -> Self;
+    fn new(rx: RX, conditions: Self::Conditions) -> Self;
     fn init(&mut self);
     fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;
     fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;

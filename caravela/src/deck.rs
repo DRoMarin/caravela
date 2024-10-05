@@ -1,5 +1,5 @@
 use crate::{
-    entity::{agent::ControlBlockAccess, messaging::Message, Description},
+    entity::{agent::ControlBlockArc, messaging::Message, Description},
     ErrorCode, MAX_SUBSCRIBERS,
 };
 use std::{
@@ -7,7 +7,7 @@ use std::{
     sync::{
         atomic::Ordering,
         mpsc::{SendError, TrySendError},
-        Arc, RwLock, RwLockReadGuard, RwLockWriteGuard,
+        OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard,
     },
     thread::{JoinHandle, Thread, ThreadId},
 };
@@ -58,7 +58,7 @@ impl AmsEntry {
 pub(crate) struct AgentEntry {
     join_handle: Option<JoinHandle<()>>,
     priority: Option<ThreadPriority>,
-    control_block: ControlBlockAccess,
+    control_block: ControlBlockArc,
 }
 
 impl AgentEntry {
@@ -70,7 +70,7 @@ impl AgentEntry {
             .map_err(|_| ErrorCode::AgentPanic)
     }
 
-    pub(crate) fn control_block(&self) -> ControlBlockAccess {
+    pub(crate) fn control_block(&self) -> ControlBlockArc {
         self.control_block.clone()
     }
 
@@ -83,10 +83,13 @@ impl AgentEntry {
     }
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct DeckAccess(pub(crate) Arc<RwLock<Deck>>);
+#[derive(Debug)]
+pub(crate) struct DeckAccess(RwLock<Deck>);
 
 impl DeckAccess {
+    pub(crate) fn new() -> DeckAccess {
+        DeckAccess(RwLock::new(Deck::new()))
+    }
     pub(crate) fn write(&self) -> Result<RwLockWriteGuard<Deck>, ErrorCode> {
         if let Ok(guard) = self.0.write() {
             Ok(guard)
@@ -146,7 +149,7 @@ impl Deck {
         aid: Description,
         join_handle: Option<JoinHandle<()>>,
         priority: Option<ThreadPriority>,
-        control_block: ControlBlockAccess,
+        control_block: ControlBlockArc,
     ) -> Result<(), ErrorCode> {
         if self.search_agent(&aid).is_err() {
             let agent_entry = AgentEntry {
@@ -244,4 +247,10 @@ impl Deck {
         //FIX
     }
     /* add service request protocols */
+}
+
+static DECK: OnceLock<DeckAccess> = OnceLock::new();
+
+pub(crate) fn deck() -> &'static DeckAccess {
+    DECK.get_or_init(|| DeckAccess::new())
 }
