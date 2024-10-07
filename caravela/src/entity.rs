@@ -99,29 +99,20 @@ impl Description {
 
 #[derive(Debug)]
 pub(crate) struct Hub {
-    aid: Description,
     rx: RX,
     //deck: DeckAccess, //Arc<RwLock<Deck>>,
     msg: Message,
 }
 
 impl Hub {
-    pub(crate) fn new(aid: Description, rx: RX) -> Self {
+    pub(crate) fn new(rx: RX) -> Self {
         //let aid = Description::default();
         let msg = Message::new();
-        Self { aid, rx, msg }
-    }
-
-    pub(crate) fn aid(&self) -> &Description {
-        &self.aid
+        Self { rx, msg }
     }
 
     pub(crate) fn msg(&self) -> Message {
         self.msg.clone()
-    }
-
-    pub(crate) fn set_thread(&mut self, id: ThreadId) {
-        self.aid.set_thread(id);
     }
 
     pub(crate) fn set_msg_receiver(&mut self, aid: Description) {
@@ -139,9 +130,7 @@ impl Hub {
     }
 
     pub(crate) fn send(&self) -> Result<(), ErrorCode> {
-        deck()
-            .read()?
-            .send_msg(self.msg.clone(), SyncType::Blocking)
+        deck().read().send_msg(self.msg.clone(), SyncType::Blocking)
     }
 
     pub(crate) fn receive(&mut self) -> Result<MessageType, ErrorCode> {

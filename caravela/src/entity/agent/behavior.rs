@@ -9,23 +9,23 @@ pub trait Behavior: AgentBase {
     //fn agent(&mut self) -> &mut Agent;
     /// Function executed once after starting the agent; just before [`Behavior::action`]. Empty by default.
     fn setup(&mut self) {
-        caravela_dflt!("{}: no setup implemented", self.agent().aid());
+        caravela_dflt!("{}: no setup implemented", self.agent().name());
     }
     /// Function executed after [`Behavior::action`] used to determined if the agent has reached the end of its life cycle.
     /// Returns `true` by default.
     fn done(&mut self) -> bool {
-        caravela_dflt!("{}: execution done, taking down", self.agent().aid());
+        caravela_dflt!("{}: execution done, taking down", self.agent().name());
         true
     }
     /// Function that corresponds to the main repeating activity of the agent executed after [`Behavior::setup`].
     /// Empty by default.
     fn action(&mut self) {
-        caravela_dflt!("{}: no action implemented", self.agent().aid());
+        caravela_dflt!("{}: no action implemented", self.agent().name());
     }
     /// Function used to include Fault Detection as part of the FDIR functionality of the agent.
     /// Returns `false` by default.
     fn failure_detection(&mut self) -> bool {
-        caravela_dflt!("{}: no failure detection implemented", self.agent().aid());
+        caravela_dflt!("{}: no failure detection implemented", self.agent().name());
         false
     }
     /// Function used to include Fault Identification as part of the FDIR functionality of the agent.
@@ -33,13 +33,13 @@ pub trait Behavior: AgentBase {
     fn failure_identification(&mut self) {
         caravela_dflt!(
             "{}: no failure identification implemented",
-            self.agent().aid()
+            self.agent().name()
         );
     }
     /// Function used to include Fault Recovery as part of the FDIR functionality of the agent.
     /// Empty by default.
     fn failure_recovery(&mut self) {
-        caravela_dflt!("{}: no failure recovery implemented", self.agent().aid());
+        caravela_dflt!("{}: no failure recovery implemented", self.agent().name());
     }
 }
 
@@ -47,7 +47,7 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
     //behavior.agent_mut_ref().set_thread();
     behavior.agent().init();
 
-    while behavior.agent().tcb.agent_state() == AgentState::Initiated {
+    while behavior.agent().control_block.agent_state() == AgentState::Initiated {
         hint::spin_loop()
     }
 
@@ -63,8 +63,9 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
             behavior.failure_recovery();
         }
         if behavior.done() {
+            let _ = behavior.agent().takedown();
             break;
         }
     }
-    let _ = behavior.agent().takedown();
+    //let _ = behavior.agent().takedown();
 }

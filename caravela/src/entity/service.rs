@@ -2,18 +2,17 @@ pub(crate) mod ams;
 
 use crate::{
     entity::{messaging::RequestType, Description},
-    ErrorCode, RX,
+    ErrorCode,
 };
 
 #[derive(Debug)]
 pub(crate) struct DefaultConditions;
 
 pub(crate) trait Service {
-    type Conditions;
-    fn new(rx: RX, conditions: Self::Conditions) -> Self;
+    fn name(&self) -> String;
     fn init(&mut self);
-    fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;
-    fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode>;
+    fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
+    fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn service_function(&mut self);
     fn service_req_reply_type(&mut self, request_type: RequestType, result: Result<(), ErrorCode>);

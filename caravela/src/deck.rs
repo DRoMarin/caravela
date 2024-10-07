@@ -90,19 +90,15 @@ impl DeckAccess {
     pub(crate) fn new() -> DeckAccess {
         DeckAccess(RwLock::new(Deck::new()))
     }
-    pub(crate) fn write(&self) -> Result<RwLockWriteGuard<Deck>, ErrorCode> {
-        if let Ok(guard) = self.0.write() {
-            Ok(guard)
-        } else {
-            Err(ErrorCode::PoisonedLock)
-        }
+    pub(crate) fn write(&self) -> RwLockWriteGuard<Deck> {
+        self.0
+            .write()
+            .unwrap_or_else(|_| panic!("Deck is poisoned - Lost agent records"))
     }
-    pub(crate) fn read(&self) -> Result<RwLockReadGuard<Deck>, ErrorCode> {
-        if let Ok(guard) = self.0.read() {
-            Ok(guard)
-        } else {
-            Err(ErrorCode::PoisonedLock)
-        }
+    pub(crate) fn read(&self) -> RwLockReadGuard<Deck> {
+        self.0
+            .read()
+            .unwrap_or_else(|_| panic!("Deck is poisoned - Lost agent records"))
     }
 }
 
@@ -204,7 +200,7 @@ impl Deck {
         Ok(())
     }
 
-    pub(crate) fn get_aid_from_name(&self, name: &String) -> Result<Description, ErrorCode> {
+    pub(crate) fn get_aid_from_name(&self, name: &str) -> Result<Description, ErrorCode> {
         self.agent_directory
             .keys()
             .find(|x| x.name() == *name)
@@ -252,5 +248,5 @@ impl Deck {
 static DECK: OnceLock<DeckAccess> = OnceLock::new();
 
 pub(crate) fn deck() -> &'static DeckAccess {
-    DECK.get_or_init(|| DeckAccess::new())
+    DECK.get_or_init(DeckAccess::new)
 }
