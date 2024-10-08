@@ -1,4 +1,4 @@
-use crate::entity::{service::ams::AmsAgentDescription, Description};
+use crate::entity::Description;
 use std::{
     fmt::Display,
     sync::mpsc::{SendError, TrySendError},
@@ -99,7 +99,7 @@ impl Display for MessageType {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// Request types supported by different services.
 pub enum RequestType {
     /// Request the receiver to search for an agent.
@@ -116,15 +116,12 @@ pub enum RequestType {
     //Restart(String),
     /// Request the receiver to terminate an agent. Supported only by the AMS.
     Terminate(Description),
-    #[default]
-    /// No request type set. Default value.
-    None,
 }
 
 impl Display for RequestType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RequestType::None => write!(f, "No request"),
+            //RequestType::None => write!(f, "No request"),
             RequestType::Search(x) => write!(f, "Search Request [{}]", x),
             RequestType::Register(x) => write!(f, "Registration Request [{}]", x),
             RequestType::Deregister(x) => write!(f, "Deregistration Request [{}]", x),
@@ -143,14 +140,14 @@ pub enum Content {
     /// A request to be done.
     Request(RequestType),
     /// AMS agent description object.
-    AmsAgentDescription(AmsAgentDescription),
+    AmsAgentDescription(Description),
     #[default]
     /// No content set. Default value.
     None,
 }
 
 /// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Message {
     sender: Description,
     receiver: Description,

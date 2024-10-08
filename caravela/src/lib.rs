@@ -53,8 +53,6 @@ pub enum ErrorCode {
     InvalidPriority(&'static str),
     /// The sending half of the channel may have disconnected.
     MpscRecv(RecvError),
-    //MpscSyncSend(TrySendError<Message>),
-    //MpscSend(SendError<Message>),
     /// The receiving half of the channel may have disconnected.
     Disconnected,
     /// The receiving channel is currently full.
@@ -82,8 +80,6 @@ pub enum ErrorCode {
     AidHandleNone,
     /// Function behind lock could not be accessed due to poisoning.
     PoisonedLock,
-    /// Enviroment not initiated yet.
-    UninitEnv,
     /// Agent adress not assigned yet.
     AddressNone,
     /// Enviroment behind lock is poisoned.
@@ -102,10 +98,6 @@ impl Display for ErrorCode {
             ErrorCode::MpscRecv(_) => write!(f, "SyncSender was disconnected from this Receiver"),
             ErrorCode::Disconnected => write!(f, "Receiver was disconnected from this SyncSender"),
             ErrorCode::ChannelFull => write!(f, "Target agent channel was full"),
-            //ErrorCode::MpscSyncSend(error) => {
-            //    write!(f, "Receiver could not accept the message:{}",error)
-            //}
-            //ErrorCode::MpscSend(_) => write!(f, "Receiver was disconnected from this SyncSender"),
             ErrorCode::ListFull => write!(f, "Max number of agents reached"),
             ErrorCode::Duplicated => write!(f, "Agent is already present"),
             ErrorCode::NotFound => write!(f, "Agent could not be found"),
@@ -119,7 +111,6 @@ impl Display for ErrorCode {
             ErrorCode::NotRegistered => write!(f, "Target agent is not registered"),
             ErrorCode::AidHandleNone => write!(f, "Target agent has no AID"),
             ErrorCode::PoisonedLock => write!(f, "Platform lock is poisoned"),
-            ErrorCode::UninitEnv => write!(f, "Environment has not been initialized yet"),
             ErrorCode::AddressNone => write!(f, "Target agent has not transport address assigned"),
             ErrorCode::PoisonedEnvironment => write!(f, "Environment is poisoned"),
         }

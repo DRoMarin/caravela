@@ -94,21 +94,11 @@ impl ControlBlock {
             .then(|| self.set_state(target))
             .ok_or(ErrorCode::InvalidStateChange(current, target))
     }
-    pub(crate) fn wait(&self) -> Result<(), ErrorCode> {
-        let current = self.agent_state();
-        let target = AgentState::Waiting;
-        current
-            .eq(&AgentState::Active)
-            .then(|| self.set_state(target))
-            .ok_or(ErrorCode::InvalidStateChange(current, target))
+    pub(crate) fn wait(&self) {
+        self.set_state(AgentState::Waiting);
     }
-    pub(crate) fn active(&self) -> Result<(), ErrorCode> {
-        let current = self.agent_state();
-        let target = AgentState::Active;
-        current
-            .ne(&AgentState::Active)
-            .then(|| self.set_state(target))
-            .ok_or(ErrorCode::InvalidStateChange(current, target))
+    pub(crate) fn active(&self) {
+        self.set_state(AgentState::Active);
     }
 }
 
@@ -150,9 +140,9 @@ impl Agent {
     }
 
     /// Get the [`Message`] currently held by the agent.
-    pub fn msg(&self) -> Message {
-        self.hub.msg()
-    }
+    //pub fn msg(&self) -> Message {
+    //    self.hub.msg()
+    //}
 
     /// Set the [`Content`] and [`MessageType`] of the message. This is used to format the message before it is sent.
     //pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
@@ -202,7 +192,7 @@ impl Agent {
     }
 
     /// Wait for a [`Message`] to arrive. This operation blocks the agent and will overwrite the currently held [`Message`].
-    pub fn receive(&mut self) -> Result<MessageType, ErrorCode> {
+    pub fn receive(&mut self) -> Result<Message, ErrorCode> {
         caravela_messaging!("{}: waiting for message", self.name());
         self.hub.receive().map(|x| {
             caravela_messaging!("{}: message received!", self.name());

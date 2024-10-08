@@ -6,7 +6,7 @@ pub mod messaging;
 pub mod service;
 
 use crate::{ErrorCode, RX, TX};
-use messaging::{Content, Message, MessageType, SendResult, SyncType};
+use messaging::{Content, Message, SendResult, SyncType};
 use std::{
     fmt::Display,
     hash::{self, Hash},
@@ -19,11 +19,11 @@ use std::{
 /// Each AID has two different parameters:
 /// - `Name` which is given with the format `name nickname@hap` and as [`String`].
 /// - `Id` which is unique among the process since it identifies the thread executing the entity and it is given as type [`ThreadId`].
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Description {
     nickname: &'static str,
     hap: &'static str,
-    tx: Option<TX>,
+    tx: TX,
     thread: Option<ThreadId>,
 }
 
@@ -56,7 +56,7 @@ impl Description {
         Self {
             nickname,
             hap,
-            tx: Some(tx),
+            tx,
             thread: None,
         }
     }
@@ -76,12 +76,8 @@ impl Description {
         self.hap
     }
 
-    pub(crate) fn address(&self) -> Result<TX, ErrorCode> {
-        if let Some(address) = &self.tx {
-            Ok(address.clone())
-        } else {
-            Err(ErrorCode::AddressNone)
-        }
+    pub(crate) fn address(&self) -> &TX {
+        &self.tx
     }
 
     /// Return an `Option<ThreadId>`: [`Some`] if the Entity is running and [`None`] if not.
@@ -99,19 +95,19 @@ impl Description {
 pub(crate) struct Hub {
     rx: RX,
     //deck: DeckAccess, //Arc<RwLock<Deck>>,
-    msg: Message,
+    //msg: Option<Message>,
 }
 
 impl Hub {
     pub(crate) fn new(rx: RX) -> Self {
-        //let aid = Description::default();
-        let msg = Message::default();
-        Self { rx, msg }
+        //let msg = None;
+        Self { rx }
+        //, msg }
     }
 
-    pub(crate) fn msg(&self) -> Message {
+    /*pub(crate) fn msg(&self) -> Message {
         self.msg.clone()
-    }
+    }*/
 
     pub(crate) fn send(&self, msg: Message, sync: SyncType) -> Result<(), ErrorCode> {
         caravela_messaging!(
@@ -121,7 +117,7 @@ impl Hub {
             msg.receiver()
         );
         //check memberships and roles
-        let address = msg.receiver().address()?;
+        let address = msg.receiver().address().clone();
         let result = match sync {
             SyncType::Blocking => SendResult::Blocking(address.send(msg)),
             SyncType::NonBlocking => SendResult::NonBlocking(address.try_send(msg)),
@@ -137,15 +133,16 @@ impl Hub {
         }
     }
 
-    pub(crate) fn receive(&mut self) -> Result<MessageType, ErrorCode> {
+    pub(crate) fn receive(&mut self) -> Result<Message, ErrorCode> {
         //TBD: could use recv_timeout
-        let result = self.rx.recv();
-        match result {
-            Ok(received_msg) => {
-                self.msg = received_msg;
-                Ok(self.msg.message_type())
-            }
-            Err(err) => Err(ErrorCode::MpscRecv(err)),
-        }
+        self.rx.recv().map_err(ErrorCode::MpscRecv)
+
+        //match result {
+        //    Ok(received_msg) => {
+        //self.msg = Some(received_msg);
+        //        Ok(self.msg.message_type())
+        //    }
+        //    Err(err) => Err(ErrorCode::MpscRecv(err)),
+        //}
     }
 }

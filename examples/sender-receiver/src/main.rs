@@ -36,11 +36,12 @@ impl Behavior for Sender {
 
 impl Behavior for Receiver {
     fn action(&mut self) {
-        self.agent().receive();
         caravela_probe!("{}: Hello! I'm Agent Receiver", self.agent().name());
-
-        if let Content::Text(msg) = self.agent().msg().content() {
-            println!("msg: {}", msg);
+        let result = self.agent().receive();
+        if let Ok(msg) = result {
+            if let Content::Text(text) = msg.content() {
+                println!("msg: {}", text);
+            }
         }
     }
 

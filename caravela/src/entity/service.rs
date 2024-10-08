@@ -5,17 +5,24 @@ use crate::{
     ErrorCode,
 };
 
+use super::messaging::Message;
+
 #[derive(Debug)]
 pub(crate) struct DefaultConditions;
 
 pub(crate) trait Service {
     fn name(&self) -> String;
     fn init(&mut self);
-    fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
-    fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
-    fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
+    fn register_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
+    fn deregister_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
+    fn search_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
     fn service_function(&mut self);
-    fn request_reply(&self, message_type: MessageType, content: Content) -> Result<(), ErrorCode>;
+    fn request_reply(
+        &self,
+        receiver: Description,
+        message_type: MessageType,
+        content: Content,
+    ) -> Result<(), ErrorCode>;
 }
 
 /// This trait defines a set of boolean functions whose purpose is to specify

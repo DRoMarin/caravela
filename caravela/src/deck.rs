@@ -11,21 +11,13 @@ use thread_priority::ThreadPriority;
 
 pub(crate) type AgentDirectory = HashMap<Description, AgentEntry>;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub(crate) struct AmsEntry {
     aid: Description,
-    join_handle: Option<JoinHandle<()>>,
+    join_handle: JoinHandle<()>,
 }
 
 impl AmsEntry {
-    pub(crate) fn join(&mut self) -> Result<(), ErrorCode> {
-        self.join_handle
-            .take()
-            .unwrap()
-            .join()
-            .map_err(|_| ErrorCode::AgentPanic)
-    }
-
     pub(crate) fn aid(&self) -> &Description {
         &self.aid
     }
@@ -70,24 +62,24 @@ impl DeckAccess {
     pub(crate) fn write(&self) -> RwLockWriteGuard<Deck> {
         self.0
             .write()
-            .unwrap_or_else(|_| panic!("Deck is poisoned - Lost agent records"))
+            .expect("Deck is poisoned - Lost agent records")
     }
     pub(crate) fn read(&self) -> RwLockReadGuard<Deck> {
         self.0
             .read()
-            .unwrap_or_else(|_| panic!("Deck is poisoned - Lost agent records"))
+            .expect("Deck is poisoned - Lost agent records")
     }
 }
 
 #[derive(Debug)]
 pub struct Deck {
-    ams_entry: AmsEntry,
+    ams_entry: Option<AmsEntry>,
     agent_directory: AgentDirectory,
 }
 
 impl Deck {
     pub(crate) fn new() -> Self {
-        let ams_entry = AmsEntry::default();
+        let ams_entry = None;
         let agent_directory = AgentDirectory::with_capacity(MAX_SUBSCRIBERS);
         Self {
             ams_entry,
@@ -96,18 +88,14 @@ impl Deck {
     }
 
     pub(crate) fn ams_aid(&self) -> &Description {
-        self.ams_entry.aid()
+        self.ams_entry
+            .as_ref()
+            .expect("Platform has not been booted yet")
+            .aid()
     }
 
-    pub(crate) fn ams_join(&mut self) -> Result<(), ErrorCode> {
-        self.ams_entry.join()
-    }
-
-    pub(crate) fn assign_ams(&mut self, ams_aid: Description, join_handle: JoinHandle<()>) {
-        self.ams_entry = AmsEntry {
-            aid: ams_aid,
-            join_handle: Some(join_handle),
-        };
+    pub(crate) fn assign_ams(&mut self, aid: Description, join_handle: JoinHandle<()>) {
+        self.ams_entry = Some(AmsEntry { aid, join_handle });
     }
 
     pub(crate) fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {

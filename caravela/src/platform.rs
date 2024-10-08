@@ -195,7 +195,8 @@ impl Platform {
         if let Err(error) = thread.set_priority(priority) {
             return Err(ErrorCode::AgentStart(error));
         }
-        entry.control_block().active()
+        entry.control_block().active();
+        Ok(())
     }
 
     //COULD ADD PLATFORM FUNCTIONS AND CALL THEM FROM AMS AGENT
