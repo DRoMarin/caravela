@@ -6,13 +6,13 @@ use crate::{
             Agent, AgentBuild, AgentBuildParam, ControlBlock,
         },
         messaging::Message,
-        service::{ams::Ams, DefaultConditions, Service, UserConditions},
+        service::{ams::Ams, AmsConditions, DefaultConditions, Service},
         Description,
     },
     ErrorCode, DEFAULT_STACK,
 };
 use std::{
-    sync::{atomic::Ordering, mpsc::sync_channel, Arc},
+    sync::{mpsc::sync_channel, Arc},
     thread,
 };
 use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorityValue};
@@ -42,8 +42,8 @@ impl Platform {
     }
 
     /// This method starts the Agent Management System (AMS) with specific user given conditions,
-    ///  passed as a type that implements [`UserConditions`].
-    pub fn boot_with_ams_conditions<T: UserConditions + Send + 'static>(
+    ///  passed as a type that implements [`AmsConditions`].
+    pub fn boot_with_ams_conditions<T: AmsConditions + Send + 'static>(
         &self,
         conditions: T,
     ) -> Result<(), ErrorCode> {
@@ -195,11 +195,7 @@ impl Platform {
         if let Err(error) = thread.set_priority(priority) {
             return Err(ErrorCode::AgentStart(error));
         }
-        entry
-            .control_block()
-            .active()
-            .store(true, Ordering::Release);
-        Ok(())
+        entry.control_block().active()
     }
 
     //COULD ADD PLATFORM FUNCTIONS AND CALL THEM FROM AMS AGENT

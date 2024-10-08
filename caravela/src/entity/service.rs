@@ -1,7 +1,7 @@
 pub(crate) mod ams;
 
 use crate::{
-    entity::{messaging::RequestType, Description},
+    entity::{messaging::MessageType, Content, Description},
     ErrorCode,
 };
 
@@ -15,18 +15,19 @@ pub(crate) trait Service {
     fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn service_function(&mut self);
-    fn service_req_reply_type(&mut self, request_type: RequestType, result: Result<(), ErrorCode>);
+    fn request_reply(&self, message_type: MessageType, content: Content) -> Result<(), ErrorCode>;
 }
 
 /// This trait defines a set of boolean functions whose purpose is to specify
-///  under which conditions an entity like the AMS can provide each service:
+///  under which conditions any service entity should provide its services:
 ///  - Registration
 ///  - Deregistration
-///  - Suspension
-///  - Resumption
-///  - Termination
-///  - Reset
-pub trait UserConditions {
+pub trait ServiceConditions {
+    /// Whether or not it is possible to search an agent in the internal directory;
+    /// a White Pages (WP) directory in the case of the AMS.
+    fn search_condition(&self) -> bool {
+        true
+    }
     /// Whether or not it is possible to register an agent to the internal directory;
     /// a White Pages (WP) directory in the case of the AMS.
     fn registration_condition(&self) -> bool {
@@ -38,7 +39,17 @@ pub trait UserConditions {
     fn deregistration_condition(&self) -> bool {
         true
     }
+}
 
+/// This trait defines a set of boolean functions whose purpose is to specify
+///  under which conditions the AMS should provide its specific services:
+///  - Suspension
+///  - Resumption
+///  - Termination
+///  - Reset
+///
+/// This trait is a subtrait of [`ServiceConditions`]
+pub trait AmsConditions: ServiceConditions {
     /// Whether or not it is possible to suspend an agent. This is only doable by the AMS.
     fn suspension_condition(&self) -> bool {
         true
@@ -61,4 +72,5 @@ pub trait UserConditions {
     }
 }
 
-impl UserConditions for DefaultConditions {}
+impl ServiceConditions for DefaultConditions {}
+impl AmsConditions for DefaultConditions {}

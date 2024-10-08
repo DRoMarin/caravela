@@ -1,38 +1,15 @@
 use crate::{
-    entity::{agent::ControlBlockArc, messaging::Message, Description},
+    entity::{agent::ControlBlockArc, Description},
     ErrorCode, MAX_SUBSCRIBERS,
 };
 use std::{
     collections::HashMap,
-    sync::{
-        atomic::Ordering,
-        mpsc::{SendError, TrySendError},
-        OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard,
-    },
+    sync::{OnceLock, RwLock, RwLockReadGuard, RwLockWriteGuard},
     thread::{JoinHandle, Thread, ThreadId},
 };
 use thread_priority::ThreadPriority;
 
 pub(crate) type AgentDirectory = HashMap<Description, AgentEntry>;
-
-#[derive(Debug)]
-pub(crate) enum SyncType {
-    Blocking,
-    #[allow(dead_code)]
-    NonBlocking, //USE?
-}
-
-#[derive(Debug)]
-pub(crate) enum SendResult {
-    Blocking(Result<(), SendError<Message>>),
-    NonBlocking(Result<(), TrySendError<Message>>),
-}
-
-#[derive(Debug)]
-pub(crate) enum TcbField {
-    Suspend,
-    Quit,
-}
 
 #[derive(Debug, Default)]
 pub(crate) struct AmsEntry {
@@ -140,6 +117,12 @@ impl Deck {
             .ok_or(ErrorCode::NotRegistered)
     }
 
+    pub(crate) fn get_agent(&self, aid: &Description) -> Result<&AgentEntry, ErrorCode> {
+        self.agent_directory
+            .get(aid)
+            .ok_or(ErrorCode::NotRegistered)
+    }
+
     pub(crate) fn add_agent(
         &mut self,
         aid: Description,
@@ -160,12 +143,6 @@ impl Deck {
         }
     }
 
-    pub(crate) fn get_agent(&self, aid: &Description) -> Result<&AgentEntry, ErrorCode> {
-        self.agent_directory
-            .get(aid)
-            .ok_or(ErrorCode::NotRegistered)
-    }
-
     //pub(crate) fn modify_agent(&self) -> Result<(), ErrorCode> {}
 
     pub(crate) fn remove_agent(&mut self, aid: &Description) -> Result<AgentEntry, ErrorCode> {
@@ -184,21 +161,15 @@ impl Deck {
             .ok_or(ErrorCode::InvalidRequest)
     }
 
-    pub(crate) fn modify_control_block(
+    /*pub(crate) fn change_agent_state(
         &mut self,
         aid: &Description,
-        field: TcbField,
-        val: bool,
+        state: AgentState,
     ) -> Result<(), ErrorCode> {
-        self.search_agent(aid)?;
+        //self.search_agent(aid)?;
         let control_block = self.get_agent(aid)?.control_block();
-        match field {
-            TcbField::Suspend => control_block.suspend().store(val, Ordering::Relaxed),
 
-            TcbField::Quit => control_block.quit().store(val, Ordering::Relaxed),
-        };
-        Ok(())
-    }
+    }*/
 
     pub(crate) fn get_aid_from_name(&self, name: &str) -> Result<Description, ErrorCode> {
         self.agent_directory
@@ -217,7 +188,7 @@ impl Deck {
             .ok_or(ErrorCode::NotFound)
     }
 
-    pub(crate) fn send_msg(&self, msg: Message, sync: SyncType) -> Result<(), ErrorCode> {
+    /*pub(crate) fn send_msg(&self, msg: Message, sync: SyncType) -> Result<(), ErrorCode> {
         caravela_messaging!(
             "{}: Sending {} to {}",
             msg.sender(),
@@ -240,8 +211,10 @@ impl Deck {
                 TrySendError::Full(_) => Err(ErrorCode::ChannelFull),
             },
         }
+
         //FIX
     }
+    */
     /* add service request protocols */
 }
 

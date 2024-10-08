@@ -1,5 +1,21 @@
 use crate::entity::{service::ams::AmsAgentDescription, Description};
-use std::fmt::Display;
+use std::{
+    fmt::Display,
+    sync::mpsc::{SendError, TrySendError},
+};
+
+#[derive(Debug)]
+pub(crate) enum SyncType {
+    Blocking,
+    #[allow(dead_code)]
+    NonBlocking, //USE?
+}
+
+#[derive(Debug)]
+pub(crate) enum SendResult {
+    Blocking(Result<(), SendError<Message>>),
+    NonBlocking(Result<(), TrySendError<Message>>),
+}
 
 /// All communicative acts allowed between agents.
 ///
@@ -136,32 +152,26 @@ pub enum Content {
 /// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Message {
-    sender_aid: Description,
-    receiver_aid: Description,
+    sender: Description,
+    receiver: Description,
     message_type: MessageType,
     content: Content,
 }
 
 impl Message {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(
+        sender: Description,
+        receiver: Description,
+        message_type: MessageType,
+        content: Content,
+    ) -> Self {
         //TBD check
-        Message::default()
-    }
-
-    pub(super) fn set_type(&mut self, msg_type: MessageType) {
-        self.message_type = msg_type;
-    }
-
-    pub(super) fn set_content(&mut self, msg_content: Content) {
-        self.content = msg_content;
-    }
-
-    pub(super) fn set_receiver(&mut self, receiver: Description) {
-        self.receiver_aid = receiver;
-    }
-
-    pub(super) fn set_sender(&mut self, sender: Description) {
-        self.sender_aid = sender
+        Self {
+            sender,
+            receiver,
+            message_type,
+            content,
+        }
     }
 
     /// Retrieve a message's communicative act type.
@@ -176,11 +186,11 @@ impl Message {
 
     /// Get a reference to the sender's [`Description`]
     pub fn sender(&self) -> &Description {
-        &self.sender_aid
+        &self.sender
     }
 
     /// Get a reference to the receiver's [`Description`]
     pub fn receiver(&self) -> &Description {
-        &self.receiver_aid
+        &self.receiver
     }
 }

@@ -21,24 +21,23 @@ impl Behavior for Sender {
         self.agent().add_contact("AgentReceiver");
     }
     fn action(&mut self) {
-        caravela_probe!("{}: Hello! I'm Agent Sender", self.agent().aid());
-        self.agent().set_msg(
+        caravela_probe!("{}: Hello! I'm Agent Sender", self.agent().name());
+        self.agent().send_to_all(
             MessageType::Inform,
             Content::Text("This is a message".to_string()),
         );
-        self.agent().send_to_all();
         self.agent().wait(200);
     }
 
     fn done(&mut self) -> bool {
-        false
+        true
     }
 }
 
 impl Behavior for Receiver {
     fn action(&mut self) {
         self.agent().receive();
-        caravela_probe!("{}: Hello! I'm Agent Receiver", self.agent().aid());
+        caravela_probe!("{}: Hello! I'm Agent Receiver", self.agent().name());
 
         if let Content::Text(msg) = self.agent().msg().content() {
             println!("msg: {}", msg);
@@ -46,7 +45,7 @@ impl Behavior for Receiver {
     }
 
     fn done(&mut self) -> bool {
-        false
+        true
     }
 }
 

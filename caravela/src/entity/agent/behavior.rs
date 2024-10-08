@@ -1,5 +1,4 @@
-use crate::entity::agent::{AgentBase, AgentState};
-use std::hint;
+use crate::entity::agent::AgentBase;
 
 /// Establishes that an object is an agent.
 pub trait Behavior: AgentBase {
@@ -46,11 +45,6 @@ pub trait Behavior: AgentBase {
 pub(crate) fn execute(mut behavior: impl Behavior) {
     //behavior.agent_mut_ref().set_thread();
     behavior.agent().init();
-
-    while behavior.agent().control_block.agent_state() == AgentState::Initiated {
-        hint::spin_loop()
-    }
-
     behavior.setup();
     loop {
         behavior.agent().suspend();

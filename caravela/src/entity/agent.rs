@@ -4,7 +4,7 @@ pub mod behavior;
 use crate::{
     deck::deck,
     entity::{
-        messaging::{Content, Message, MessageType, RequestType},
+        messaging::{Content, Message, MessageType, RequestType, SyncType},
         Description, Hub,
     },
     ErrorCode, MAX_SUBSCRIBERS, RX,
@@ -12,8 +12,9 @@ use crate::{
 use std::{
     collections::HashMap,
     fmt::Display,
+    hint,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicUsize, Ordering},
         Arc,
     },
     thread,
@@ -50,41 +51,64 @@ impl Display for AgentState {
     }
 }
 
+impl From<usize> for AgentState {
+    fn from(value: usize) -> Self {
+        match value {
+            0 => AgentState::Initiated,
+            1 => AgentState::Active,
+            2 => AgentState::Waiting,
+            3 => AgentState::Suspended,
+            4 => AgentState::Terminated,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct ControlBlock {
-    active: AtomicBool,
-    wait: AtomicBool,
-    suspend: AtomicBool,
-    quit: AtomicBool,
+    state: AtomicUsize,
 }
 
 pub(crate) type ControlBlockArc = Arc<ControlBlock>;
 
 impl ControlBlock {
     pub(crate) fn agent_state(&self) -> AgentState {
-        if self.quit.load(Ordering::Relaxed) {
-            AgentState::Terminated
-        } else if self.suspend.load(Ordering::Relaxed) {
-            AgentState::Suspended
-        } else if self.wait.load(Ordering::Relaxed) {
-            AgentState::Waiting
-        } else if self.active.load(Ordering::Relaxed) {
-            AgentState::Active
-        } else {
-            AgentState::Initiated
-        }
+        self.state.load(Ordering::Relaxed).into()
     }
-    pub(crate) fn quit(&self) -> &AtomicBool {
-        &self.quit
+    fn set_state(&self, state: AgentState) {
+        self.state.store(state as usize, Ordering::Relaxed);
     }
-    pub(crate) fn suspend(&self) -> &AtomicBool {
-        &self.suspend
+    pub(crate) fn quit(&self) -> Result<(), ErrorCode> {
+        let current = self.agent_state();
+        let target = AgentState::Terminated;
+        current
+            .eq(&AgentState::Active)
+            .then(|| self.set_state(target))
+            .ok_or(ErrorCode::InvalidStateChange(current, target))
     }
-    pub(crate) fn wait(&self) -> &AtomicBool {
-        &self.wait
+    pub(crate) fn suspend(&self) -> Result<(), ErrorCode> {
+        let current = self.agent_state();
+        let target = AgentState::Suspended;
+        current
+            .eq(&AgentState::Active)
+            .then(|| self.set_state(target))
+            .ok_or(ErrorCode::InvalidStateChange(current, target))
     }
-    pub(crate) fn active(&self) -> &AtomicBool {
-        &self.active
+    pub(crate) fn wait(&self) -> Result<(), ErrorCode> {
+        let current = self.agent_state();
+        let target = AgentState::Waiting;
+        current
+            .eq(&AgentState::Active)
+            .then(|| self.set_state(target))
+            .ok_or(ErrorCode::InvalidStateChange(current, target))
+    }
+    pub(crate) fn active(&self) -> Result<(), ErrorCode> {
+        let current = self.agent_state();
+        let target = AgentState::Active;
+        current
+            .ne(&AgentState::Active)
+            .then(|| self.set_state(target))
+            .ok_or(ErrorCode::InvalidStateChange(current, target))
     }
 }
 
@@ -131,13 +155,18 @@ impl Agent {
     }
 
     /// Set the [`Content`] and [`MessageType`] of the message. This is used to format the message before it is sent.
-    pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
-        self.hub.set_msg(msg_type, msg_content)
-    }
+    //pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
+    //    self.hub.set_msg(msg_type, msg_content)
+    //}
 
     /// Send the currently held message to the target agent. The receiver needs to be addressed by its nickname.
     //TBD: add block/nonblock parameter
-    pub fn send_to(&mut self, agent: &str) -> Result<(), ErrorCode> {
+    pub fn send_to(
+        &self,
+        agent: &str,
+        message_type: MessageType,
+        content: Content,
+    ) -> Result<(), ErrorCode> {
         let agent_aid = if let Some(agent_aid) = self.directory.get(agent) {
             agent_aid.to_owned()
         } else {
@@ -145,23 +174,29 @@ impl Agent {
             let name = self.fmt_local_agent(agent);
             deck().read().get_aid_from_name(&name)?
         };
-        self.send_to_aid(agent_aid)
+        self.send_to_aid(agent_aid, message_type, content)
     }
 
     /// Send the currently held [`Message`] to the target agent. The agent needs to be addressed by its [`Description`].
-    pub fn send_to_aid(&mut self, aid: Description) -> Result<(), ErrorCode> {
-        self.hub.set_msg_receiver(aid);
-        self.hub.set_msg_sender(self.aid()?);
-        self.hub.send()
+    pub fn send_to_aid(
+        &self,
+        aid: Description,
+        message_type: MessageType,
+        content: Content,
+    ) -> Result<(), ErrorCode> {
+        let msg = Message::new(self.aid()?, aid, message_type, content);
+        self.hub.send(msg, SyncType::Blocking)
     }
 
     /// Send the currently held ['Message'] to all the agents in the contact list.
-    pub fn send_to_all(&mut self) -> Result<(), ErrorCode> {
-        self.hub.set_msg_sender(self.aid()?);
+    pub fn send_to_all(
+        &self,
+        message_type: MessageType,
+        content: Content,
+    ) -> Result<(), ErrorCode> {
         let agents = self.directory.values();
         for aid in agents {
-            self.hub.set_msg_receiver(aid.clone());
-            self.hub.send()?;
+            self.send_to_aid(aid.clone(), message_type.clone(), content.clone())?;
         }
         Ok(())
     }
@@ -201,11 +236,11 @@ impl Agent {
 
     /// Halt the agent's operation for a specified duration of time in milliseconds.
     pub fn wait(&self, time: u64) {
-        self.control_block.wait().store(true, Ordering::Relaxed);
+        self.control_block.wait();
         caravela_status!("{}: Waiting", self.name());
         let dur = Duration::from_millis(time); //TBD could remove
         thread::sleep(dur);
-        self.control_block.wait().store(false, Ordering::Relaxed);
+        self.control_block.active();
         caravela_status!("{}: Active", self.name());
     }
 
@@ -218,33 +253,30 @@ impl Agent {
     }
 
     pub(crate) fn init(&mut self) {
+        while self.control_block.agent_state() == AgentState::Initiated {
+            hint::spin_loop()
+        }
         //self.hub.set_thread(current().id());
         //TBD
     }
 
     pub(crate) fn suspend(&self) {
-        if self.control_block.suspend().load(Ordering::Relaxed) {
-            self.control_block.suspend().store(true, Ordering::Relaxed);
+        if self.control_block.agent_state().eq(&AgentState::Suspended) {
             caravela_status!("{}: Suspending", self.name());
             thread::park();
             caravela_status!("{}: Resuming", self.name());
-            self.control_block.suspend().store(false, Ordering::Relaxed);
         }
     }
 
     pub(crate) fn quit(&self) -> bool {
-        self.control_block.quit().load(Ordering::Relaxed)
+        self.control_block.agent_state().eq(&AgentState::Terminated)
     }
 
     pub(crate) fn takedown(&mut self) -> Result<(), ErrorCode> {
         let msg_type = MessageType::Request;
         let msg_content = Content::Request(RequestType::Deregister(self.aid()?));
-        self.set_msg(msg_type, msg_content);
-
         let ams = deck().read().ams_aid().clone();
-        {
-            self.send_to_aid(ams)?;
-        };
+        self.send_to_aid(ams, msg_type, msg_content)?;
         self.receive().map(|_| {
             caravela_status!("{}: Terminated", self.name());
         })

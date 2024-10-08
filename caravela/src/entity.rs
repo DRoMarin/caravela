@@ -5,14 +5,12 @@ pub mod messaging;
 /// Service related features.
 pub mod service;
 
-use crate::{
-    deck::{deck, SyncType},
-    ErrorCode, RX, TX,
-};
-use messaging::{Content, Message, MessageType};
+use crate::{ErrorCode, RX, TX};
+use messaging::{Content, Message, MessageType, SendResult, SyncType};
 use std::{
     fmt::Display,
     hash::{self, Hash},
+    sync::mpsc::{SendError, TrySendError},
     thread::ThreadId,
 };
 
@@ -107,7 +105,7 @@ pub(crate) struct Hub {
 impl Hub {
     pub(crate) fn new(rx: RX) -> Self {
         //let aid = Description::default();
-        let msg = Message::new();
+        let msg = Message::default();
         Self { rx, msg }
     }
 
@@ -115,22 +113,28 @@ impl Hub {
         self.msg.clone()
     }
 
-    pub(crate) fn set_msg_receiver(&mut self, aid: Description) {
-        self.msg.set_receiver(aid);
-    }
-
-    pub(crate) fn set_msg_sender(&mut self, aid: Description) {
-        self.msg.set_sender(aid);
-    }
-
-    //NAME CHANGE
-    pub(crate) fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
-        self.msg.set_type(msg_type);
-        self.msg.set_content(msg_content);
-    }
-
-    pub(crate) fn send(&self) -> Result<(), ErrorCode> {
-        deck().read().send_msg(self.msg.clone(), SyncType::Blocking)
+    pub(crate) fn send(&self, msg: Message, sync: SyncType) -> Result<(), ErrorCode> {
+        caravela_messaging!(
+            "{}: Sending {} to {}",
+            msg.sender(),
+            msg.message_type(),
+            msg.receiver()
+        );
+        //check memberships and roles
+        let address = msg.receiver().address()?;
+        let result = match sync {
+            SyncType::Blocking => SendResult::Blocking(address.send(msg)),
+            SyncType::NonBlocking => SendResult::NonBlocking(address.try_send(msg)),
+        };
+        match result {
+            SendResult::Blocking(Ok(_)) => Ok(()),
+            SendResult::NonBlocking(Ok(_)) => Ok(()),
+            SendResult::Blocking(Err(SendError(_))) => Err(ErrorCode::Disconnected),
+            SendResult::NonBlocking(Err(error)) => match error {
+                TrySendError::Disconnected(_) => Err(ErrorCode::Disconnected), //LIST MAY BE OUTDATED
+                TrySendError::Full(_) => Err(ErrorCode::ChannelFull),
+            },
+        }
     }
 
     pub(crate) fn receive(&mut self) -> Result<MessageType, ErrorCode> {
