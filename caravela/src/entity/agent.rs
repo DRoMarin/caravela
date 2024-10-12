@@ -97,8 +97,12 @@ impl ControlBlock {
     pub(crate) fn wait(&self) {
         self.set_state(AgentState::Waiting);
     }
-    pub(crate) fn active(&self) {
-        self.set_state(AgentState::Active);
+    pub(crate) fn active(&self) -> Result<(), ErrorCode> {
+        let current = self.agent_state();
+        let target = AgentState::Active;
+        { current.ne(&AgentState::Active) && current.ne(&AgentState::Terminated) }
+            .then(|| self.set_state(target))
+            .ok_or(ErrorCode::InvalidStateChange(current, target))
     }
 }
 
@@ -226,11 +230,11 @@ impl Agent {
 
     /// Halt the agent's operation for a specified duration of time in milliseconds.
     pub fn wait(&self, time: u64) {
-        self.control_block.wait();
+        self.control_block.set_state(AgentState::Waiting);
         caravela_status!("{}: Waiting", self.name());
         let dur = Duration::from_millis(time); //TBD could remove
-        thread::sleep(dur);
-        self.control_block.active();
+        thread::park_timeout(dur);
+        self.control_block.set_state(AgentState::Active);
         caravela_status!("{}: Active", self.name());
     }
 

@@ -120,12 +120,9 @@ impl Platform {
 
         //Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
-        deck().write().add_agent(
-            aid.clone(),
-            Some(join_handle),
-            Some(thread_priority),
-            control_block,
-        )?;
+        deck()
+            .write()
+            .add_agent(aid.clone(), join_handle, thread_priority, control_block)?;
         Ok(aid)
     }
 
@@ -177,12 +174,9 @@ impl Platform {
 
         //Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
-        deck().write().add_agent(
-            aid.clone(),
-            Some(join_handle),
-            Some(thread_priority),
-            control_block,
-        )?;
+        deck()
+            .write()
+            .add_agent(aid.clone(), join_handle, thread_priority, control_block)?;
         Ok(aid)
     }
 
@@ -190,13 +184,12 @@ impl Platform {
     pub fn start(&self, aid: &Description) -> Result<(), ErrorCode> {
         let guard = deck().read();
         let entry = guard.get_agent(aid)?;
-        let thread = entry.thread().ok_or(ErrorCode::AidHandleNone)?;
-        let priority = entry.priority().ok_or(ErrorCode::InvalidPriority("None"))?;
+        let thread = entry.thread();
+        let priority = entry.priority();
         if let Err(error) = thread.set_priority(priority) {
             return Err(ErrorCode::AgentStart(error));
         }
-        entry.control_block().active();
-        Ok(())
+        entry.control_block().active()
     }
 
     //COULD ADD PLATFORM FUNCTIONS AND CALL THEM FROM AMS AGENT

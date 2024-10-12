@@ -1,4 +1,5 @@
 use crate::{
+    agent::AgentState,
     entity::{agent::ControlBlockArc, Description},
     ErrorCode, MAX_SUBSCRIBERS,
 };
@@ -25,30 +26,22 @@ impl AmsEntry {
 
 #[derive(Debug)]
 pub(crate) struct AgentEntry {
-    join_handle: Option<JoinHandle<()>>,
-    priority: Option<ThreadPriority>,
+    pub(crate) join_handle: JoinHandle<()>,
+    priority: ThreadPriority,
     control_block: ControlBlockArc,
 }
 
 impl AgentEntry {
-    pub(crate) fn join(&mut self) -> Result<(), ErrorCode> {
-        self.join_handle
-            .take()
-            .unwrap()
-            .join()
-            .map_err(|_| ErrorCode::AgentPanic)
-    }
-
     pub(crate) fn control_block(&self) -> ControlBlockArc {
         self.control_block.clone()
     }
 
-    pub(crate) fn priority(&self) -> Option<ThreadPriority> {
+    pub(crate) fn priority(&self) -> ThreadPriority {
         self.priority
     }
 
-    pub(crate) fn thread(&self) -> Option<Thread> {
-        self.join_handle.as_ref().map(|x| x.thread().to_owned())
+    pub(crate) fn thread(&self) -> Thread {
+        self.join_handle.thread().clone()
     }
 }
 
@@ -114,8 +107,8 @@ impl Deck {
     pub(crate) fn add_agent(
         &mut self,
         aid: Description,
-        join_handle: Option<JoinHandle<()>>,
-        priority: Option<ThreadPriority>,
+        join_handle: JoinHandle<()>,
+        priority: ThreadPriority,
         control_block: ControlBlockArc,
     ) -> Result<(), ErrorCode> {
         if self.search_agent(&aid).is_err() {
@@ -131,7 +124,28 @@ impl Deck {
         }
     }
 
-    //pub(crate) fn modify_agent(&self) -> Result<(), ErrorCode> {}
+    pub(crate) fn modify_agent(
+        &self,
+        aid: &Description,
+        state: AgentState,
+    ) -> Result<(), ErrorCode> {
+        let entry = self.get_agent(aid)?;
+        match state {
+            AgentState::Active => {
+                entry.control_block().active()?;
+                Ok(entry.join_handle.thread().unpark())
+            }
+            AgentState::Suspended => entry.control_block().suspend(),
+            AgentState::Terminated => {
+                entry.control_block().quit()
+                //join?
+            }
+            _ => Err(ErrorCode::InvalidStateChange(
+                entry.control_block().agent_state(),
+                state,
+            )),
+        }
+    }
 
     pub(crate) fn remove_agent(&mut self, aid: &Description) -> Result<AgentEntry, ErrorCode> {
         self.agent_directory
@@ -139,26 +153,22 @@ impl Deck {
             .ok_or(ErrorCode::NotRegistered)
     }
 
-    pub(crate) fn unpark_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {
-        let entry = self.get_agent(aid)?;
-        //TODO: ERROR NEEDS TO BE CHANGED
-        entry
-            .join_handle
-            .as_ref()
-            .map(|x| x.thread().unpark())
-            .ok_or(ErrorCode::InvalidRequest)
-    }
+    /*pub(crate) fn kill_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {
+            //modify agent
+            self.get_agent(aid)?.control_block().quit()?;
+            self.remove_agent(aid)?
+                .join_handle
+                .join()
+                .map_err(|_| ErrorCode::AgentPanic)
+        }
 
-    /*pub(crate) fn change_agent_state(
-        &mut self,
-        aid: &Description,
-        state: AgentState,
-    ) -> Result<(), ErrorCode> {
-        //self.search_agent(aid)?;
-        let control_block = self.get_agent(aid)?.control_block();
-
-    }*/
-
+        pub(crate) fn unpark_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+            let entry = self.get_agent(aid)?;
+            //modify agent
+            entry.join_handle.thread().unpark();
+            Ok(())
+        }
+    */
     pub(crate) fn get_aid_from_name(&self, name: &str) -> Result<Description, ErrorCode> {
         self.agent_directory
             .keys()
@@ -175,35 +185,6 @@ impl Deck {
             .cloned()
             .ok_or(ErrorCode::NotFound)
     }
-
-    /*pub(crate) fn send_msg(&self, msg: Message, sync: SyncType) -> Result<(), ErrorCode> {
-        caravela_messaging!(
-            "{}: Sending {} to {}",
-            msg.sender(),
-            msg.message_type(),
-            msg.receiver()
-        );
-        //check memberships and roles
-        let receiver_aid = msg.receiver();
-        let address = receiver_aid.address()?;
-        let result = match sync {
-            SyncType::Blocking => SendResult::Blocking(address.send(msg)),
-            SyncType::NonBlocking => SendResult::NonBlocking(address.try_send(msg)),
-        };
-        match result {
-            SendResult::Blocking(Ok(_)) => Ok(()),
-            SendResult::NonBlocking(Ok(_)) => Ok(()),
-            SendResult::Blocking(Err(SendError(_))) => Err(ErrorCode::Disconnected),
-            SendResult::NonBlocking(Err(error)) => match error {
-                TrySendError::Disconnected(_) => Err(ErrorCode::Disconnected), //LIST MAY BE OUTDATED
-                TrySendError::Full(_) => Err(ErrorCode::ChannelFull),
-            },
-        }
-
-        //FIX
-    }
-    */
-    /* add service request protocols */
 }
 
 static DECK: OnceLock<DeckAccess> = OnceLock::new();

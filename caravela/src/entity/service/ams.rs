@@ -1,4 +1,5 @@
 use crate::{
+    agent::AgentState,
     deck::deck,
     entity::{
         messaging::{Content, MessageType, RequestType},
@@ -34,12 +35,11 @@ impl<T: AmsConditions> Service for Ams<T> {
             return self.request_reply(receiver, MessageType::Refuse, content);
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        {
-            if deck().read().search_agent(aid).is_ok() {
-                self.request_reply(receiver, MessageType::Inform, content)
-            } else {
-                self.request_reply(receiver, MessageType::Failure, content)
-            }
+
+        if { deck().read().search_agent(aid) }.is_ok() {
+            self.request_reply(receiver, MessageType::Inform, content)
+        } else {
+            self.request_reply(receiver, MessageType::Failure, content)
         }
     }
 
@@ -52,12 +52,11 @@ impl<T: AmsConditions> Service for Ams<T> {
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
         /* NOT CURRENTLY SUPPORTED: does nothing besides checking if agent is
         already registed and only checks if the conditions allow it */
-        {
-            if deck().read().search_agent(aid).is_ok() {
-                self.request_reply(receiver, MessageType::Failure, content)
-            } else {
-                self.request_reply(receiver, MessageType::Inform, content)
-            }
+
+        if { deck().read().search_agent(aid) }.is_ok() {
+            self.request_reply(receiver, MessageType::Failure, content)
+        } else {
+            self.request_reply(receiver, MessageType::Inform, content)
         }
     }
 
@@ -68,13 +67,21 @@ impl<T: AmsConditions> Service for Ams<T> {
             return self.request_reply(receiver, MessageType::Refuse, content);
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        {
-            if deck().write().remove_agent(aid)?.join().is_ok() {
-                self.request_reply(receiver, MessageType::Inform, content)
-            } else {
-                self.request_reply(receiver, MessageType::Failure, content)
-            }
+        if {
+            deck()
+                .write()
+                .remove_agent(aid)?
+                .join_handle
+                .join()
+                .map_err(|_| ErrorCode::AgentPanic)
         }
+        .is_ok()
+        {
+            self.request_reply(receiver, MessageType::Inform, content)
+        } else {
+            self.request_reply(receiver, MessageType::Failure, content)
+        }
+
         //TBD: REMOVE HANDLE AND JOIN THREAD
         //TODO: FIX FLOW TO RELY ON TAKEDOWNS
     }
@@ -126,7 +133,7 @@ impl<T: AmsConditions> Service for Ams<T> {
     ) -> Result<(), ErrorCode> {
         let sender = deck().read().ams_aid().clone();
         caravela_messaging!(
-            "{}: Replying to {} from {}",
+            "{}: Replying with {} to {}",
             self.name(),
             message_type,
             receiver
@@ -152,14 +159,23 @@ impl<T: AmsConditions> Ams<T> {
         if !self.conditions.termination_condition() {
             return self.request_reply(receiver, MessageType::Refuse, content);
         }
-        self.request_reply(receiver, MessageType::Agree, content)?;
-        {
+        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
+        if {
             let mut deck_guard = deck().write();
-            let mut removed = deck_guard.remove_agent(aid)?;
-            let result = removed.control_block().quit();
-            //Manage invalid transition
-            removed.join()
+            deck_guard.modify_agent(aid, AgentState::Terminated)?;
+            deck_guard.remove_agent(aid)
         }
+        .is_ok()
+        {
+            self.request_reply(receiver, MessageType::Inform, content)
+        } else {
+            self.request_reply(receiver, MessageType::Failure, content)
+        }
+
+        //deck_guard.add_agent(aid, join_handle, priority, control_block);
+        //Manage invalid transition
+        //removed.join()
+
         //TBD: REMOVE HANDLE AND JOIN THREAD
         //TODO: FIX FLOW TO RELY ON TAKEDOWNS
     }
@@ -170,10 +186,16 @@ impl<T: AmsConditions> Ams<T> {
         if !self.conditions.suspension_condition() {
             return self.request_reply(receiver, MessageType::Refuse, content);
         }
-        self.request_reply(receiver, MessageType::Agree, content)?;
-        {
+        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
+        if {
             let deck_guard = deck().write();
-            deck_guard.get_agent(aid)?.control_block().suspend()
+            deck_guard.modify_agent(aid, AgentState::Suspended)
+        }
+        .is_ok()
+        {
+            self.request_reply(receiver, MessageType::Inform, content)
+        } else {
+            self.request_reply(receiver, MessageType::Failure, content)
         }
     }
 
@@ -183,11 +205,16 @@ impl<T: AmsConditions> Ams<T> {
         if !self.conditions.resumption_condition() {
             return self.request_reply(receiver, MessageType::Refuse, content);
         }
-        self.request_reply(receiver, MessageType::Agree, content)?;
+        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
+        if {
+            let deck_guard = deck().write();
+            deck_guard.modify_agent(aid, AgentState::Active)
+        }
+        .is_ok()
         {
-            let mut deck_guard = deck().write();
-            deck_guard.get_agent(aid)?.control_block().active();
-            deck_guard.unpark_agent(aid)
+            self.request_reply(receiver, MessageType::Inform, content)
+        } else {
+            self.request_reply(receiver, MessageType::Failure, content)
         }
     }
 
