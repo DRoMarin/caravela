@@ -228,20 +228,6 @@ impl Agent {
         }
     }
 
-    /// Halt the agent's operation for a specified duration of time in milliseconds.
-    pub fn wait(&self, time: u64) {
-        self.control_block.set_state(AgentState::Waiting);
-        caravela_status!("{}: Waiting", self.name());
-        let dur = Duration::from_millis(time); //TBD could remove
-        thread::park_timeout(dur);
-        self.control_block.set_state(AgentState::Active);
-        caravela_status!("{}: Active", self.name());
-    }
-
-    /*pub(crate) fn set_thread(&mut self) {
-        self.hub.set_thread();
-    }*/
-
     pub(crate) fn fmt_local_agent(&self, nickname: &str) -> String {
         format!("{nickname}@{}", self.hap)
     }
@@ -250,8 +236,20 @@ impl Agent {
         while self.control_block.agent_state() == AgentState::Initiated {
             hint::spin_loop()
         }
-        //self.hub.set_thread(current().id());
-        //TBD
+    }
+
+    /// Halt the agent's operation for a specified duration of time in milliseconds.
+    pub fn wait(&self, time: u64) -> Result<(), ErrorCode> {
+        let dur = Duration::from_millis(time); //TBD could remove
+        self.control_block.wait();
+        caravela_status!("{}: Waiting", self.name());
+        thread::park_timeout(dur);
+        caravela_status!("{}: Resuming", self.name());
+        if self.control_block.agent_state().ne(&AgentState::Active) {
+            self.control_block.active()
+        } else {
+            Ok(())
+        }
     }
 
     pub(crate) fn suspend(&self) {
@@ -263,7 +261,11 @@ impl Agent {
     }
 
     pub(crate) fn quit(&self) -> bool {
-        self.control_block.agent_state().eq(&AgentState::Terminated)
+        self.control_block
+            .agent_state()
+            .eq(&AgentState::Terminated)
+            .then(|| caravela_status!("{}: Terminating", self.name()))
+            .is_some()
     }
 
     pub(crate) fn takedown(&mut self) -> Result<(), ErrorCode> {
@@ -272,7 +274,7 @@ impl Agent {
         let ams = deck().read().ams_aid().clone();
         self.send_to_aid(ams, msg_type, msg_content)?;
         self.receive().map(|_| {
-            caravela_status!("{}: Terminated", self.name());
+            caravela_status!("{}: Terminating", self.name());
         })
     }
 }
