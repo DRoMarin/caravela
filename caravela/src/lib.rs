@@ -30,8 +30,8 @@ use {
 
 /// StackSize defined as platform dependant.
 pub type StackSize = usize;
-pub(crate) type TX = SyncSender<Message>;
-pub(crate) type RX = Receiver<Message>;
+pub(crate) type Tx = SyncSender<Message>;
+pub(crate) type Rx = Receiver<Message>;
 
 /// Default stack value for any given platform.
 pub const DEFAULT_STACK: usize = 30000;

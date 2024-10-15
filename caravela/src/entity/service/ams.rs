@@ -7,7 +7,7 @@ use crate::{
         Description, Hub,
     },
     messaging::{Message, SyncType},
-    ErrorCode, RX,
+    ErrorCode, Rx,
 };
 use std::fmt::Debug;
 
@@ -144,7 +144,7 @@ impl<T: AmsConditions> Service for Ams<T> {
 }
 
 impl<T: AmsConditions> Ams<T> {
-    pub(crate) fn new(hap: &'static str, rx: RX, conditions: T) -> Self {
+    pub(crate) fn new(hap: &'static str, rx: Rx, conditions: T) -> Self {
         let hub = Hub::new(rx);
         Self {
             hap,

@@ -29,6 +29,7 @@ pub(crate) struct AgentEntry {
     pub(crate) join_handle: JoinHandle<()>,
     priority: ThreadPriority,
     control_block: ControlBlockArc,
+    //address: TX,
 }
 
 impl AgentEntry {

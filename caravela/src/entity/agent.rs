@@ -7,7 +7,7 @@ use crate::{
         messaging::{Content, Message, MessageType, RequestType, SyncType},
         Description, Hub,
     },
-    ErrorCode, MAX_SUBSCRIBERS, RX,
+    ErrorCode, MAX_SUBSCRIBERS, Rx,
 };
 use std::{
     collections::HashMap,
@@ -121,7 +121,7 @@ impl Agent {
     pub(crate) fn new(
         nickname: &'static str,
         hap: &'static str,
-        rx: RX,
+        rx: Rx,
         control_block: ControlBlockArc,
     ) -> Self {
         let directory: ContactList = HashMap::with_capacity(MAX_SUBSCRIBERS);

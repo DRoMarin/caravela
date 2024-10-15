@@ -5,7 +5,7 @@ pub mod messaging;
 /// Service related features.
 pub mod service;
 
-use crate::{ErrorCode, RX, TX};
+use crate::{ErrorCode, Rx, Tx};
 use messaging::{Content, Message, SendResult, SyncType};
 use std::{
     fmt::Display,
@@ -23,7 +23,7 @@ use std::{
 pub struct Description {
     nickname: &'static str,
     hap: &'static str,
-    tx: TX,
+    tx: Tx,
     thread: Option<ThreadId>,
 }
 
@@ -52,7 +52,7 @@ impl Display for Description {
 }
 
 impl Description {
-    pub(crate) fn new(nickname: &'static str, hap: &'static str, tx: TX) -> Self {
+    pub(crate) fn new(nickname: &'static str, hap: &'static str, tx: Tx) -> Self {
         Self {
             nickname,
             hap,
@@ -76,7 +76,7 @@ impl Description {
         self.hap
     }
 
-    pub(crate) fn address(&self) -> &TX {
+    pub(crate) fn address(&self) -> &Tx {
         &self.tx
     }
 
@@ -93,13 +93,13 @@ impl Description {
 
 #[derive(Debug)]
 pub(crate) struct Hub {
-    rx: RX,
+    rx: Rx,
     //deck: DeckAccess, //Arc<RwLock<Deck>>,
     //msg: Option<Message>,
 }
 
 impl Hub {
-    pub(crate) fn new(rx: RX) -> Self {
+    pub(crate) fn new(rx: Rx) -> Self {
         //let msg = None;
         Self { rx }
         //, msg }
