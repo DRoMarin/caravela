@@ -7,7 +7,7 @@ use crate::{
         messaging::{Content, Message, MessageType, RequestType, SyncType},
         Description, Hub,
     },
-    ErrorCode, MAX_SUBSCRIBERS, Rx,
+    ErrorCode, Rx, MAX_SUBSCRIBERS,
 };
 use std::{
     collections::HashMap,
@@ -271,7 +271,7 @@ impl Agent {
     pub(crate) fn takedown(&mut self) -> Result<(), ErrorCode> {
         let msg_type = MessageType::Request;
         let msg_content = Content::Request(RequestType::Deregister(self.aid()?));
-        let ams = deck().read().ams_aid().clone();
+        let ams = deck().read().get_ams_address_for_hap(&self.hap)?;
         self.send_to_aid(ams, msg_type, msg_content)?;
         self.receive().map(|_| {
             caravela_status!("{}: Terminating", self.name());

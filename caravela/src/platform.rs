@@ -68,7 +68,7 @@ impl Platform {
             }
             //Build description and insert in env lock
             ams_aid.set_thread(join_handle.thread().id());
-            deck().write().assign_ams(ams_aid, join_handle);
+            deck().write().add_ams(ams_aid, join_handle);
             Ok(())
         } else {
             Err(ErrorCode::AmsBoot)
@@ -89,7 +89,6 @@ impl Platform {
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
-        //let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
         let control_block = Arc::new(ControlBlock::default());
         let base_agent = Agent::new(nickname, hap, rx, control_block.clone());
         //base_agent.set_aid(aid.clone());

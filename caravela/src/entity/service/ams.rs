@@ -131,7 +131,8 @@ impl<T: AmsConditions> Service for Ams<T> {
         message_type: MessageType,
         content: Content,
     ) -> Result<(), ErrorCode> {
-        let sender = deck().read().ams_aid().clone();
+        let sender = deck().read().get_ams_address_for_hap(self.hap)?;
+        //let sender = deck().read().ams_aid().clone();
         caravela_messaging!(
             "{}: Replying with {} to {}",
             self.name(),
