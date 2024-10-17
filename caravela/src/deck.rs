@@ -16,7 +16,6 @@ pub(crate) type AmsDirectory = HashMap<Description, AmsEntry>;
 #[derive(Debug)]
 pub(crate) struct AmsEntry {
     //aid: Description,
-    //address: Tx,
     join_handle: JoinHandle<()>,
 }
 
@@ -34,7 +33,6 @@ pub(crate) struct AgentEntry {
     pub(crate) join_handle: JoinHandle<()>,
     priority: ThreadPriority,
     control_block: ControlBlockArc,
-    //address: Tx,
 }
 
 impl AgentEntry {
@@ -49,9 +47,6 @@ impl AgentEntry {
     pub(crate) fn thread(&self) -> Thread {
         self.join_handle.thread().clone()
     }
-    //pub(crate) fn address(&self) -> &Tx {
-    //    &self.address
-    //}
 }
 
 #[derive(Debug)]
@@ -186,22 +181,6 @@ impl Deck {
             .ok_or(ErrorCode::NotRegistered)
     }
 
-    /*pub(crate) fn kill_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {
-            //modify agent
-            self.get_agent(aid)?.control_block().quit()?;
-            self.remove_agent(aid)?
-                .join_handle
-                .join()
-                .map_err(|_| ErrorCode::AgentPanic)
-        }
-
-        pub(crate) fn unpark_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
-            let entry = self.get_agent(aid)?;
-            //modify agent
-            entry.join_handle.thread().unpark();
-            Ok(())
-        }
-    */
     pub(crate) fn get_aid_from_name(&self, name: &str) -> Result<Description, ErrorCode> {
         self.agent_directory
             .keys()

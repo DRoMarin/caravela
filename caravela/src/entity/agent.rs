@@ -24,12 +24,12 @@ use std::{
 type ContactList = HashMap<String, Description>;
 
 /// The different states in an Agent Lifecycle.
-#[derive(PartialEq, Clone, Copy, Debug, Default)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Default)]
 pub enum AgentState {
     /// The agent is present in the platform, but inactive.
     #[default]
     Initiated,
-    /// THe agent is Active
+    /// The agent is running.
     Active,
     /// The agent is temporarily halted.
     Waiting,
@@ -143,35 +143,27 @@ impl Agent {
         deck().read().get_aid_from_thread(thread::current().id())
     }
 
-    /// Get the [`Message`] currently held by the agent.
-    //pub fn msg(&self) -> Message {
-    //    self.hub.msg()
-    //}
-
-    /// Set the [`Content`] and [`MessageType`] of the message. This is used to format the message before it is sent.
-    //pub fn set_msg(&mut self, msg_type: MessageType, msg_content: Content) {
-    //    self.hub.set_msg(msg_type, msg_content)
-    //}
-
-    /// Send the currently held message to the target agent. The receiver needs to be addressed by its nickname.
+    /// Send a [`Message`] with the desired [`MessageType`] and [`Content`] to the target agent.
+    /// The receiver shall be addressed by its nickname, if a [`Description`] is to be used, employ [`self.send_to_aid`] instead.
     //TBD: add block/nonblock parameter
     pub fn send_to(
         &self,
-        agent: &str,
+        nickname: &str,
         message_type: MessageType,
         content: Content,
     ) -> Result<(), ErrorCode> {
-        let agent_aid = if let Some(agent_aid) = self.directory.get(agent) {
+        let agent_aid = if let Some(agent_aid) = self.directory.get(nickname) {
             agent_aid.to_owned()
         } else {
             //only looking for local agents
-            let name = self.fmt_local_agent(agent);
+            let name = self.fmt_local_agent(nickname);
             deck().read().get_aid_from_name(&name)?
         };
         self.send_to_aid(agent_aid, message_type, content)
     }
 
-    /// Send the currently held [`Message`] to the target agent. The agent needs to be addressed by its [`Description`].
+    /// Send a [`Message`] with the desired [`MessageType`] and [`Content`] to the target agent.
+    /// The agent shall be addressed by its [`Description`].
     pub fn send_to_aid(
         &self,
         aid: Description,
@@ -182,7 +174,7 @@ impl Agent {
         self.hub.send(msg, SyncType::Blocking)
     }
 
-    /// Send the currently held ['Message'] to all the agents in the contact list.
+    /// Send a [`Message`] with the desired [`MessageType`] and [`Content`] to all the agents in the contact list.
     pub fn send_to_all(
         &self,
         message_type: MessageType,
@@ -195,7 +187,7 @@ impl Agent {
         Ok(())
     }
 
-    /// Wait for a [`Message`] to arrive. This operation blocks the agent and will overwrite the currently held [`Message`].
+    /// Wait for a [`Message`] to arrive. This operation blocks the agent.
     pub fn receive(&mut self) -> Result<Message, ErrorCode> {
         caravela_messaging!("{}: waiting for message", self.name());
         self.hub.receive().map(|x| {
@@ -269,9 +261,9 @@ impl Agent {
     }
 
     pub(crate) fn takedown(&mut self) -> Result<(), ErrorCode> {
+        let ams = deck().read().get_ams_address_for_hap(&self.hap)?;
         let msg_type = MessageType::Request;
         let msg_content = Content::Request(RequestType::Deregister(self.aid()?));
-        let ams = deck().read().get_ams_address_for_hap(&self.hap)?;
         self.send_to_aid(ams, msg_type, msg_content)?;
         self.receive().map(|_| {
             caravela_status!("{}: Terminating", self.name());

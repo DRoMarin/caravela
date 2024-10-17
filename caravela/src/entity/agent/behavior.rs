@@ -2,10 +2,6 @@ use crate::entity::agent::AgentBase;
 
 /// Establishes that an object is an agent.
 pub trait Behavior: AgentBase {
-    /// Required function to build the derived agent instance.
-    //fn agent_builder(base_agent: Agent) -> Self;
-    /// Required function to access  [`Agent`] base functionality.
-    //fn agent(&mut self) -> &mut Agent;
     /// Function executed once after starting the agent; just before [`Behavior::action`]. Empty by default.
     fn setup(&mut self) {
         caravela_dflt!("{}: no setup implemented", self.agent().name());
@@ -61,5 +57,4 @@ pub(crate) fn execute(mut behavior: impl Behavior) {
             break;
         }
     }
-    //let _ = behavior.agent().takedown();
 }
