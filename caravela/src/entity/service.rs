@@ -5,7 +5,7 @@ use crate::{
     ErrorCode,
 };
 
-use super::messaging::Message;
+use super::messaging::{Message, ModifyRequest};
 
 #[derive(Debug)]
 pub(crate) struct DefaultConditions;
@@ -13,9 +13,15 @@ pub(crate) struct DefaultConditions;
 pub(crate) trait Service {
     fn name(&self) -> String;
     fn init(&mut self);
+    fn search_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
+    fn modify_agent(
+        &self,
+        aid: &Description,
+        modify: ModifyRequest,
+        msg: Message,
+    ) -> Result<(), ErrorCode>;
     fn register_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
     fn deregister_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
-    fn search_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
     fn service_function(&mut self);
     fn request_reply(
         &self,

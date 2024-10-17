@@ -17,6 +17,26 @@ pub(crate) enum SendResult {
     NonBlocking(Result<(), TrySendError<Message>>),
 }
 
+/// Agent state changes that can be requested via the [`ModifyRequest::Ams`] enum.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum StateOps {
+    /// Resume the agent from the [`AgentState::Waiting`](enum@crate::agent::AgentState) and [`AgentState::Suspended`](enum@crate::agent::AgentState) states.
+    Resume,
+    /// Supend the agent from the [`AgentState::Active`](enum@crate::agent::AgentState) state.
+    Suspend,
+    /// Terminate the agent from the [`AgentState::Active`](enum@crate::agent::AgentState) state.
+    Terminate,
+}
+
+/// Modification request types that can be aimed toward services or other agents.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ModifyRequest {
+    /// Modification requests targeted to the AMS which only allows state changes.
+    Ams(StateOps),
+    /// Modification requests targeted to other elements of unknown nature.
+    Other(String),
+}
+
 /// All communicative acts allowed between agents.
 ///
 /// These are defined by the FIPA00037 standard and are meant to be used with a formal logic language model included in the standard.
@@ -102,20 +122,14 @@ impl Display for MessageType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// Request types supported by different services.
 pub enum RequestType {
-    /// Request the receiver to search for an agent.
+    /// Request the target to search for an agent.
     Search(Description),
-    //Modify(String, Description),
-    /// Request the receiver to register an agent.
+    /// Request the target to modify an agent.
+    Modify(Description, ModifyRequest),
+    /// Request the target to register an agent.
     Register(Description),
-    /// Request the receiver to deregister an agent.
+    /// Request the target to deregister an agent.
     Deregister(Description),
-    /// Request the receiver to suspend an agent. Supported only by the AMS.
-    Suspend(Description),
-    /// Request the receiver to resume an agent. Supported only by the AMS.
-    Resume(Description),
-    //Restart(String),
-    /// Request the receiver to terminate an agent. Supported only by the AMS.
-    Terminate(Description),
 }
 
 impl Display for RequestType {
@@ -123,27 +137,23 @@ impl Display for RequestType {
         match self {
             //RequestType::None => write!(f, "No request"),
             RequestType::Search(x) => write!(f, "Search Request [{}]", x),
+            RequestType::Modify(x, _) => write!(f, "Modify Request[{}]", x),
             RequestType::Register(x) => write!(f, "Registration Request [{}]", x),
             RequestType::Deregister(x) => write!(f, "Deregistration Request [{}]", x),
-            RequestType::Suspend(x) => write!(f, "Suspension Request [{}]", x),
-            RequestType::Resume(x) => write!(f, "Resumption Request [{}]", x),
-            RequestType::Terminate(x) => write!(f, "Termination Request [{}]", x),
         }
     }
 }
 
 /// Different types of content allowed for messaging.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
     /// Propositions with no specific format.
     Text(String),
     /// A request to be done.
     Request(RequestType),
-    /// AMS agent description object.
-    AmsAgentDescription(Description),
-    #[default]
-    /// No content set. Default value.
-    None,
+    //RequestOrg(Performer, RequestType),
+    // AMS agent description object.
+    //AgentDescription(Description),
 }
 
 /// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
@@ -162,7 +172,6 @@ impl Message {
         message_type: MessageType,
         content: Content,
     ) -> Self {
-        //TBD check
         Self {
             sender,
             receiver,
@@ -172,13 +181,13 @@ impl Message {
     }
 
     /// Retrieve a message's communicative act type.
-    pub fn message_type(&self) -> MessageType {
-        self.message_type.clone()
+    pub fn message_type(&self) -> &MessageType {
+        &self.message_type
     }
 
     /// Retrieve a message's contents.
-    pub fn content(&self) -> Content {
-        self.content.clone()
+    pub fn content(&self) -> &Content {
+        &self.content
     }
 
     /// Get a reference to the sender's [`Description`]

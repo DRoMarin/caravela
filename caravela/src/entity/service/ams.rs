@@ -6,7 +6,7 @@ use crate::{
         service::{AmsConditions, Service},
         Description, Hub,
     },
-    messaging::{Message, SyncType},
+    messaging::{Message, ModifyRequest, StateOps, SyncType},
     ErrorCode, Rx,
 };
 use std::fmt::Debug;
@@ -14,7 +14,6 @@ use std::fmt::Debug;
 #[derive(Debug)]
 pub(crate) struct Ams<T: AmsConditions> {
     hap: &'static str,
-    //become Service<AMS> or Service<DF>
     hub: Hub,
     conditions: T,
 }
@@ -32,31 +31,26 @@ impl<T: AmsConditions> Service for Ams<T> {
         let receiver = msg.sender().clone();
         let content = msg.content();
         if !self.conditions.search_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content);
+            return self.request_reply(receiver, MessageType::Refuse, content.clone());
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
 
-        if { deck().read().search_agent(aid) }.is_ok() {
-            self.request_reply(receiver, MessageType::Inform, content)
-        } else {
-            self.request_reply(receiver, MessageType::Failure, content)
+        {
+            deck().read().search_agent(aid)
         }
     }
-
     fn register_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
         let receiver = msg.sender().clone();
         let content = msg.content();
         if !self.conditions.registration_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content);
+            return self.request_reply(receiver, MessageType::Refuse, content.clone());
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
         /* NOT CURRENTLY SUPPORTED: does nothing besides checking if agent is
         already registed and only checks if the conditions allow it */
 
-        if { deck().read().search_agent(aid) }.is_ok() {
-            self.request_reply(receiver, MessageType::Failure, content)
-        } else {
-            self.request_reply(receiver, MessageType::Inform, content)
+        {
+            deck().read().search_agent(aid)
         }
     }
 
@@ -64,26 +58,16 @@ impl<T: AmsConditions> Service for Ams<T> {
         let receiver = msg.sender().clone();
         let content = msg.content();
         if !self.conditions.deregistration_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content);
+            return self.request_reply(receiver, MessageType::Refuse, content.clone());
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        if {
-            deck()
-                .write()
-                .remove_agent(aid)?
-                .join_handle
-                .join()
-                .map_err(|_| ErrorCode::AgentPanic)
-        }
-        .is_ok()
         {
-            self.request_reply(receiver, MessageType::Inform, content)
-        } else {
-            self.request_reply(receiver, MessageType::Failure, content)
+            deck().write().remove_agent(aid).map(|_| ())
+            //TBD: JOIN THREAD
+            //?.join_handle
+            //.join()
+            //.map_err(|_| ErrorCode::AgentPanic)
         }
-
-        //TBD: REMOVE HANDLE AND JOIN THREAD
-        //TODO: FIX FLOW TO RELY ON TAKEDOWNS
     }
 
     fn service_function(&mut self) {
@@ -92,39 +76,53 @@ impl<T: AmsConditions> Service for Ams<T> {
             caravela_messaging!("{}: Wating for a request...", self.name());
             let msg_result = self.hub.receive();
             if let Ok(msg) = msg_result {
-                let request_result = if msg.message_type() == MessageType::Request {
+                let receiver = msg.sender().clone();
+                let content = msg.content().clone();
+                let msg_result = if msg.message_type().clone() == MessageType::Request {
                     caravela_messaging!("{}: Received Request!", self.name());
-                    //let receiver = self.hub.msg().sender().clone();
-                    if let Content::Request(request_type) = msg.content() {
-                        match request_type {
+                    if let Content::Request(request_type) = content.clone() {
+                        let req_result = match request_type {
+                            RequestType::Search(aid) => self.search_agent(&aid, msg),
+                            RequestType::Modify(aid, modify) => {
+                                self.modify_agent(&aid, modify, msg)
+                            }
                             RequestType::Register(aid) => self.register_agent(&aid, msg),
                             RequestType::Deregister(aid) => self.deregister_agent(&aid, msg),
-                            RequestType::Suspend(aid) => self.suspend_agent(&aid, msg),
-                            RequestType::Resume(aid) => self.resume_agent(&aid, msg),
-                            RequestType::Terminate(aid) => self.terminate_agent(&aid, msg),
-                            RequestType::Search(aid) => self.search_agent(&aid, msg),
+                        };
+                        match req_result {
+                            Ok(()) => {
+                                self.request_reply(receiver, MessageType::Inform, content.clone())
+                            }
+                            Err(_) => {
+                                self.request_reply(receiver, MessageType::Refuse, content.clone())
+                            }
                         }
                     } else {
-                        self.request_reply(
-                            msg.sender().clone(),
-                            MessageType::NotUnderstood,
-                            msg.content(),
-                        )
+                        self.request_reply(receiver, MessageType::NotUnderstood, content.clone())
                     }
                 } else {
-                    self.request_reply(
-                        msg.sender().clone(),
-                        MessageType::NotUnderstood,
-                        msg.content(),
-                    )
+                    self.request_reply(receiver, MessageType::NotUnderstood, content.clone())
                 };
             } //TBD handle these possible errors;
         }
     }
-    /*  pub(crate) fn modify_agent(&mut self, nickname: &str, update: Description) {
-            //update agent
+    fn modify_agent(
+        &self,
+        aid: &Description,
+        modify: ModifyRequest,
+        msg: Message,
+    ) -> Result<(), ErrorCode> {
+        if let ModifyRequest::Ams(state) = modify {
+            match state {
+                StateOps::Resume => self.resume_agent(aid, msg),
+                StateOps::Suspend => self.suspend_agent(aid, msg),
+                StateOps::Terminate => self.terminate_agent(aid, msg),
+            }
+        } else {
+            Err(ErrorCode::InvalidContent)
         }
-    */
+    }
+
     fn request_reply(
         &self,
         receiver: Description,
@@ -158,45 +156,30 @@ impl<T: AmsConditions> Ams<T> {
         let receiver = msg.sender().clone();
         let content = msg.content();
         if !self.conditions.termination_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content);
+            return self.request_reply(receiver, MessageType::Refuse, content.clone());
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        if {
+        {
             let mut deck_guard = deck().write();
             deck_guard.modify_agent(aid, AgentState::Terminated)?;
-            deck_guard.remove_agent(aid)
+            deck_guard.remove_agent(aid).map(|_| ())
+            //TBD: JOIN THREAD
         }
-        .is_ok()
-        {
-            self.request_reply(receiver, MessageType::Inform, content)
-        } else {
-            self.request_reply(receiver, MessageType::Failure, content)
-        }
-
         //deck_guard.add_agent(aid, join_handle, priority, control_block);
         //Manage invalid transition
         //removed.join()
-
-        //TBD: REMOVE HANDLE AND JOIN THREAD
-        //TODO: FIX FLOW TO RELY ON TAKEDOWNS
     }
 
     pub(crate) fn suspend_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
         let receiver = msg.sender().clone();
         let content = msg.content();
         if !self.conditions.suspension_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content);
+            return self.request_reply(receiver, MessageType::Refuse, content.clone());
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        if {
+        {
             let deck_guard = deck().write();
             deck_guard.modify_agent(aid, AgentState::Suspended)
-        }
-        .is_ok()
-        {
-            self.request_reply(receiver, MessageType::Inform, content)
-        } else {
-            self.request_reply(receiver, MessageType::Failure, content)
         }
     }
 
@@ -204,18 +187,12 @@ impl<T: AmsConditions> Ams<T> {
         let receiver = msg.sender().clone();
         let content = msg.content();
         if !self.conditions.resumption_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content);
+            return self.request_reply(receiver, MessageType::Refuse, content.clone());
         }
         self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        if {
+        {
             let deck_guard = deck().write();
             deck_guard.modify_agent(aid, AgentState::Active)
-        }
-        .is_ok()
-        {
-            self.request_reply(receiver, MessageType::Inform, content)
-        } else {
-            self.request_reply(receiver, MessageType::Failure, content)
         }
     }
 
@@ -224,5 +201,3 @@ impl<T: AmsConditions> Ams<T> {
         }
     */
 }
-
-//CAN REDUCE CODE BY CREATING: CONDITION CHECK VIA ENUM
