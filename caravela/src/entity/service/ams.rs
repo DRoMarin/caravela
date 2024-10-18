@@ -2,11 +2,11 @@ use crate::{
     agent::AgentState,
     deck::deck,
     entity::{
-        messaging::{Content, MessageType, RequestType},
+        messaging::MessageType,
         service::{AmsConditions, Service},
         Description, Hub,
     },
-    messaging::{Message, ModifyRequest, StateOps, SyncType},
+    messaging::{ActionType, Content, Message, ModifyAgent, StateOp, SyncType},
     ErrorCode, Rx,
 };
 use std::fmt::Debug;
@@ -20,54 +20,41 @@ pub(crate) struct Ams<T: AmsConditions> {
 
 impl<T: AmsConditions> Service for Ams<T> {
     fn name(&self) -> String {
-        format!("AMS@{}", self.hap)
+        format!("ams@{}", self.hap)
     }
 
     fn init(&mut self) {
         caravela_status!("{}: Started!", self.name())
     }
 
-    fn search_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
-        let receiver = msg.sender().clone();
-        let content = msg.content();
-        if !self.conditions.search_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content.clone());
-        }
-        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
+    fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        deck().read().search_agent(aid)
+    }
 
-        {
-            deck().read().search_agent(aid)
+    fn modify_agent(&self, aid: &Description, modify: &ModifyAgent) -> Result<(), ErrorCode> {
+        if let ModifyAgent::State(state) = modify {
+            match state {
+                StateOp::Resume => self.resume_agent(aid),
+                StateOp::Suspend => self.suspend_agent(aid),
+                StateOp::Terminate => self.terminate_agent(aid),
+            }
+        } else {
+            Err(ErrorCode::InvalidContent)
         }
     }
-    fn register_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
-        let receiver = msg.sender().clone();
-        let content = msg.content();
-        if !self.conditions.registration_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content.clone());
-        }
-        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
+
+    fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
         /* NOT CURRENTLY SUPPORTED: does nothing besides checking if agent is
         already registed and only checks if the conditions allow it */
-
-        {
-            deck().read().search_agent(aid)
-        }
+        deck().read().search_agent(aid)
     }
 
-    fn deregister_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
-        let receiver = msg.sender().clone();
-        let content = msg.content();
-        if !self.conditions.deregistration_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content.clone());
-        }
-        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        {
-            deck().write().remove_agent(aid).map(|_| ())
-            //TBD: JOIN THREAD
-            //?.join_handle
-            //.join()
-            //.map_err(|_| ErrorCode::AgentPanic)
-        }
+    fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        deck().write().remove_agent(aid).map(|_| ())
+        //TBD: JOIN THREAD
+        //?.join_handle
+        //.join()
+        //.map_err(|_| ErrorCode::AgentPanic)
     }
 
     fn service_function(&mut self) {
@@ -76,50 +63,12 @@ impl<T: AmsConditions> Service for Ams<T> {
             caravela_messaging!("{}: Wating for a request...", self.name());
             let msg_result = self.hub.receive();
             if let Ok(msg) = msg_result {
-                let receiver = msg.sender().clone();
-                let content = msg.content().clone();
-                let msg_result = if msg.message_type().clone() == MessageType::Request {
-                    caravela_messaging!("{}: Received Request!", self.name());
-                    if let Content::Request(request_type) = content.clone() {
-                        let req_result = match request_type {
-                            RequestType::Search(aid) => self.search_agent(&aid, msg),
-                            RequestType::Modify(aid, modify) => {
-                                self.modify_agent(&aid, modify, msg)
-                            }
-                            RequestType::Register(aid) => self.register_agent(&aid, msg),
-                            RequestType::Deregister(aid) => self.deregister_agent(&aid, msg),
-                        };
-                        match req_result {
-                            Ok(()) => {
-                                self.request_reply(receiver, MessageType::Inform, content.clone())
-                            }
-                            Err(_) => {
-                                self.request_reply(receiver, MessageType::Refuse, content.clone())
-                            }
-                        }
-                    } else {
-                        self.request_reply(receiver, MessageType::NotUnderstood, content.clone())
-                    }
-                } else {
-                    self.request_reply(receiver, MessageType::NotUnderstood, content.clone())
-                };
-            } //TBD handle these possible errors;
-        }
-    }
-    fn modify_agent(
-        &self,
-        aid: &Description,
-        modify: ModifyRequest,
-        msg: Message,
-    ) -> Result<(), ErrorCode> {
-        if let ModifyRequest::Ams(state) = modify {
-            match state {
-                StateOps::Resume => self.resume_agent(aid, msg),
-                StateOps::Suspend => self.suspend_agent(aid, msg),
-                StateOps::Terminate => self.terminate_agent(aid, msg),
+                if self.process_request(msg).is_err() {
+                    //TBD handle these possible errors;
+                }
+            } else {
+                //TBD handle these possible errors;
             }
-        } else {
-            Err(ErrorCode::InvalidContent)
         }
     }
 
@@ -129,8 +78,8 @@ impl<T: AmsConditions> Service for Ams<T> {
         message_type: MessageType,
         content: Content,
     ) -> Result<(), ErrorCode> {
-        let sender = deck().read().get_ams_address_for_hap(self.hap)?;
-        //let sender = deck().read().ams_aid().clone();
+        //let sender = deck().read().get_ams_address_for_hap(self.hap)?;
+        let sender = deck().read().ams_aid().clone();
         caravela_messaging!(
             "{}: Replying with {} to {}",
             self.name(),
@@ -138,7 +87,7 @@ impl<T: AmsConditions> Service for Ams<T> {
             receiver
         );
         let msg = Message::new(sender, receiver, message_type, content);
-        self.hub.send(msg, SyncType::NonBlocking)
+        self.hub.send(msg, SyncType::Blocking)
     }
 }
 
@@ -152,48 +101,84 @@ impl<T: AmsConditions> Ams<T> {
         }
     }
 
-    pub(crate) fn terminate_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
+    fn process_request(&self, msg: Message) -> Result<(), ErrorCode> {
         let receiver = msg.sender().clone();
-        let content = msg.content();
-        if !self.conditions.termination_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content.clone());
+        let content = msg.content().clone();
+        if msg.message_type().clone() == MessageType::Request {
+            caravela_messaging!("{}: Received Request!", self.name());
+            if let Content::Action(request_type) = content.clone() {
+                if self.check_conditions(&request_type) {
+                    self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
+                    let req_result = self.do_request(&request_type);
+                    match req_result {
+                        Ok(()) => {
+                            self.request_reply(receiver, MessageType::Inform, content)?;
+                        }
+                        Err(_) => {
+                            self.request_reply(receiver, MessageType::Refuse, content)?;
+                        }
+                    }
+                } else {
+                    self.request_reply(receiver, MessageType::NotUnderstood, content)?;
+                };
+            };
+        };
+        Ok(())
+    }
+
+    fn check_conditions(&self, action: &ActionType) -> bool {
+        match action {
+            ActionType::Search(_) => self.conditions.search_condition(),
+            ActionType::Modify(_, modify) => {
+                self.conditions.modification_condition()
+                    && self.check_modification_conditions(modify)
+            }
+            ActionType::Register(_) => self.conditions.registration_condition(),
+            ActionType::Deregister(_) => self.conditions.deregistration_condition(),
+            ActionType::Other(_) => unreachable!(),
         }
-        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        {
-            let mut deck_guard = deck().write();
-            deck_guard.modify_agent(aid, AgentState::Terminated)?;
-            deck_guard.remove_agent(aid).map(|_| ())
-            //TBD: JOIN THREAD
+    }
+
+    fn check_modification_conditions(&self, modify: &ModifyAgent) -> bool {
+        if let ModifyAgent::State(state) = modify {
+            match state {
+                StateOp::Resume => self.conditions.resumption_condition(),
+                StateOp::Suspend => self.conditions.suspension_condition(),
+                StateOp::Terminate => self.conditions.termination_condition(),
+            }
+        } else {
+            false
         }
+    }
+
+    fn do_request(&self, request: &ActionType) -> Result<(), ErrorCode> {
+        match request {
+            ActionType::Search(aid) => self.search_agent(&aid),
+            ActionType::Modify(aid, modify) => self.modify_agent(&aid, modify),
+            ActionType::Register(aid) => self.register_agent(&aid),
+            ActionType::Deregister(aid) => self.deregister_agent(&aid),
+            ActionType::Other(_) => Err(ErrorCode::InvalidRequest),
+        }
+    }
+
+    pub(crate) fn terminate_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        let mut deck_guard = deck().write();
+        deck_guard.modify_agent(aid, AgentState::Terminated)?;
+        deck_guard.remove_agent(aid).map(|_| ())
+        //TBD: JOIN THREAD
         //deck_guard.add_agent(aid, join_handle, priority, control_block);
         //Manage invalid transition
         //removed.join()
     }
 
-    pub(crate) fn suspend_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
-        let receiver = msg.sender().clone();
-        let content = msg.content();
-        if !self.conditions.suspension_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content.clone());
-        }
-        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        {
-            let deck_guard = deck().write();
-            deck_guard.modify_agent(aid, AgentState::Suspended)
-        }
+    pub(crate) fn suspend_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        let deck_guard = deck().write();
+        deck_guard.modify_agent(aid, AgentState::Suspended)
     }
 
-    pub(crate) fn resume_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode> {
-        let receiver = msg.sender().clone();
-        let content = msg.content();
-        if !self.conditions.resumption_condition() {
-            return self.request_reply(receiver, MessageType::Refuse, content.clone());
-        }
-        self.request_reply(receiver.clone(), MessageType::Agree, content.clone())?;
-        {
-            let deck_guard = deck().write();
-            deck_guard.modify_agent(aid, AgentState::Active)
-        }
+    pub(crate) fn resume_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        let deck_guard = deck().write();
+        deck_guard.modify_agent(aid, AgentState::Active)
     }
 
     /*  pub(crate) fn restart_agent(&mut self, nickname: &str) {

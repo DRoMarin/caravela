@@ -11,18 +11,18 @@ use std::{
 use thread_priority::ThreadPriority;
 
 pub(crate) type AgentDirectory = HashMap<Description, AgentEntry>;
-pub(crate) type AmsDirectory = HashMap<Description, AmsEntry>;
+//pub(crate) type AmsDirectory = HashMap<Description, AmsEntry>;
 
 #[derive(Debug)]
 pub(crate) struct AmsEntry {
-    //aid: Description,
+    aid: Description,
     join_handle: JoinHandle<()>,
 }
 
 impl AmsEntry {
-    //pub(crate) fn aid(&self) -> &Description {
-    //    &self.aid
-    //}
+    pub(crate) fn aid(&self) -> &Description {
+        &self.aid
+    }
     //pub(crate) fn address(&self) -> &Tx {
     //    &self.address
     //}
@@ -70,51 +70,51 @@ impl DeckAccess {
 
 #[derive(Debug)]
 pub struct Deck {
-    //ams_entry: Option<AmsEntry>,
-    ams_directory: AmsDirectory,
+    ams_entry: Option<AmsEntry>,
+    //ams_directory: AmsDirectory,
     agent_directory: AgentDirectory,
 }
 
 impl Deck {
     pub(crate) fn new() -> Self {
-        //let ams_entry = None;
+        let ams_entry = None;
         let agent_directory = AgentDirectory::with_capacity(MAX_SUBSCRIBERS);
-        let ams_directory = AmsDirectory::with_capacity(MAX_SUBSCRIBERS);
+        //let ams_directory = AmsDirectory::with_capacity(MAX_SUBSCRIBERS);
         Self {
-            //ams_entry,
-            ams_directory,
+            ams_entry,
+            //ams_directory,
             agent_directory,
         }
     }
-    pub(crate) fn get_ams_address_for_hap(&self, name: &str) -> Result<Description, ErrorCode> {
+    /*pub(crate) fn get_ams_address_for_hap(&self, name: &str) -> Result<Description, ErrorCode> {
         self.ams_directory
             .keys()
             .find(|x| *x.hap() == *name)
             .cloned()
             .ok_or(ErrorCode::NotFound)
-    }
+    }*/
 
-    /*pub(crate) fn ams_aid(&self) -> &Description {
+    pub(crate) fn ams_aid(&self) -> &Description {
         self.ams_entry
             .as_ref()
             .expect("Platform has not been booted yet")
             .aid()
-    }*/
+    }
 
     pub(crate) fn add_ams(&mut self, aid: Description, join_handle: JoinHandle<()>) {
-        self.ams_directory.insert(
+        /*self.ams_directory.insert(
             aid,
             AmsEntry {
                 //address,
                 join_handle,
             },
-        );
+        );*/
 
-        /*self.ams_entry = Some(AmsEntry {
+        self.ams_entry = Some(AmsEntry {
             aid,
-            address,
+            //address,
             join_handle,
-        });*/
+        });
     }
 
     pub(crate) fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {

@@ -4,8 +4,10 @@ pub mod behavior;
 use crate::{
     deck::deck,
     entity::{
-        messaging::{Content, Message, MessageType, RequestType, SyncType},
-        Description, Hub,
+        //messaging::{Content, Message, MessageType, RequestType, SyncType},
+        messaging::{ActionType, Content, Message, MessageType, SyncType},
+        Description,
+        Hub,
     },
     ErrorCode, Rx, MAX_SUBSCRIBERS,
 };
@@ -151,6 +153,7 @@ impl Agent {
         nickname: &str,
         message_type: MessageType,
         content: Content,
+        //content: String,
     ) -> Result<(), ErrorCode> {
         let agent_aid = if let Some(agent_aid) = self.directory.get(nickname) {
             agent_aid.to_owned()
@@ -169,6 +172,7 @@ impl Agent {
         aid: Description,
         message_type: MessageType,
         content: Content,
+        //content: String,
     ) -> Result<(), ErrorCode> {
         let msg = Message::new(self.aid()?, aid, message_type, content);
         self.hub.send(msg, SyncType::Blocking)
@@ -179,6 +183,7 @@ impl Agent {
         &self,
         message_type: MessageType,
         content: Content,
+        //content: String,
     ) -> Result<(), ErrorCode> {
         let agents = self.directory.values();
         for aid in agents {
@@ -261,9 +266,11 @@ impl Agent {
     }
 
     pub(crate) fn takedown(&mut self) -> Result<(), ErrorCode> {
-        let ams = deck().read().get_ams_address_for_hap(&self.hap)?;
+        //let ams = deck().read().get_ams_address_for_hap(&self.hap)?;
+        let ams = deck().read().ams_aid().clone();
         let msg_type = MessageType::Request;
-        let msg_content = Content::Request(RequestType::Deregister(self.aid()?));
+        let msg_content = Content::Action(ActionType::Deregister(self.aid()?));
+        //let msg_content = format!("deregister {}", self.aid()?.name());
         self.send_to_aid(ams, msg_type, msg_content)?;
         self.receive().map(|_| {
             caravela_status!("{}: Terminating", self.name());

@@ -19,7 +19,7 @@ pub(crate) enum SendResult {
 
 /// Agent state changes that can be requested via the [`ModifyRequest::Ams`] enum.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum StateOps {
+pub enum StateOp {
     /// Resume the agent from the [`AgentState::Waiting`](enum@crate::agent::AgentState) and [`AgentState::Suspended`](enum@crate::agent::AgentState) states.
     Resume,
     /// Supend the agent from the [`AgentState::Active`](enum@crate::agent::AgentState) state.
@@ -30,9 +30,9 @@ pub enum StateOps {
 
 /// Modification request types that can be aimed toward services or other agents.
 #[derive(Clone, PartialEq, Eq, Debug)]
-pub enum ModifyRequest {
+pub enum ModifyAgent {
     /// Modification requests targeted to the AMS which only allows state changes.
-    Ams(StateOps),
+    State(StateOp),
     /// Modification requests targeted to other elements of unknown nature.
     Other(String),
 }
@@ -118,9 +118,9 @@ impl Display for MessageType {
         }
     }
 }
-
+/*
 #[derive(Clone, Debug, PartialEq, Eq)]
-/// Request types supported by different services.
+///Request types supported by different services.
 pub enum RequestType {
     /// Request the target to search for an agent.
     Search(Description),
@@ -131,15 +131,33 @@ pub enum RequestType {
     /// Request the target to deregister an agent.
     Deregister(Description),
 }
+*/
 
-impl Display for RequestType {
+#[derive(Clone, Debug, PartialEq, Eq)]
+///Request types supported by different services.
+pub enum ActionType {
+    /// Request the target to search for an agent.
+    Search(Description),
+    /// Request the target to modify an agent.
+    Modify(Description, ModifyAgent),
+    /// Request the target to register an agent.
+    Register(Description),
+    /// Request the target to deregister an agent.
+    Deregister(Description),
+    /// Other non-specific action defined by the user.
+    Other(String),
+}
+
+//impl Display for RequestType {
+impl Display for ActionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             //RequestType::None => write!(f, "No request"),
-            RequestType::Search(x) => write!(f, "Search Request [{}]", x),
-            RequestType::Modify(x, _) => write!(f, "Modify Request[{}]", x),
-            RequestType::Register(x) => write!(f, "Registration Request [{}]", x),
-            RequestType::Deregister(x) => write!(f, "Deregistration Request [{}]", x),
+            ActionType::Search(x) => write!(f, "Search Request [{}]", x),
+            ActionType::Modify(x, _) => write!(f, "Modify Request[{}]", x),
+            ActionType::Register(x) => write!(f, "Registration Request [{}]", x),
+            ActionType::Deregister(x) => write!(f, "Deregistration Request [{}]", x),
+            ActionType::Other(x) => write!(f, "{}", x),
         }
     }
 }
@@ -148,20 +166,21 @@ impl Display for RequestType {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
     /// Propositions with no specific format.
-    Text(String),
+    Expression(String),
     /// A request to be done.
-    Request(RequestType),
+    Action(ActionType),
+    //Request(Description, RequestType),
     //RequestOrg(Performer, RequestType),
     // AMS agent description object.
     //AgentDescription(Description),
 }
-
 /// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Message {
     sender: Description,
     receiver: Description,
     message_type: MessageType,
+    //content: String,
     content: Content,
 }
 
@@ -171,6 +190,7 @@ impl Message {
         receiver: Description,
         message_type: MessageType,
         content: Content,
+        //content: String,
     ) -> Self {
         Self {
             sender,
@@ -187,6 +207,7 @@ impl Message {
 
     /// Retrieve a message's contents.
     pub fn content(&self) -> &Content {
+        //pub fn content(&self) -> &str {
         &self.content
     }
 

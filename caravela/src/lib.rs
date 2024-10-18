@@ -25,7 +25,7 @@ use std::{
 };
 use {
     agent::AgentState,
-    messaging::{Message, RequestType},
+    messaging::Message, // RequestType},
 };
 
 /// StackSize defined as platform dependant.
@@ -64,7 +64,8 @@ pub enum ErrorCode {
     /// The agent could not be found.
     NotFound,
     /// Conditions not met for a specific request.
-    InvalidConditions(RequestType),
+    //InvalidConditions(RequestType),
+    InvalidConditions(String),
     /// Invalid content in message.
     InvalidContent,
     /// Unexpected message for a given protocol.

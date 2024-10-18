@@ -6,7 +6,8 @@ pub mod messaging;
 pub mod service;
 
 use crate::{ErrorCode, Rx, Tx};
-use messaging::{Content, Message, SendResult, SyncType};
+//use messaging::{Content, Message, SendResult, SyncType};
+use messaging::{Message, SendResult, SyncType};
 use std::{
     fmt::Display,
     hash::{self, Hash},
@@ -133,7 +134,7 @@ impl Hub {
         }
     }
 
-    pub(crate) fn receive(&mut self) -> Result<Message, ErrorCode> {
+    pub(crate) fn receive(&self) -> Result<Message, ErrorCode> {
         //TBD: could use recv_timeout
         self.rx.recv().map_err(ErrorCode::MpscRecv)
 

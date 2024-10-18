@@ -1,11 +1,12 @@
 pub(crate) mod ams;
 
 use crate::{
-    entity::{messaging::MessageType, Content, Description},
+    entity::{
+        messaging::{Content, MessageType, ModifyAgent},
+        Description,
+    },
     ErrorCode,
 };
-
-use super::messaging::{Message, ModifyRequest};
 
 #[derive(Debug)]
 pub(crate) struct DefaultConditions;
@@ -13,15 +14,10 @@ pub(crate) struct DefaultConditions;
 pub(crate) trait Service {
     fn name(&self) -> String;
     fn init(&mut self);
-    fn search_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
-    fn modify_agent(
-        &self,
-        aid: &Description,
-        modify: ModifyRequest,
-        msg: Message,
-    ) -> Result<(), ErrorCode>;
-    fn register_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
-    fn deregister_agent(&self, aid: &Description, msg: Message) -> Result<(), ErrorCode>;
+    fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
+    fn modify_agent(&self, aid: &Description, modify: &ModifyAgent) -> Result<(), ErrorCode>;
+    fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
+    fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn service_function(&mut self);
     fn request_reply(
         &self,
@@ -33,22 +29,29 @@ pub(crate) trait Service {
 
 /// This trait defines a set of boolean functions whose purpose is to specify
 ///  under which conditions any service entity should provide its services:
+/// 
+///  - Search
+///  - Modification
 ///  - Registration
 ///  - Deregistration
+/// 
+/// Whenever the internal directory is referenced, it corresponds to 
+///  the White Pages directory for requests aimed at the AMS.
 pub trait ServiceConditions {
     /// Whether or not it is possible to search an agent in the internal directory;
-    /// a White Pages (WP) directory in the case of the AMS.
     fn search_condition(&self) -> bool {
         true
     }
+    /// Whether or not it is possible to modify an agent registered in the internal directory;
+    fn modification_condition(&self) -> bool {
+        true
+    }
     /// Whether or not it is possible to register an agent to the internal directory;
-    /// a White Pages (WP) directory in the case of the AMS.
     fn registration_condition(&self) -> bool {
         true
     }
 
     /// Whether or not it is possible to deregister an agent from the internal directory;
-    /// a White Pages (WP) directory in the case of the AMS.
     fn deregistration_condition(&self) -> bool {
         true
     }
@@ -56,6 +59,7 @@ pub trait ServiceConditions {
 
 /// This trait defines a set of boolean functions whose purpose is to specify
 ///  under which conditions the AMS should provide its specific services:
+/// 
 ///  - Suspension
 ///  - Resumption
 ///  - Termination
