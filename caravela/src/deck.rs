@@ -16,6 +16,7 @@ pub(crate) type AgentDirectory = HashMap<Description, AgentEntry>;
 #[derive(Debug)]
 pub(crate) struct AmsEntry {
     aid: Description,
+    #[allow(dead_code)]
     join_handle: JoinHandle<()>,
 }
 

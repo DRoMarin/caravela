@@ -1,12 +1,12 @@
 use crate::{
     agent::AgentState,
-    deck::deck,
+    deck::{deck, AgentEntry},
     entity::{
         messaging::MessageType,
         service::{AmsConditions, Service},
         Description, Hub,
     },
-    messaging::{ActionType, Content, Message, ModifyAgent, StateOp, SyncType},
+    messaging::{ActionType, Content, Message, SyncType},
     ErrorCode, Rx,
 };
 use std::fmt::Debug;
@@ -31,16 +31,18 @@ impl<T: AmsConditions> Service for Ams<T> {
         deck().read().search_agent(aid)
     }
 
-    fn modify_agent(&self, aid: &Description, modify: &ModifyAgent) -> Result<(), ErrorCode> {
-        if let ModifyAgent::State(state) = modify {
-            match state {
-                StateOp::Resume => self.resume_agent(aid),
-                StateOp::Suspend => self.suspend_agent(aid),
-                StateOp::Terminate => self.terminate_agent(aid),
-            }
-        } else {
-            Err(ErrorCode::InvalidContent)
+    //fn modify_agent(&self, aid: &Description, modify: &ModifyAgent) -> Result<(), ErrorCode> {
+    fn modify_agent(&self, aid: &Description, modifier: &str) -> Result<(), ErrorCode> {
+        //if let ModifyAgent::State(state) = modify {
+        match modifier {
+            "resume" => self.resume_agent(aid),
+            "suspend" => self.suspend_agent(aid),
+            "terminate" => self.terminate_agent(aid),
+            _ => Err(ErrorCode::InvalidContent),
         }
+        //} else {
+        //    Err(ErrorCode::InvalidContent)
+        //}
     }
 
     fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
@@ -50,11 +52,8 @@ impl<T: AmsConditions> Service for Ams<T> {
     }
 
     fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
-        deck().write().remove_agent(aid).map(|_| ())
-        //TBD: JOIN THREAD
-        //?.join_handle
-        //.join()
-        //.map_err(|_| ErrorCode::AgentPanic)
+        let AgentEntry { join_handle, .. } = deck().write().remove_agent(aid)?;
+        join_handle.join().map_err(|_| ErrorCode::AgentPanic)
     }
 
     fn service_function(&mut self) {
@@ -129,9 +128,9 @@ impl<T: AmsConditions> Ams<T> {
     fn check_conditions(&self, action: &ActionType) -> bool {
         match action {
             ActionType::Search(_) => self.conditions.search_condition(),
-            ActionType::Modify(_, modify) => {
+            ActionType::Modify(_, modifier) => {
                 self.conditions.modification_condition()
-                    && self.check_modification_conditions(modify)
+                    && self.check_modification_conditions(modifier.to_lowercase().as_str())
             }
             ActionType::Register(_) => self.conditions.registration_condition(),
             ActionType::Deregister(_) => self.conditions.deregistration_condition(),
@@ -139,22 +138,26 @@ impl<T: AmsConditions> Ams<T> {
         }
     }
 
-    fn check_modification_conditions(&self, modify: &ModifyAgent) -> bool {
-        if let ModifyAgent::State(state) = modify {
-            match state {
-                StateOp::Resume => self.conditions.resumption_condition(),
-                StateOp::Suspend => self.conditions.suspension_condition(),
-                StateOp::Terminate => self.conditions.termination_condition(),
-            }
-        } else {
-            false
+    //fn check_modification_conditions(&self, modify: &ModifyAgent) -> bool {
+    fn check_modification_conditions(&self, modifier: &str) -> bool {
+        //if let ModifyAgent::State(state) = modify {
+        match modifier {
+            "resume" => self.conditions.resumption_condition(),
+            "suspend" => self.conditions.suspension_condition(),
+            "terminate" => self.conditions.termination_condition(),
+            _ => false,
         }
+        //} else {
+        //    false
+        //}
     }
 
     fn do_request(&self, request: &ActionType) -> Result<(), ErrorCode> {
         match request {
             ActionType::Search(aid) => self.search_agent(&aid),
-            ActionType::Modify(aid, modify) => self.modify_agent(&aid, modify),
+            ActionType::Modify(aid, modifier) => {
+                self.modify_agent(&aid, modifier.to_string().as_str())
+            }
             ActionType::Register(aid) => self.register_agent(&aid),
             ActionType::Deregister(aid) => self.deregister_agent(&aid),
             ActionType::Other(_) => Err(ErrorCode::InvalidRequest),
@@ -162,13 +165,8 @@ impl<T: AmsConditions> Ams<T> {
     }
 
     pub(crate) fn terminate_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
-        let mut deck_guard = deck().write();
-        deck_guard.modify_agent(aid, AgentState::Terminated)?;
-        deck_guard.remove_agent(aid).map(|_| ())
-        //TBD: JOIN THREAD
-        //deck_guard.add_agent(aid, join_handle, priority, control_block);
-        //Manage invalid transition
-        //removed.join()
+        deck().write().modify_agent(aid, AgentState::Terminated)?;
+        self.deregister_agent(aid)
     }
 
     pub(crate) fn suspend_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
