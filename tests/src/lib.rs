@@ -15,9 +15,9 @@ mod tests {
             }
         }
 
-        let agent_platform = Platform::new("test_boot");
-        let boot = agent_platform.boot();
+        let boot = Platform::new("test_boot");
         assert!(boot.is_ok());
+        let agent_platform = boot.unwrap();
         std::thread::sleep(std::time::Duration::from_millis(500));
         let agent_test = agent_platform.add_agent::<Test>("AgentTest", 1, DEFAULT_STACK)?;
         let start = agent_platform.start(&agent_test);

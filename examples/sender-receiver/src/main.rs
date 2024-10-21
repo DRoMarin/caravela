@@ -53,9 +53,7 @@ impl Behavior for Receiver {
 // main entry
 fn main() -> Result<(), Box<dyn Error>> {
     // new platform
-    let agent_platform = Platform::new("example");
-    // boot
-    agent_platform.boot()?;
+    let agent_platform = Platform::new("example")?;
     // add agents
     let agent_sender = agent_platform.add_agent::<Sender>("AgentSender", 1, DEFAULT_STACK)?;
     let agent_receiver = agent_platform.add_agent::<Receiver>("AgentReceiver", 2, DEFAULT_STACK)?;
