@@ -202,6 +202,9 @@ impl Deck {
 
 static DECK: OnceLock<DeckAccess> = OnceLock::new();
 
+pub(crate) fn get_deck() -> Option<&'static DeckAccess> {
+    DECK.get()
+}
 pub(crate) fn deck() -> &'static DeckAccess {
     DECK.get_or_init(DeckAccess::new)
 }

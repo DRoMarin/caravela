@@ -1,5 +1,5 @@
 use crate::{
-    deck::deck,
+    deck::{deck, get_deck},
     entity::{
         agent::{
             behavior::{execute, Behavior},
@@ -26,39 +26,54 @@ pub struct Platform {
 
 impl Platform {
     /// Function that constructs a new [`Platform`] object with the provided name.
-    pub fn new(name: &'static str) -> Self {
-        Self { name }
+    pub fn new(name: &'static str) -> Result<Self, ErrorCode> {
+        if get_deck().is_some() {
+            return Err(ErrorCode::PlatformPresent);
+        }
+
+        let platform = Self { name };
+        platform.boot().map(|_| platform)
     }
 
+    /// Function that constructs a new [`Platform`] object with the provided name and conditions for the AMS.
+    pub fn new_with_conditions<T: AmsConditions + Send + 'static>(
+        name: &'static str,
+        conditions: T,
+    ) -> Result<Self, ErrorCode> {
+        if get_deck().is_some() {
+            return Err(ErrorCode::PlatformPresent);
+        }
+
+        let platform = Self { name };
+        platform
+            .boot_with_ams_conditions(conditions)
+            .map(|_| platform)
+    }
     /// Returns the name of the platform.
     pub fn name(&self) -> &'static str {
         self.name
     }
     /// This method starts the Agent Management System (AMS) as [`boot_with_ams_conditions`](Self::boot_with_ams_conditions) also does,
     ///  but with default service conditions.
-    pub fn boot(&self) -> Result<(), ErrorCode> {
+    fn boot(&self) -> Result<(), ErrorCode> {
         let default: DefaultConditions = DefaultConditions;
         self.boot_with_ams_conditions(default)
     }
 
     /// This method starts the Agent Management System (AMS) with specific user given conditions,
     ///  passed as a type that implements [`AmsConditions`].
-    pub fn boot_with_ams_conditions<T: AmsConditions + Send + 'static>(
+    fn boot_with_ams_conditions<T: AmsConditions + Send + 'static>(
         &self,
         conditions: T,
     ) -> Result<(), ErrorCode> {
-        //
         let (tx, rx) = sync_channel::<Message>(1);
-        let mut ams_aid = Description::new("AMS", self.name(), tx);
+        let mut ams_aid = Description::new("ams", self.name(), tx);
         let mut ams = Ams::<T>::new(self.name, rx, conditions);
-        //let mut ams_aid_task = ams_aid.clone();
-        //
+
         caravela_status!("BOOTING AMS");
         let ams_handle = thread::Builder::new()
             .stack_size(DEFAULT_STACK)
             .spawn_with_priority(ThreadPriority::Max, move |_| {
-                //ams_aid_task.set_thread(thread::current().id());
-                //ams.set_aid(ams_aid_task);
                 ams.service_function();
             });
 
@@ -85,13 +100,16 @@ impl Platform {
         priority: u8,
         stack_size: usize,
     ) -> Result<Description, ErrorCode> {
+        // check name
+        if nickname.to_lowercase().eq("ams"){
+            return Err(ErrorCode::InvalidName);
+        }
         // build agent
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
         let control_block = Arc::new(ControlBlock::default());
         let base_agent = Agent::new(nickname, hap, rx, control_block.clone());
-        //base_agent.set_aid(aid.clone());
         if deck().read().search_agent(&aid).is_ok() {
             return Err(ErrorCode::Duplicated);
         }
@@ -136,14 +154,16 @@ impl Platform {
         stack_size: usize,
         param: T::Parameter,
     ) -> Result<Description, ErrorCode> {
+        // check name
+        if nickname.to_lowercase().eq("ams"){
+            return Err(ErrorCode::InvalidName);
+        }
         // build agent
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
-        //let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
         let control_block = Arc::new(ControlBlock::default());
         let base_agent = Agent::new(nickname, hap, rx, control_block.clone());
-        //base_agent.set_aid(aid.clone());
         if deck().read().search_agent(&aid).is_ok() {
             return Err(ErrorCode::Duplicated);
         }
@@ -184,6 +204,13 @@ impl Platform {
         let guard = deck().read();
         let entry = guard.get_agent(aid)?;
         let thread = entry.thread();
+        if thread
+            .get_priority()
+            .map_err(ErrorCode::AgentStart)?
+            .eq(&ThreadPriority::Min)
+        {
+            return Err(ErrorCode::AgentPanic);
+        }
         let priority = entry.priority();
         if let Err(error) = thread.set_priority(priority) {
             return Err(ErrorCode::AgentStart(error));

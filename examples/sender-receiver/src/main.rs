@@ -24,7 +24,7 @@ impl Behavior for Sender {
         caravela_probe!("{}: Hello! I'm Agent Sender", self.agent().name());
         self.agent().send_to_all(
             MessageType::Inform,
-            Content::Text("This is a message".to_string()),
+            Content::Expression("This is a message".to_string()),
         );
         self.agent().wait(200);
     }
@@ -39,7 +39,7 @@ impl Behavior for Receiver {
         caravela_probe!("{}: Hello! I'm Agent Receiver", self.agent().name());
         let result = self.agent().receive();
         if let Ok(msg) = result {
-            if let Content::Text(text) = msg.content() {
+            if let Content::Expression(text) = msg.content() {
                 println!("msg: {}", text);
             }
         }

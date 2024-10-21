@@ -236,16 +236,14 @@ impl Agent {
     }
 
     /// Halt the agent's operation for a specified duration of time in milliseconds.
-    pub fn wait(&self, time: u64) -> Result<(), ErrorCode> {
+    pub fn wait(&self, time: u64) {
         let dur = Duration::from_millis(time); //TBD could remove
         self.control_block.wait();
         caravela_status!("{}: Waiting", self.name());
         thread::park_timeout(dur);
         caravela_status!("{}: Resuming", self.name());
         if self.control_block.agent_state().ne(&AgentState::Active) {
-            self.control_block.active()
-        } else {
-            Ok(())
+            let _ = self.control_block.active();
         }
     }
 
