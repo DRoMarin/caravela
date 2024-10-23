@@ -46,8 +46,8 @@ macro_rules! make_agent {
             }
         }
 
-        impl AgentBase for $agent {
-            fn agent(&mut self) -> &mut Agent{
+        impl AsMut<Agent> for $agent {
+            fn as_mut(&mut self) -> &mut Agent {
                 &mut self.agent
             }
         }
@@ -74,7 +74,7 @@ macro_rules! make_agent_with_param {
             }
         }
 
-        impl AgentBase for $agent {
+        impl AsMut<Agent> for $agent {
             fn agent(&mut self) -> &mut Agent{
                 &mut self.0
             }

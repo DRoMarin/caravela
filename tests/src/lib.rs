@@ -11,7 +11,7 @@ mod tests {
 
         impl Behavior for Test {
             fn action(&mut self) {
-                caravela_probe!("{}: Hello! I'm Agent Test", self.agent().name())
+                caravela_probe!("{}: Hello! I'm Agent Test", self.as_mut().name())
             }
         }
 

@@ -4,7 +4,7 @@
 
 // Importing crate components
 use caravela::{
-    agent::{Agent, AgentBase, AgentBuild},
+    agent::{Agent, AgentBuild},
     behavior::Behavior,
     caravela_probe, make_agent,
     messaging::{Content, MessageType},
@@ -18,15 +18,15 @@ make_agent!(Receiver);
 //implementing behaviors for each type
 impl Behavior for Sender {
     fn setup(&mut self) {
-        self.agent().add_contact("AgentReceiver");
+        self.as_mut().add_contact("AgentReceiver");
     }
     fn action(&mut self) {
-        caravela_probe!("{}: Hello! I'm Agent Sender", self.agent().name());
-        self.agent().send_to_all(
+        caravela_probe!("{}: Hello! I'm Agent Sender", self.as_mut().name());
+        self.as_mut().send_to_all(
             MessageType::Inform,
             Content::Expression("This is a message".to_string()),
         );
-        self.agent().wait(200);
+        self.as_mut().wait(200);
     }
 
     fn done(&mut self) -> bool {
@@ -36,8 +36,8 @@ impl Behavior for Sender {
 
 impl Behavior for Receiver {
     fn action(&mut self) {
-        caravela_probe!("{}: Hello! I'm Agent Receiver", self.agent().name());
-        let result = self.agent().receive();
+        caravela_probe!("{}: Hello! I'm Agent Receiver", self.as_mut().name());
+        let result = self.as_mut().receive();
         if let Ok(msg) = result {
             if let Content::Expression(text) = msg.content() {
                 println!("msg: {}", text);

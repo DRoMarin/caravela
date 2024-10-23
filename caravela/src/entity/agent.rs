@@ -276,11 +276,6 @@ impl Agent {
     }
 }
 
-/// This trait gives the platform access to the base agent element. It is required to execute the agent life cycle accordingly.
-pub trait AgentBase {
-    /// Required function to access  [`Agent`] base functionality.
-    fn agent(&mut self) -> &mut Agent;
-}
 /// This trait defines how an agent without patameters must be built by the platform.
 pub trait AgentBuild {
     /// Required function to build the derived agent instance without a parameter field.
