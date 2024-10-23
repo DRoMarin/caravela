@@ -16,7 +16,7 @@ pub(crate) trait Service {
     fn init(&mut self);
     fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     //fn modify_agent(&self, aid: &Description, modify: &ModifyAgent) -> Result<(), ErrorCode>;
-    fn modify_agent(&self, aid: &Description, modify: &str) -> Result<(), ErrorCode>;
+    fn modify_agent(&self, aid: &Description, modifier: &str) -> Result<(), ErrorCode>;
     fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode>;
     fn service_function(&mut self);
