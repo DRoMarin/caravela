@@ -25,13 +25,13 @@ use std::{
 };
 use {
     agent::AgentState,
-    messaging::{Message, RequestType},
+    messaging::Message, // RequestType},
 };
 
 /// StackSize defined as platform dependant.
 pub type StackSize = usize;
-pub(crate) type TX = SyncSender<Message>;
-pub(crate) type RX = Receiver<Message>;
+pub(crate) type Tx = SyncSender<Message>;
+pub(crate) type Rx = Receiver<Message>;
 
 /// Default stack value for any given platform.
 pub const DEFAULT_STACK: usize = 30000;
@@ -53,8 +53,6 @@ pub enum ErrorCode {
     InvalidPriority(&'static str),
     /// The sending half of the channel may have disconnected.
     MpscRecv(RecvError),
-    //MpscSyncSend(TrySendError<Message>),
-    //MpscSend(SendError<Message>),
     /// The receiving half of the channel may have disconnected.
     Disconnected,
     /// The receiving channel is currently full.
@@ -65,12 +63,12 @@ pub enum ErrorCode {
     Duplicated,
     /// The agent could not be found.
     NotFound,
-    /// Conditions not met for a specific request.
-    InvalidConditions(RequestType),
     /// Invalid content in message.
     InvalidContent,
     /// Unexpected message for a given protocol.
     InvalidMessageType,
+    /// The agent cannot have a reserved name.
+    InvalidName,
     /// Unexpected request.
     #[default]
     InvalidRequest,
@@ -78,16 +76,8 @@ pub enum ErrorCode {
     InvalidStateChange(AgentState, AgentState),
     /// Target is not registered.
     NotRegistered,
-    /// Description not available.
-    AidHandleNone,
-    /// Function behind lock could not be accessed due to poisoning.
-    PoisonedLock,
-    /// Enviroment not initiated yet.
-    UninitEnv,
-    /// Agent adress not assigned yet.
-    AddressNone,
-    /// Enviroment behind lock is poisoned.
-    PoisonedEnvironment,
+    /// There is a platform already running.
+    PlatformPresent,
 }
 
 impl Display for ErrorCode {
@@ -102,26 +92,18 @@ impl Display for ErrorCode {
             ErrorCode::MpscRecv(_) => write!(f, "SyncSender was disconnected from this Receiver"),
             ErrorCode::Disconnected => write!(f, "Receiver was disconnected from this SyncSender"),
             ErrorCode::ChannelFull => write!(f, "Target agent channel was full"),
-            //ErrorCode::MpscSyncSend(error) => {
-            //    write!(f, "Receiver could not accept the message:{}",error)
-            //}
-            //ErrorCode::MpscSend(_) => write!(f, "Receiver was disconnected from this SyncSender"),
             ErrorCode::ListFull => write!(f, "Max number of agents reached"),
             ErrorCode::Duplicated => write!(f, "Agent is already present"),
             ErrorCode::NotFound => write!(f, "Agent could not be found"),
-            ErrorCode::InvalidConditions(x) => write!(f, "Conditions not met for: {}", x),
             ErrorCode::InvalidContent => write!(f, "Invalid content in message"),
             ErrorCode::InvalidMessageType => write!(f, "Unexpected message received"),
+            ErrorCode::InvalidName => write!(f, "The agent cannot have a reserved name"),
             ErrorCode::InvalidRequest => write!(f, "Unexpected request received"),
             ErrorCode::InvalidStateChange(current, next) => {
                 write!(f, "Transtion from {} to {} is not possible", current, next)
             }
             ErrorCode::NotRegistered => write!(f, "Target agent is not registered"),
-            ErrorCode::AidHandleNone => write!(f, "Target agent has no AID"),
-            ErrorCode::PoisonedLock => write!(f, "Platform lock is poisoned"),
-            ErrorCode::UninitEnv => write!(f, "Environment has not been initialized yet"),
-            ErrorCode::AddressNone => write!(f, "Target agent has not transport address assigned"),
-            ErrorCode::PoisonedEnvironment => write!(f, "Environment is poisoned"),
+            ErrorCode::PlatformPresent => write!(f, "There is another platform running already"),
         }
     }
 }

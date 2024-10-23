@@ -1,18 +1,18 @@
 use crate::{
-    deck::{Deck, DeckAccess},
+    deck::{deck, get_deck},
     entity::{
         agent::{
             behavior::{execute, Behavior},
-            Agent, AgentBuild, AgentBuildParam, ControlBlock, ControlBlockAccess,
+            Agent, AgentBuild, AgentBuildParam, ControlBlock,
         },
         messaging::Message,
-        service::{ams::Ams, DefaultConditions, Service, UserConditions},
-        Description, Entity,
+        service::{ams::Ams, AmsConditions, DefaultConditions, Service},
+        Description,
     },
     ErrorCode, DEFAULT_STACK,
 };
 use std::{
-    sync::{atomic::Ordering, mpsc::sync_channel, Arc, RwLock},
+    sync::{mpsc::sync_channel, Arc},
     thread,
 };
 use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorityValue};
@@ -22,45 +22,58 @@ use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorit
 #[derive(Debug)]
 pub struct Platform {
     name: &'static str,
-    deck: DeckAccess,
 }
 
 impl Platform {
     /// Function that constructs a new [`Platform`] object with the provided name.
-    pub fn new(name: &'static str) -> Self {
-        let deck = DeckAccess(Arc::new(RwLock::new(Deck::new())));
-        Self { name, deck }
+    pub fn new(name: &'static str) -> Result<Self, ErrorCode> {
+        if get_deck().is_some() {
+            return Err(ErrorCode::PlatformPresent);
+        }
+
+        let platform = Self { name };
+        platform.boot().map(|_| platform)
     }
 
+    /// Function that constructs a new [`Platform`] object with the provided name and conditions for the AMS.
+    pub fn new_with_conditions<T: AmsConditions + Send + 'static>(
+        name: &'static str,
+        conditions: T,
+    ) -> Result<Self, ErrorCode> {
+        if get_deck().is_some() {
+            return Err(ErrorCode::PlatformPresent);
+        }
+
+        let platform = Self { name };
+        platform
+            .boot_with_ams_conditions(conditions)
+            .map(|_| platform)
+    }
     /// Returns the name of the platform.
     pub fn name(&self) -> &'static str {
         self.name
     }
     /// This method starts the Agent Management System (AMS) as [`boot_with_ams_conditions`](Self::boot_with_ams_conditions) also does,
     ///  but with default service conditions.
-    pub fn boot(&self) -> Result<(), ErrorCode> {
+    fn boot(&self) -> Result<(), ErrorCode> {
         let default: DefaultConditions = DefaultConditions;
         self.boot_with_ams_conditions(default)
     }
 
     /// This method starts the Agent Management System (AMS) with specific user given conditions,
-    ///  passed as a type that implements [`UserConditions`].
-    pub fn boot_with_ams_conditions<T: UserConditions + Send + 'static>(
+    ///  passed as a type that implements [`AmsConditions`].
+    fn boot_with_ams_conditions<T: AmsConditions + Send + 'static>(
         &self,
         conditions: T,
     ) -> Result<(), ErrorCode> {
-        //
         let (tx, rx) = sync_channel::<Message>(1);
-        let mut ams_aid = Description::new("AMS", self.name(), tx);
-        let mut ams = Ams::<T>::new(rx, self.deck.clone(), conditions);
-        let mut ams_aid_task = ams_aid.clone();
-        //
+        let mut ams_aid = Description::new("ams", self.name(), tx);
+        let mut ams = Ams::<T>::new(self.name, rx, conditions);
+
         caravela_status!("BOOTING AMS");
         let ams_handle = thread::Builder::new()
             .stack_size(DEFAULT_STACK)
             .spawn_with_priority(ThreadPriority::Max, move |_| {
-                ams_aid_task.set_thread(thread::current().id());
-                ams.set_aid(ams_aid_task);
                 ams.service_function();
             });
 
@@ -70,7 +83,7 @@ impl Platform {
             }
             //Build description and insert in env lock
             ams_aid.set_thread(join_handle.thread().id());
-            self.deck.write()?.assign_ams(ams_aid, join_handle);
+            deck().write().add_ams(ams_aid, join_handle);
             Ok(())
         } else {
             Err(ErrorCode::AmsBoot)
@@ -87,15 +100,17 @@ impl Platform {
         priority: u8,
         stack_size: usize,
     ) -> Result<Description, ErrorCode> {
+        // check name
+        if nickname.to_lowercase().eq("ams"){
+            return Err(ErrorCode::InvalidName);
+        }
         // build agent
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
-        let deck = self.deck.clone();
-        let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
-        let mut base_agent = Agent::new(aid.clone(), rx, deck, control_block.clone());
-        base_agent.set_aid(aid.clone());
-        if self.deck.read()?.search_agent(&aid).is_ok() {
+        let control_block = Arc::new(ControlBlock::default());
+        let base_agent = Agent::new(nickname, hap, rx, control_block.clone());
+        if deck().read().search_agent(&aid).is_ok() {
             return Err(ErrorCode::Duplicated);
         }
 
@@ -122,12 +137,9 @@ impl Platform {
 
         //Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
-        self.deck.write()?.add_agent(
-            aid.clone(),
-            Some(join_handle),
-            Some(thread_priority),
-            control_block,
-        )?;
+        deck()
+            .write()
+            .add_agent(aid.clone(), join_handle, thread_priority, control_block)?;
         Ok(aid)
     }
 
@@ -142,15 +154,17 @@ impl Platform {
         stack_size: usize,
         param: T::Parameter,
     ) -> Result<Description, ErrorCode> {
+        // check name
+        if nickname.to_lowercase().eq("ams"){
+            return Err(ErrorCode::InvalidName);
+        }
         // build agent
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
         let mut aid = Description::new(nickname, hap, tx);
-        let deck = self.deck.clone();
-        let control_block = ControlBlockAccess(Arc::new(ControlBlock::default()));
-        let mut base_agent = Agent::new(aid.clone(), rx, deck, control_block.clone());
-        base_agent.set_aid(aid.clone());
-        if self.deck.read()?.search_agent(&aid).is_ok() {
+        let control_block = Arc::new(ControlBlock::default());
+        let base_agent = Agent::new(nickname, hap, rx, control_block.clone());
+        if deck().read().search_agent(&aid).is_ok() {
             return Err(ErrorCode::Duplicated);
         }
 
@@ -179,29 +193,29 @@ impl Platform {
 
         //Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
-        self.deck.write()?.add_agent(
-            aid.clone(),
-            Some(join_handle),
-            Some(thread_priority),
-            control_block,
-        )?;
+        deck()
+            .write()
+            .add_agent(aid.clone(), join_handle, thread_priority, control_block)?;
         Ok(aid)
     }
 
     /// Transition the agent from the initiated state into the active state, required for it to execute its behavior.
     pub fn start(&self, aid: &Description) -> Result<(), ErrorCode> {
-        let deck = self.deck.read()?;
-        let entry = deck.get_agent(aid)?;
-        let thread = entry.thread().ok_or(ErrorCode::AidHandleNone)?;
-        let priority = entry.priority().ok_or(ErrorCode::InvalidPriority("None"))?;
+        let guard = deck().read();
+        let entry = guard.get_agent(aid)?;
+        let thread = entry.thread();
+        if thread
+            .get_priority()
+            .map_err(ErrorCode::AgentStart)?
+            .eq(&ThreadPriority::Min)
+        {
+            return Err(ErrorCode::AgentPanic);
+        }
+        let priority = entry.priority();
         if let Err(error) = thread.set_priority(priority) {
             return Err(ErrorCode::AgentStart(error));
         }
-        entry
-            .control_block()
-            .active()
-            .store(true, Ordering::Release);
-        Ok(())
+        entry.control_block().active()
     }
 
     //COULD ADD PLATFORM FUNCTIONS AND CALL THEM FROM AMS AGENT

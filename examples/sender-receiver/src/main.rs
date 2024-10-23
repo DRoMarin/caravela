@@ -4,7 +4,7 @@
 
 // Importing crate components
 use caravela::{
-    agent::{Agent, AgentBase, AgentBuild},
+    agent::{Agent, AgentBuild},
     behavior::Behavior,
     caravela_probe, make_agent,
     messaging::{Content, MessageType},
@@ -18,44 +18,42 @@ make_agent!(Receiver);
 //implementing behaviors for each type
 impl Behavior for Sender {
     fn setup(&mut self) {
-        self.agent().add_contact("AgentReceiver");
+        self.as_mut().add_contact("AgentReceiver");
     }
     fn action(&mut self) {
-        caravela_probe!("{}: Hello! I'm Agent Sender", self.agent().aid());
-        self.agent().set_msg(
+        caravela_probe!("{}: Hello! I'm Agent Sender", self.as_mut().name());
+        self.as_mut().send_to_all(
             MessageType::Inform,
-            Content::Text("This is a message".to_string()),
+            Content::Expression("This is a message".to_string()),
         );
-        self.agent().send_to_all();
-        self.agent().wait(200);
+        self.as_mut().wait(200);
     }
 
     fn done(&mut self) -> bool {
-        false
+        true
     }
 }
 
 impl Behavior for Receiver {
     fn action(&mut self) {
-        self.agent().receive();
-        caravela_probe!("{}: Hello! I'm Agent Receiver", self.agent().aid());
-
-        if let Content::Text(msg) = self.agent().msg().content() {
-            println!("msg: {}", msg);
+        caravela_probe!("{}: Hello! I'm Agent Receiver", self.as_mut().name());
+        let result = self.as_mut().receive();
+        if let Ok(msg) = result {
+            if let Content::Expression(text) = msg.content() {
+                println!("msg: {}", text);
+            }
         }
     }
 
     fn done(&mut self) -> bool {
-        false
+        true
     }
 }
 
 // main entry
 fn main() -> Result<(), Box<dyn Error>> {
     // new platform
-    let agent_platform = Platform::new("example");
-    // boot
-    agent_platform.boot()?;
+    let agent_platform = Platform::new("example")?;
     // add agents
     let agent_sender = agent_platform.add_agent::<Sender>("AgentSender", 1, DEFAULT_STACK)?;
     let agent_receiver = agent_platform.add_agent::<Receiver>("AgentReceiver", 2, DEFAULT_STACK)?;

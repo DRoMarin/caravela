@@ -1,5 +1,42 @@
-use crate::entity::{service::ams::AmsAgentDescription, Description};
-use std::fmt::Display;
+use crate::entity::Description;
+use std::{
+    fmt::Display,
+    sync::mpsc::{SendError, TrySendError},
+};
+
+#[derive(Debug)]
+pub(crate) enum SyncType {
+    Blocking,
+    #[allow(dead_code)]
+    NonBlocking, //USE?
+}
+
+#[derive(Debug)]
+pub(crate) enum SendResult {
+    Blocking(Result<(), SendError<Message>>),
+    NonBlocking(Result<(), TrySendError<Message>>),
+}
+/*
+// Agent state changes that can be requested via the [`ModifyRequest::Ams`] enum.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum StateOp {
+    // Resume the agent from the [`AgentState::Waiting`](enum@crate::agent::AgentState) and [`AgentState::Suspended`](enum@crate::agent::AgentState) states.
+    Resume,
+    // Supend the agent from the [`AgentState::Active`](enum@crate::agent::AgentState) state.
+    Suspend,
+    // Terminate the agent from the [`AgentState::Active`](enum@crate::agent::AgentState) state.
+    Terminate,
+}
+
+// Modification request types that can be aimed toward services or other agents.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum ModifyAgent {
+    // Modification requests targeted to the AMS which only allows state changes.
+    State(StateOp),
+    // Modification requests targeted to other elements of unknown nature.
+    Other(String),
+}
+*/
 
 /// All communicative acts allowed between agents.
 ///
@@ -48,7 +85,6 @@ pub enum MessageType {
     RequestWhenever,
     /// Ask a receiver for a descriptor of a refence and each time the reference changes.
     Subscribe,
-    // NoResponse,
     #[default]
     /// No message type set. Default value.
     None,
@@ -77,110 +113,94 @@ impl Display for MessageType {
             MessageType::RequestWhen => write!(f, "RequestWhen Message"),
             MessageType::RequestWhenever => write!(f, "RequestWhenever Message"),
             MessageType::Subscribe => write!(f, "Subscribe Message"),
-            //MessageType::NoResponse => write!(f, "NoResponse Message"),
             MessageType::None => write!(f, "None"),
         }
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-/// Request types supported by different services.
-pub enum RequestType {
-    /// Request the receiver to search for an agent.
+#[derive(Clone, Debug, PartialEq, Eq)]
+///Request types supported by different services.
+pub enum ActionType {
+    /// Request the target to search for an agent.
     Search(Description),
-    //Modify(String, Description),
-    /// Request the receiver to register an agent.
+    /// Request the target to modify an agent.
+    Modify(Description, String),
+    //Modify(Description, ModifyAgent),
+    /// Request the target to register an agent.
     Register(Description),
-    /// Request the receiver to deregister an agent.
+    /// Request the target to deregister an agent.
     Deregister(Description),
-    /// Request the receiver to suspend an agent. Supported only by the AMS.
-    Suspend(Description),
-    /// Request the receiver to resume an agent. Supported only by the AMS.
-    Resume(Description),
-    //Restart(String),
-    /// Request the receiver to terminate an agent. Supported only by the AMS.
-    Terminate(Description),
-    #[default]
-    /// No request type set. Default value.
-    None,
+    /// Other non-specific action defined by the user.
+    Other(String),
 }
 
-impl Display for RequestType {
+//impl Display for RequestType {
+impl Display for ActionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            RequestType::None => write!(f, "No request"),
-            RequestType::Search(x) => write!(f, "Search Request [{}]", x),
-            RequestType::Register(x) => write!(f, "Registration Request [{}]", x),
-            RequestType::Deregister(x) => write!(f, "Deregistration Request [{}]", x),
-            RequestType::Suspend(x) => write!(f, "Suspension Request [{}]", x),
-            RequestType::Resume(x) => write!(f, "Resumption Request [{}]", x),
-            RequestType::Terminate(x) => write!(f, "Termination Request [{}]", x),
+            ActionType::Search(x) => write!(f, "Search Request [{}]", x),
+            ActionType::Modify(x, _) => write!(f, "Modify Request[{}]", x),
+            ActionType::Register(x) => write!(f, "Registration Request [{}]", x),
+            ActionType::Deregister(x) => write!(f, "Deregistration Request [{}]", x),
+            ActionType::Other(x) => write!(f, "{}", x),
         }
     }
 }
 
 /// Different types of content allowed for messaging.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Content {
     /// Propositions with no specific format.
-    Text(String),
+    Expression(String),
     /// A request to be done.
-    Request(RequestType),
-    /// AMS agent description object.
-    AmsAgentDescription(AmsAgentDescription),
-    #[default]
-    /// No content set. Default value.
-    None,
+    Action(ActionType),
+    //Request(Description, RequestType),
+    //RequestOrg(Performer, RequestType),
+    //AMS agent description object.
+    //AgentDescription(Description),
 }
-
 /// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Message {
-    sender_aid: Description,
-    receiver_aid: Description,
+    sender: Description,
+    receiver: Description,
     message_type: MessageType,
+    //content: String,
     content: Content,
 }
 
 impl Message {
-    pub(crate) fn new() -> Self {
-        //TBD check
-        Message::default()
-    }
-
-    pub(super) fn set_type(&mut self, msg_type: MessageType) {
-        self.message_type = msg_type;
-    }
-
-    pub(super) fn set_content(&mut self, msg_content: Content) {
-        self.content = msg_content;
-    }
-
-    pub(super) fn set_receiver(&mut self, receiver: Description) {
-        self.receiver_aid = receiver;
-    }
-
-    pub(super) fn set_sender(&mut self, sender: Description) {
-        self.sender_aid = sender
+    pub(crate) fn new(
+        sender: Description,
+        receiver: Description,
+        message_type: MessageType,
+        content: Content,
+    ) -> Self {
+        Self {
+            sender,
+            receiver,
+            message_type,
+            content,
+        }
     }
 
     /// Retrieve a message's communicative act type.
-    pub fn message_type(&self) -> MessageType {
-        self.message_type.clone()
+    pub fn message_type(&self) -> &MessageType {
+        &self.message_type
     }
 
     /// Retrieve a message's contents.
-    pub fn content(&self) -> Content {
-        self.content.clone()
+    pub fn content(&self) -> &Content {
+        &self.content
     }
 
     /// Get a reference to the sender's [`Description`]
     pub fn sender(&self) -> &Description {
-        &self.sender_aid
+        &self.sender
     }
 
     /// Get a reference to the receiver's [`Description`]
     pub fn receiver(&self) -> &Description {
-        &self.receiver_aid
+        &self.receiver
     }
 }
