@@ -6,7 +6,6 @@ pub mod messaging;
 pub mod service;
 
 use crate::{ErrorCode, Rx, Tx};
-//use messaging::{Content, Message, SendResult, SyncType};
 use messaging::{Message, SendResult, SyncType};
 use std::{
     fmt::Display,
@@ -87,7 +86,6 @@ impl Description {
     }
 
     pub(crate) fn set_thread(&mut self, id: ThreadId) {
-        //self.thread = Some(current().id());
         self.thread = Some(id);
     }
 }
@@ -95,20 +93,12 @@ impl Description {
 #[derive(Debug)]
 pub(crate) struct Hub {
     rx: Rx,
-    //deck: DeckAccess, //Arc<RwLock<Deck>>,
-    //msg: Option<Message>,
 }
 
 impl Hub {
     pub(crate) fn new(rx: Rx) -> Self {
-        //let msg = None;
         Self { rx }
-        //, msg }
     }
-
-    /*pub(crate) fn msg(&self) -> Message {
-        self.msg.clone()
-    }*/
 
     pub(crate) fn send(&self, msg: Message, sync: SyncType) -> Result<(), ErrorCode> {
         caravela_messaging!(
@@ -117,7 +107,7 @@ impl Hub {
             msg.message_type(),
             msg.receiver()
         );
-        //check memberships and roles
+        // check memberships and roles
         let address = msg.receiver().address().clone();
         let result = match sync {
             SyncType::Blocking => SendResult::Blocking(address.send(msg)),

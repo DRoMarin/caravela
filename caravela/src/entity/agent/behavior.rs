@@ -39,7 +39,6 @@ pub trait Behavior: AsMut<Agent> {
 }
 
 pub(crate) fn execute(mut behavior: impl Behavior) {
-    //behavior.agent_mut_ref().set_thread();
     behavior.as_mut().init();
     behavior.setup();
     loop {

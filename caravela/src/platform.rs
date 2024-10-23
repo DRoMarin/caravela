@@ -6,7 +6,10 @@ use crate::{
             Agent, AgentBuild, AgentBuildParam, ControlBlock,
         },
         messaging::Message,
-        service::{ams::Ams, AmsConditions, DefaultConditions, Service},
+        service::{
+            ams::{Ams, AmsConditions, DefaultAmsConditions},
+            Service,
+        },
         Description,
     },
     ErrorCode, DEFAULT_STACK,
@@ -56,7 +59,7 @@ impl Platform {
     /// This method starts the Agent Management System (AMS) as [`boot_with_ams_conditions`](Self::boot_with_ams_conditions) also does,
     ///  but with default service conditions.
     fn boot(&self) -> Result<(), ErrorCode> {
-        let default: DefaultConditions = DefaultConditions;
+        let default = DefaultAmsConditions;
         self.boot_with_ams_conditions(default)
     }
 
@@ -101,7 +104,7 @@ impl Platform {
         stack_size: usize,
     ) -> Result<Description, ErrorCode> {
         // check name
-        if nickname.to_lowercase().eq("ams"){
+        if nickname.to_lowercase().eq("ams") {
             return Err(ErrorCode::InvalidName);
         }
         // build agent
@@ -135,7 +138,7 @@ impl Platform {
         // register on env
         let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
 
-        //Build description and insert in env lock
+        // Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
         deck()
             .write()
@@ -155,7 +158,7 @@ impl Platform {
         param: T::Parameter,
     ) -> Result<Description, ErrorCode> {
         // check name
-        if nickname.to_lowercase().eq("ams"){
+        if nickname.to_lowercase().eq("ams") {
             return Err(ErrorCode::InvalidName);
         }
         // build agent
@@ -191,7 +194,7 @@ impl Platform {
         // register on env
         let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
 
-        //Build description and insert in env lock
+        // Build description and insert in env lock
         aid.set_thread(join_handle.thread().id());
         deck()
             .write()

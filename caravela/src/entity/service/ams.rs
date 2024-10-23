@@ -3,13 +3,50 @@ use crate::{
     deck::{deck, AgentEntry},
     entity::{
         messaging::MessageType,
-        service::{AmsConditions, Service},
+        service::{Service, ServiceConditions},
         Description, Hub,
     },
     messaging::{ActionType, Content, Message, SyncType},
     ErrorCode, Rx,
 };
 use std::fmt::Debug;
+
+/// This trait defines a set of boolean functions whose purpose is to specify
+///  under which conditions the AMS should provide its specific services:
+///
+///  - Suspension
+///  - Resumption
+///  - Termination
+///  - Reset
+///
+/// This trait is a subtrait of [`ServiceConditions`]
+pub trait AmsConditions: ServiceConditions {
+    /// Whether or not it is possible to suspend an agent. This is only doable by the AMS.
+    fn suspension_condition(&self) -> bool {
+        true
+    }
+
+    /// Whether or not it is possible to resume an agent. This is only doable by the AMS.
+    fn resumption_condition(&self) -> bool {
+        true
+    }
+
+    /// Whether or not it is possible to suspend an agent. This is only doable by the AMS.
+    fn termination_condition(&self) -> bool {
+        true
+    }
+
+    /// Whether or not it is possible to restart an agent, which means to terminate and relaunch the agent.
+    ///  This is only doable by the AMS.
+    fn reset_condition(&self) -> bool {
+        true
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct DefaultAmsConditions;
+impl ServiceConditions for DefaultAmsConditions {}
+impl AmsConditions for DefaultAmsConditions {}
 
 #[derive(Debug)]
 pub(crate) struct Ams<T: AmsConditions> {
@@ -31,24 +68,23 @@ impl<T: AmsConditions> Service for Ams<T> {
         deck().read().search_agent(aid)
     }
 
-    //fn modify_agent(&self, aid: &Description, modify: &ModifyAgent) -> Result<(), ErrorCode> {
     fn modify_agent(&self, aid: &Description, modifier: &str) -> Result<(), ErrorCode> {
-        //if let ModifyAgent::State(state) = modify {
         match modifier {
             "resume" => self.resume_agent(aid),
             "suspend" => self.suspend_agent(aid),
             "terminate" => self.terminate_agent(aid),
             _ => Err(ErrorCode::InvalidContent),
         }
-        //} else {
-        //    Err(ErrorCode::InvalidContent)
-        //}
     }
 
     fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
         /* NOT CURRENTLY SUPPORTED: does nothing besides checking if agent is
         already registed and only checks if the conditions allow it */
-        deck().read().search_agent(aid)
+        if deck().read().search_agent(aid).is_err() {
+            Ok(())
+        } else {
+            Err(ErrorCode::Duplicated)
+        }
     }
 
     fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
@@ -77,7 +113,6 @@ impl<T: AmsConditions> Service for Ams<T> {
         message_type: MessageType,
         content: Content,
     ) -> Result<(), ErrorCode> {
-        //let sender = deck().read().get_ams_address_for_hap(self.hap)?;
         let sender = deck().read().ams_aid().clone();
         caravela_messaging!(
             "{}: Replying with {} to {}",
@@ -138,18 +173,13 @@ impl<T: AmsConditions> Ams<T> {
         }
     }
 
-    //fn check_modification_conditions(&self, modify: &ModifyAgent) -> bool {
     fn check_modification_conditions(&self, modifier: &str) -> bool {
-        //if let ModifyAgent::State(state) = modify {
         match modifier {
             "resume" => self.conditions.resumption_condition(),
             "suspend" => self.conditions.suspension_condition(),
             "terminate" => self.conditions.termination_condition(),
             _ => false,
         }
-        //} else {
-        //    false
-        //}
     }
 
     fn do_request(&self, request: &ActionType) -> Result<(), ErrorCode> {

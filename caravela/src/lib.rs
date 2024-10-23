@@ -25,7 +25,7 @@ use std::{
 };
 use {
     agent::AgentState,
-    messaging::Message, // RequestType},
+    messaging::Message,
 };
 
 /// StackSize defined as platform dependant.

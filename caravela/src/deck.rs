@@ -11,7 +11,6 @@ use std::{
 use thread_priority::ThreadPriority;
 
 pub(crate) type AgentDirectory = HashMap<Description, AgentEntry>;
-//pub(crate) type AmsDirectory = HashMap<Description, AmsEntry>;
 
 #[derive(Debug)]
 pub(crate) struct AmsEntry {
@@ -24,9 +23,6 @@ impl AmsEntry {
     pub(crate) fn aid(&self) -> &Description {
         &self.aid
     }
-    //pub(crate) fn address(&self) -> &Tx {
-    //    &self.address
-    //}
 }
 
 #[derive(Debug)]
@@ -72,7 +68,6 @@ impl DeckAccess {
 #[derive(Debug)]
 pub struct Deck {
     ams_entry: Option<AmsEntry>,
-    //ams_directory: AmsDirectory,
     agent_directory: AgentDirectory,
 }
 
@@ -80,20 +75,11 @@ impl Deck {
     pub(crate) fn new() -> Self {
         let ams_entry = None;
         let agent_directory = AgentDirectory::with_capacity(MAX_SUBSCRIBERS);
-        //let ams_directory = AmsDirectory::with_capacity(MAX_SUBSCRIBERS);
         Self {
             ams_entry,
-            //ams_directory,
             agent_directory,
         }
     }
-    /*pub(crate) fn get_ams_address_for_hap(&self, name: &str) -> Result<Description, ErrorCode> {
-        self.ams_directory
-            .keys()
-            .find(|x| *x.hap() == *name)
-            .cloned()
-            .ok_or(ErrorCode::NotFound)
-    }*/
 
     pub(crate) fn ams_aid(&self) -> &Description {
         self.ams_entry
@@ -103,17 +89,8 @@ impl Deck {
     }
 
     pub(crate) fn add_ams(&mut self, aid: Description, join_handle: JoinHandle<()>) {
-        /*self.ams_directory.insert(
-            aid,
-            AmsEntry {
-                //address,
-                join_handle,
-            },
-        );*/
-
         self.ams_entry = Some(AmsEntry {
             aid,
-            //address,
             join_handle,
         });
     }
@@ -137,14 +114,12 @@ impl Deck {
         join_handle: JoinHandle<()>,
         priority: ThreadPriority,
         control_block: ControlBlockArc,
-        //address: Tx,
     ) -> Result<(), ErrorCode> {
         if self.search_agent(&aid).is_err() {
             let agent_entry = AgentEntry {
                 join_handle,
                 priority,
                 control_block,
-                //address,
             };
             self.agent_directory.insert(aid.clone(), agent_entry);
             Ok(())

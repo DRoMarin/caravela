@@ -16,27 +16,6 @@ pub(crate) enum SendResult {
     Blocking(Result<(), SendError<Message>>),
     NonBlocking(Result<(), TrySendError<Message>>),
 }
-/*
-// Agent state changes that can be requested via the [`ModifyRequest::Ams`] enum.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum StateOp {
-    // Resume the agent from the [`AgentState::Waiting`](enum@crate::agent::AgentState) and [`AgentState::Suspended`](enum@crate::agent::AgentState) states.
-    Resume,
-    // Supend the agent from the [`AgentState::Active`](enum@crate::agent::AgentState) state.
-    Suspend,
-    // Terminate the agent from the [`AgentState::Active`](enum@crate::agent::AgentState) state.
-    Terminate,
-}
-
-// Modification request types that can be aimed toward services or other agents.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum ModifyAgent {
-    // Modification requests targeted to the AMS which only allows state changes.
-    State(StateOp),
-    // Modification requests targeted to other elements of unknown nature.
-    Other(String),
-}
-*/
 
 /// All communicative acts allowed between agents.
 ///
@@ -118,8 +97,8 @@ impl Display for MessageType {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
 ///Request types supported by different services.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ActionType {
     /// Request the target to search for an agent.
     Search(Description),
@@ -165,7 +144,6 @@ pub struct Message {
     sender: Description,
     receiver: Description,
     message_type: MessageType,
-    //content: String,
     content: Content,
 }
 
