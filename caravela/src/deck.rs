@@ -1,6 +1,7 @@
 use crate::{
     agent::AgentState,
     entity::{agent::ControlBlockArc, Description},
+    service::organization::OrgRecord,
     ErrorCode, MAX_SUBSCRIBERS,
 };
 use std::{
@@ -11,6 +12,7 @@ use std::{
 use thread_priority::ThreadPriority;
 
 pub(crate) type AgentDirectory = HashMap<Description, AgentEntry>;
+pub(crate) type OrgDirectory = HashMap<Description, OrgEntry>;
 
 #[derive(Debug)]
 pub(crate) struct AmsEntry {
@@ -24,6 +26,14 @@ impl AmsEntry {
         &self.aid
     }
 }
+
+#[derive(Debug)]
+pub(crate) struct OrgEntry {
+    join_handle: JoinHandle<()>,
+    org_record: OrgRecord,
+}
+
+impl OrgEntry {}
 
 #[derive(Debug)]
 pub(crate) struct AgentEntry {
@@ -69,15 +79,21 @@ impl DeckAccess {
 pub struct Deck {
     ams_entry: Option<AmsEntry>,
     agent_directory: AgentDirectory,
+    #[cfg(feature = "organizations")]
+    org_directory: OrgDirectory,
 }
 
 impl Deck {
     pub(crate) fn new() -> Self {
         let ams_entry = None;
         let agent_directory = AgentDirectory::with_capacity(MAX_SUBSCRIBERS);
+        #[cfg(feature = "organizations")]
+        let org_directory = OrgDirectory::with_capacity(MAX_SUBSCRIBERS);
         Self {
             ams_entry,
             agent_directory,
+            #[cfg(feature = "organizations")]
+            org_directory,
         }
     }
 
@@ -89,10 +105,7 @@ impl Deck {
     }
 
     pub(crate) fn add_ams(&mut self, aid: Description, join_handle: JoinHandle<()>) {
-        self.ams_entry = Some(AmsEntry {
-            aid,
-            join_handle,
-        });
+        self.ams_entry = Some(AmsEntry { aid, join_handle });
     }
 
     pub(crate) fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
@@ -160,7 +173,7 @@ impl Deck {
     pub(crate) fn get_aid_from_name(&self, name: &str) -> Result<Description, ErrorCode> {
         self.agent_directory
             .keys()
-            .find(|x| x.name() == *name)
+            .find(|aid| aid.name() == *name)
             .cloned()
             .ok_or(ErrorCode::NotFound)
     }
@@ -170,6 +183,15 @@ impl Deck {
         self.agent_directory
             .keys()
             .find(|aid| aid.id().eq(&Some(id)))
+            .cloned()
+            .ok_or(ErrorCode::NotFound)
+    }
+
+    #[cfg(feature = "organizations")]
+    pub(crate) fn get_org_from_name(&self, name: &str) -> Result<Description, ErrorCode> {
+        self.org_directory
+            .keys()
+            .find(|aid| aid.name() == *name)
             .cloned()
             .ok_or(ErrorCode::NotFound)
     }

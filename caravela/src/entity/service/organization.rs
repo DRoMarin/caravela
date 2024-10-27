@@ -4,7 +4,9 @@ use crate::{
 };
 use std::collections::HashSet;
 
-use super::Service;
+use super::{Service, ServiceConditions};
+
+trait OrgConditions: ServiceConditions {}
 
 #[derive(Debug)]
 pub enum OrgAffiliation {
@@ -30,7 +32,7 @@ pub enum OrgType {
 }
 
 #[derive(Debug, Clone)]
-struct OrgRecord {
+pub(crate) struct OrgRecord {
     members: HashSet<Description>,
     banned: HashSet<Description>,
     owner: Option<Description>,
@@ -39,24 +41,38 @@ struct OrgRecord {
 }
 
 #[derive(Debug)]
-struct Organization {
+struct Organization<T: OrgConditions> {
+    nickname: &'static str,
+    hap: &'static str,
     org_type: OrgType,
     record: OrgRecord,
     hub: Hub,
+    conditions: T,
 }
 
-fn new(org_type: OrgType, hub: Hub) -> Organization {
-    let record = OrgRecord {
-        members: HashSet::<Description>::with_capacity(MAX_SUBSCRIBERS),
-        banned: HashSet::<Description>::with_capacity(MAX_SUBSCRIBERS),
-        owner: None,
-        admin: None,
-        moderator: None,
-    };
-    Organization {
-        org_type,
-        record,
-        hub,
+impl<T: OrgConditions> Organization<T> {
+    fn new(
+        nickname: &'static str,
+        hap: &'static str,
+        org_type: OrgType,
+        hub: Hub,
+        conditions: T,
+    ) -> Organization<T> {
+        let record = OrgRecord {
+            members: HashSet::<Description>::with_capacity(MAX_SUBSCRIBERS),
+            banned: HashSet::<Description>::with_capacity(MAX_SUBSCRIBERS),
+            owner: None,
+            admin: None,
+            moderator: None,
+        };
+        Organization {
+            nickname,
+            hap,
+            org_type,
+            record,
+            hub,
+            conditions,
+        }
     }
 }
 
@@ -80,21 +96,36 @@ impl OrgRecord {
             .ok_or(ErrorCode::NotFound)
     }
 }
-impl Service for Organization {
-    fn new(rx: crate::RX, deck: DeckAccess, conditions: Self::Conditions) -> Self {}
-    fn init(&mut self) {}
-    fn register_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {}
-    fn deregister_agent(&mut self, aid: &Description) -> Result<(), ErrorCode> {}
-    fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {}
+impl<T: OrgConditions> Service for Organization<T> {
+    fn name(&self) -> String {
+        format!("{}@{}", self.nickname, self.hap)
+    }
+    fn init(&mut self) {
+        caravela_status!("{}: Started!", self.name())
+    }
+    fn register_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        todo!()
+    }
+    fn deregister_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        todo!()
+    }
+    fn search_agent(&self, aid: &Description) -> Result<(), ErrorCode> {
+        todo!()
+    }
     fn service_function(&mut self) {}
-    fn service_req_reply_type(
-        &mut self,
-        request_type: crate::messaging::RequestType,
-        result: Result<(), ErrorCode>,
-    ) {
+
+    fn modify_agent(&self, aid: &Description, modifier: &str) -> Result<(), ErrorCode> {
+        todo!()
     }
 
-    type Conditions;
+    fn request_reply(
+        &self,
+        receiver: Description,
+        message_type: crate::messaging::MessageType,
+        content: crate::messaging::Content,
+    ) -> Result<(), ErrorCode> {
+        todo!()
+    }
 }
 /*
 impl Organization {

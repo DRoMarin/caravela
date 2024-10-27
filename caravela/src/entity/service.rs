@@ -1,7 +1,7 @@
 pub(crate) mod ams;
+#[cfg(feature = "organizations")]
 pub(crate) mod organization;
 
-pub use ams::AmsConditions;
 use crate::{
     entity::{
         messaging::{Content, MessageType},
@@ -9,6 +9,7 @@ use crate::{
     },
     ErrorCode,
 };
+pub use ams::AmsConditions;
 
 pub(crate) trait Service {
     fn name(&self) -> String;
