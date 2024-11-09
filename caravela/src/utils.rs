@@ -70,13 +70,13 @@ macro_rules! make_agent_with_param {
                 $agent{agent,param}
             }
             fn param(&mut self) -> &mut $param_ty{
-                &mut self.1
+                &mut self.param
             }
         }
 
         impl AsMut<Agent> for $agent {
-            fn agent(&mut self) -> &mut Agent{
-                &mut self.0
+            fn as_mut(&mut self) -> &mut Agent{
+                &mut self.agent
             }
         }
     };
