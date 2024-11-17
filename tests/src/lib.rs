@@ -10,8 +10,9 @@ mod tests {
         make_agent!(Test);
 
         impl Behavior for Test {
-            fn action(&mut self) {
-                caravela_probe!("{}: Hello! I'm Agent Test", self.as_mut().name())
+            fn action(&mut self) -> Result<(), ErrorCode> {
+                caravela_probe!("{}: Hello! I'm Agent Test", self.agent.name());
+                Ok(())
             }
         }
 

@@ -78,6 +78,8 @@ pub enum ErrorCode {
     NotRegistered,
     /// There is a platform already running.
     PlatformPresent,
+    /// Custom error message for the user.
+    Other(&'static str),
 }
 
 impl Display for ErrorCode {
@@ -104,6 +106,7 @@ impl Display for ErrorCode {
             }
             ErrorCode::NotRegistered => write!(f, "Target agent is not registered"),
             ErrorCode::PlatformPresent => write!(f, "There is another platform running already"),
+            ErrorCode::Other(x) => write!(f, "{}", x),
         }
     }
 }

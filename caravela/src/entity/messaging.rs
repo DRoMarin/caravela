@@ -131,7 +131,7 @@ pub enum ActionType {
     /// Request the target to deregister an agent.
     Deregister(Description),
     /// Other non-specific action defined by the user.
-    Other(String),
+    Other(&'static str),
 }
 
 //impl Display for RequestType {

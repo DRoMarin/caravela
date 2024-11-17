@@ -8,25 +8,27 @@ use caravela::{
     behavior::Behavior,
     caravela_probe, make_agent,
     messaging::{Content, MessageType},
-    Platform, DEFAULT_STACK,
+    ErrorCode, Platform, DEFAULT_STACK,
 };
 use std::error::Error;
+
 //Defining agent types
 make_agent!(Sender);
 make_agent!(Receiver);
 
 //implementing behaviors for each type
 impl Behavior for Sender {
-    fn setup(&mut self) {
-        self.as_mut().add_contact("AgentReceiver");
+    fn setup(&mut self) -> Result<(), ErrorCode> {
+        self.agent.add_contact("AgentReceiver")
     }
-    fn action(&mut self) {
-        caravela_probe!("{}: Hello! I'm Agent Sender", self.as_mut().name());
-        self.as_mut().send_to_all(
+    fn action(&mut self) -> Result<(), ErrorCode> {
+        caravela_probe!("{}: Hello! I'm Agent Sender", self.agent.name());
+        self.agent.send_to_all(
             MessageType::Inform,
             Content::Expression("This is a message".to_string()),
-        );
-        self.as_mut().wait(200);
+        )?;
+        self.agent.wait(200);
+        Ok(())
     }
 
     fn done(&mut self) -> bool {
@@ -35,14 +37,15 @@ impl Behavior for Sender {
 }
 
 impl Behavior for Receiver {
-    fn action(&mut self) {
-        caravela_probe!("{}: Hello! I'm Agent Receiver", self.as_mut().name());
-        let result = self.as_mut().receive();
+    fn action(&mut self) -> Result<(), ErrorCode> {
+        caravela_probe!("{}: Hello! I'm Agent Receiver", self.agent.name());
+        let result = self.agent.receive();
         if let Ok(msg) = result {
             if let Content::Expression(text) = msg.content() {
                 println!("msg: {}", text);
             }
         }
+        Ok(())
     }
 
     fn done(&mut self) -> bool {

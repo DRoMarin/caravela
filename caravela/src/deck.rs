@@ -162,7 +162,8 @@ impl Deck {
         match state {
             AgentState::Active => {
                 entry.control_block().active()?;
-                Ok(entry.join_handle.thread().unpark())
+                entry.join_handle.thread().unpark();
+                Ok(())
             }
             AgentState::Suspended => entry.control_block().suspend(),
             AgentState::Terminated => {
