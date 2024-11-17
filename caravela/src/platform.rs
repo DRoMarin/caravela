@@ -101,7 +101,7 @@ impl Platform {
         stack_size: usize,
     ) -> Result<Description, ErrorCode> {
         // check name
-        if nickname.to_lowercase().eq("ams"){
+        if nickname.to_lowercase().eq("ams") {
             return Err(ErrorCode::InvalidName);
         }
         // build agent
@@ -155,7 +155,7 @@ impl Platform {
         param: T::Parameter,
     ) -> Result<Description, ErrorCode> {
         // check name
-        if nickname.to_lowercase().eq("ams"){
+        if nickname.to_lowercase().eq("ams") {
             return Err(ErrorCode::InvalidName);
         }
         // build agent

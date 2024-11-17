@@ -154,12 +154,12 @@ impl<T: AmsConditions> Ams<T> {
 
     fn do_request(&self, request: &ActionType) -> Result<(), ErrorCode> {
         match request {
-            ActionType::Search(aid) => self.search_agent(&aid),
+            ActionType::Search(aid) => self.search_agent(aid),
             ActionType::Modify(aid, modifier) => {
-                self.modify_agent(&aid, modifier.to_string().as_str())
+                self.modify_agent(aid, modifier.to_string().as_str())
             }
-            ActionType::Register(aid) => self.register_agent(&aid),
-            ActionType::Deregister(aid) => self.deregister_agent(&aid),
+            ActionType::Register(aid) => self.register_agent(aid),
+            ActionType::Deregister(aid) => self.deregister_agent(aid),
             ActionType::Other(_) => Err(ErrorCode::InvalidRequest),
         }
     }

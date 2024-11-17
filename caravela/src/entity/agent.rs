@@ -193,7 +193,7 @@ impl Agent {
     }
 
     /// Wait for a [`Message`] to arrive. This operation blocks the agent.
-    pub fn receive(&mut self) -> Result<Message, ErrorCode> {
+    pub fn receive(&self) -> Result<Message, ErrorCode> {
         caravela_messaging!("{}: waiting for message", self.name());
         self.hub.receive().map(|x| {
             caravela_messaging!("{}: message received!", self.name());
@@ -229,7 +229,7 @@ impl Agent {
         format!("{nickname}@{}", self.hap)
     }
 
-    pub(crate) fn init(&mut self) {
+    pub(crate) fn init(&self) {
         while self.control_block.agent_state() == AgentState::Initiated {
             hint::spin_loop()
         }
@@ -263,7 +263,7 @@ impl Agent {
             .is_some()
     }
 
-    pub(crate) fn takedown(&mut self) -> Result<(), ErrorCode> {
+    pub(crate) fn takedown(&self) -> Result<(), ErrorCode> {
         //let ams = deck().read().get_ams_address_for_hap(&self.hap)?;
         let ams = deck().read().ams_aid().clone();
         let msg_type = MessageType::Request;
@@ -288,7 +288,4 @@ pub trait AgentBuildParam {
     type Parameter;
     /// Required function to build the derived agent instance with a parameter field.
     fn agent_with_param_builder(base_agent: Agent, param: Self::Parameter) -> Self;
-
-    /// Required function to give the platform access to parameter field.
-    fn param(&mut self) -> &mut Self::Parameter;
 }

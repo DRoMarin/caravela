@@ -46,9 +46,9 @@ macro_rules! make_agent {
             }
         }
 
-        impl AsMut<Agent> for $agent {
-            fn as_mut(&mut self) -> &mut Agent {
-                &mut self.agent
+        impl AsRef<Agent> for $agent {
+            fn as_ref(&self) -> &Agent {
+                &self.agent
             }
         }
     };
@@ -69,14 +69,11 @@ macro_rules! make_agent_with_param {
             fn agent_with_param_builder(agent: Agent, param: $param_ty) -> $agent {
                 $agent{agent,param}
             }
-            fn param(&mut self) -> &mut $param_ty{
-                &mut self.param
-            }
         }
 
-        impl AsMut<Agent> for $agent {
-            fn as_mut(&mut self) -> &mut Agent{
-                &mut self.agent
+        impl AsRef<Agent> for $agent {
+            fn as_ref(&self) -> &Agent{
+                &self.agent
             }
         }
     };
