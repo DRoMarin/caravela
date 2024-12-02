@@ -17,14 +17,6 @@ impl PredictorParams {
         let q = kalman::MatrixType::from_diagonal_element(noise);
         Self { q }
     }
-    /*pub fn new_multiple_noise(
-        n0: kalman::DataType,
-        n1: kalman::DataType,
-        n2: kalman::DataType,
-    ) -> Self {
-        let q = kalman::MatrixType::from_diagonal(&kalman::VectorType::new(n0, n1, n2));
-        Self { q }
-    }*/
 }
 
 const CORRECTOR: &str = "AgentCorrector";

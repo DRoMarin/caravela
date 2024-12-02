@@ -49,6 +49,8 @@ fn main_loop(
         sensor.update_data()?;
     }
     let msg = rx.recv().map_err(|e| e.to_string())?;
+
+    // format data
     match msg.as_str() {
         "accelerometer" => {
             let content = sensor.serialize_accel()?;
@@ -77,8 +79,7 @@ pub fn sensor(
         Ok(x) => x,
         Err(e) => {
             panic!("{}", e)
-        } //println!("{}", res.to_string());
-          //panic!("aaaaaaaaaaaaa");
+        } 
     };
 
     println!("START SENSING THREAD");

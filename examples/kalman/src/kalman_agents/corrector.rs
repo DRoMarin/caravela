@@ -13,10 +13,6 @@ pub struct CorrectorParams {
 }
 
 impl CorrectorParams {
-    /*pub fn new(noise: kalman::DataType) -> Self {
-        let r = kalman::MatrixType::from_diagonal_element(noise);
-        Self { r }
-    }*/
     pub fn new_multiple_noise(
         n0: kalman::DataType,
         n1: kalman::DataType,

@@ -59,7 +59,6 @@ impl Behavior for Logger {
         let previous_string = previous.to_json().map_err(ErrorCode::Other)?;
         let previous_content = Content::Expression(previous_string);
 
-        //self.agent.wait(1);
         // send state covariance
         self.agent
             .send_to("AgentPredictor", MessageType::Inform, previous_content)?;

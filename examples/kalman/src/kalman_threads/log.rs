@@ -10,7 +10,6 @@ struct Logger {
 impl Logger {
     pub fn new(filepath: &'static str) -> Result<Self, String> {
         let file = std::fs::File::create(filepath).map_err(|e| e.to_string())?;
-        //let file = std::fs::OpenOptions::new().read(true).write(false).open(filepath).map_err(|e| e.to_string())?;
         let writer = csv::WriterBuilder::new()
             .has_headers(false)
             .from_writer(file);
@@ -46,7 +45,6 @@ fn main_loop(
     let previous_string = previous.to_json()?;
 
     // send state covariance
-    //println!("sending to predict from logging");
     predict.send(previous_string).map_err(|e| e.to_string())?;
 
     // wait for estimated state covariance
@@ -55,7 +53,6 @@ fn main_loop(
         serde_json::from_str(new.as_str()).map_err(|e| e.to_string())?;
 
     // serialize and save state
-    //println!("writing!");
     logger.update_state_covar(new_state_covar);
     logger.write_state()
 }
@@ -75,8 +72,7 @@ pub fn logging(
         Ok(x) => x,
         Err(e) => {
             panic!("{:?}", e)
-        } //println!("{}", res.to_string());
-          //panic!("aaaaaaaaaaaaa");
+        }
     };
     logger.set_header()?;
 
