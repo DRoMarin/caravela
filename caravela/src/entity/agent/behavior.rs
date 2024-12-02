@@ -10,10 +10,11 @@ pub trait Behavior: AsRef<Agent> {
         Ok(())
     }
     /// Function executed after [`Behavior::action`] used to determined if the agent has reached the end of its life cycle.
-    /// Returns `true` by default.
+    /// Returns `false` by default.
     fn done(&mut self) -> bool {
-        caravela_dflt!("{}: execution done, taking down", self.as_ref().name());
-        true
+        caravela_dflt!("{}: agent behavior not done", self.as_ref().name());
+        false
+        
     }
     /// Function that corresponds to the main repeating activity of the agent executed after [`Behavior::setup`].
     /// Empty by default.

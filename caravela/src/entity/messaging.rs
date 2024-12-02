@@ -1,4 +1,4 @@
-use crate::entity::Description;
+use crate::{entity::Description, ErrorCode};
 use std::{
     fmt::Display,
     sync::mpsc::{SendError, TrySendError},
@@ -118,6 +118,17 @@ impl Display for MessageType {
     }
 }
 
+impl MessageType {
+    /// Check if message type is the desired type. This is added to reduce code repetition while trying to pattern match a one or multiple message type.
+    pub fn is_message_type(&self, other: &Self) -> Result<(), ErrorCode> {
+        if self.eq(other) {
+            Ok(())
+        } else {
+            Err(ErrorCode::InvalidMessageType)
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 ///Request types supported by different services.
 pub enum ActionType {
@@ -138,10 +149,10 @@ pub enum ActionType {
 impl Display for ActionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ActionType::Search(x) => write!(f, "Search Request [{}]", x),
-            ActionType::Modify(x, _) => write!(f, "Modify Request[{}]", x),
-            ActionType::Register(x) => write!(f, "Registration Request [{}]", x),
-            ActionType::Deregister(x) => write!(f, "Deregistration Request [{}]", x),
+            ActionType::Search(x) => write!(f, "Search {}", x),
+            ActionType::Modify(x, _) => write!(f, "Modify {}", x),
+            ActionType::Register(x) => write!(f, "Registration {}", x),
+            ActionType::Deregister(x) => write!(f, "Deregistration {}", x),
             ActionType::Other(x) => write!(f, "{}", x),
         }
     }
@@ -159,6 +170,16 @@ pub enum Content {
     //AMS agent description object.
     //AgentDescription(Description),
 }
+
+impl Display for Content {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Action(x) => write!(f, "{}", x),
+            Self::Expression(x) => write!(f, "{}", x),
+        }
+    }
+}
+
 /// Message object with a payload ([`RequestType`] and [`Content`]) and sender/receiver infromation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Message {

@@ -38,7 +38,7 @@ impl<T: AmsConditions> Service for Ams<T> {
             "resume" => self.resume_agent(aid),
             "suspend" => self.suspend_agent(aid),
             "terminate" => self.terminate_agent(aid),
-            _ => Err(ErrorCode::InvalidContent),
+            x => Err(ErrorCode::InvalidContent(x.to_string())),
         }
         //} else {
         //    Err(ErrorCode::InvalidContent)
@@ -160,7 +160,7 @@ impl<T: AmsConditions> Ams<T> {
             }
             ActionType::Register(aid) => self.register_agent(aid),
             ActionType::Deregister(aid) => self.deregister_agent(aid),
-            ActionType::Other(_) => Err(ErrorCode::InvalidRequest),
+            ActionType::Other(x) => Err(ErrorCode::InvalidRequest(x.to_string())),
         }
     }
 

@@ -41,7 +41,7 @@ pub const MAX_PRIORITY: u8 = 99;
 pub(crate) const MAX_SUBSCRIBERS: usize = 64;
 
 /// Different error codes associated with possible platform failures provided to support error handling functionality.
-#[derive(PartialEq, Debug, Default)]
+#[derive(PartialEq, Debug)]
 pub enum ErrorCode {
     /// Could not spawn the AMS agent.
     AmsBoot,
@@ -64,14 +64,13 @@ pub enum ErrorCode {
     /// The agent could not be found.
     NotFound,
     /// Invalid content in message.
-    InvalidContent,
+    InvalidContent(String),
     /// Unexpected message for a given protocol.
     InvalidMessageType,
     /// The agent cannot have a reserved name.
     InvalidName,
     /// Unexpected request.
-    #[default]
-    InvalidRequest,
+    InvalidRequest(String),
     /// State change not possible.
     InvalidStateChange(AgentState, AgentState),
     /// Target is not registered.
@@ -79,7 +78,7 @@ pub enum ErrorCode {
     /// There is a platform already running.
     PlatformPresent,
     /// Custom error message for the user.
-    Other(&'static str),
+    Other(String),
 }
 
 impl Display for ErrorCode {
@@ -91,16 +90,24 @@ impl Display for ErrorCode {
             ErrorCode::InvalidPriority(error) => {
                 write!(f, "Could not create agent with this priority:{}", error)
             }
-            ErrorCode::MpscRecv(_) => write!(f, "SyncSender was disconnected from this Receiver"),
+            ErrorCode::MpscRecv(x) => write!(
+                f,
+                "SyncSender was disconnected from this Receiver: {}",
+                x
+            ),
             ErrorCode::Disconnected => write!(f, "Receiver was disconnected from this SyncSender"),
             ErrorCode::ChannelFull => write!(f, "Target agent channel was full"),
             ErrorCode::ListFull => write!(f, "Max number of agents reached"),
             ErrorCode::Duplicated => write!(f, "Agent is already present"),
             ErrorCode::NotFound => write!(f, "Agent could not be found"),
-            ErrorCode::InvalidContent => write!(f, "Invalid content in message"),
+            ErrorCode::InvalidContent(x) => {
+                write!(f, "Invalid content in message: {}", x)
+            }
             ErrorCode::InvalidMessageType => write!(f, "Unexpected message received"),
             ErrorCode::InvalidName => write!(f, "The agent cannot have a reserved name"),
-            ErrorCode::InvalidRequest => write!(f, "Unexpected request received"),
+            ErrorCode::InvalidRequest(x) => {
+                write!(f, "Unexpected request received: {}", x)
+            }
             ErrorCode::InvalidStateChange(current, next) => {
                 write!(f, "Transtion from {} to {} is not possible", current, next)
             }
