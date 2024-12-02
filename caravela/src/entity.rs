@@ -25,16 +25,14 @@ pub struct Description {
     nickname: &'static str,
     hap: &'static str,
     tx: Tx,
-    thread: Option<ThreadId>,
+    id: Option<ThreadId>,
 }
 
 impl Eq for Description {}
 
 impl PartialEq for Description {
     fn eq(&self, other: &Self) -> bool {
-        (self.nickname == other.nickname)
-            && (self.hap == other.hap)
-            && (self.thread == other.thread)
+        (self.nickname == other.nickname) && (self.hap == other.hap)
     }
 }
 
@@ -42,7 +40,7 @@ impl Hash for Description {
     fn hash<H: hash::Hasher>(&self, state: &mut H) {
         self.nickname.hash(state);
         self.hap.hash(state);
-        self.thread.hash(state);
+        self.id.hash(state);
     }
 }
 
@@ -58,7 +56,7 @@ impl Description {
             nickname,
             hap,
             tx,
-            thread: None,
+            id: None,
         }
     }
 
@@ -83,12 +81,12 @@ impl Description {
 
     /// Return an `Option<ThreadId>`: [`Some`] if the Entity is running and [`None`] if not.
     pub fn id(&self) -> Option<ThreadId> {
-        self.thread
+        self.id
     }
 
-    pub(crate) fn set_thread(&mut self, id: ThreadId) {
+    pub(crate) fn set_id(&mut self, id: ThreadId) {
         //self.thread = Some(current().id());
-        self.thread = Some(id);
+        self.id = Some(id);
     }
 }
 

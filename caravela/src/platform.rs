@@ -17,6 +17,8 @@ use std::{
 };
 use thread_priority::{ThreadBuilderExt, ThreadExt, ThreadPriority, ThreadPriorityValue};
 
+const RESERVED_NAMES: [&str; 1] = ["ams"];
+
 /// Represents the Host Agent Platform (HAP) and
 ///  provides the user with methods to incorporate agents into it.
 #[derive(Debug)]
@@ -82,7 +84,7 @@ impl Platform {
                 return Err(ErrorCode::AmsBoot);
             }
             //Build description and insert in env lock
-            ams_aid.set_thread(join_handle.thread().id());
+            ams_aid.set_id(join_handle.thread().id());
             deck().write().add_ams(ams_aid, join_handle);
             Ok(())
         } else {
@@ -101,7 +103,7 @@ impl Platform {
         stack_size: usize,
     ) -> Result<Description, ErrorCode> {
         // check name
-        if nickname.to_lowercase().eq("ams") {
+        if RESERVED_NAMES.contains(&nickname) {
             return Err(ErrorCode::InvalidName);
         }
         // build agent
@@ -114,20 +116,17 @@ impl Platform {
             return Err(ErrorCode::Duplicated);
         }
 
-        let agent = T::agent_builder(base_agent);
-
         // check prio
         if priority == ThreadPriorityValue::MAX {
             return Err(ErrorCode::InvalidPriority(
                 "Max priority only allowed for Services",
             ));
         }
-
         let thread_priority =
             ThreadPriority::try_from(priority).map_err(ErrorCode::InvalidPriority)?;
 
         // spawn agent with spinlock
-
+        let agent = T::agent_builder(base_agent);
         let agent_handle = thread::Builder::new()
             .stack_size(stack_size)
             .spawn_with_priority(ThreadPriority::Min, move |_| execute(agent));
@@ -136,7 +135,7 @@ impl Platform {
         let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
 
         //Build description and insert in env lock
-        aid.set_thread(join_handle.thread().id());
+        aid.set_id(join_handle.thread().id());
         deck()
             .write()
             .add_agent(aid.clone(), join_handle, thread_priority, control_block)?;
@@ -155,9 +154,10 @@ impl Platform {
         param: T::Parameter,
     ) -> Result<Description, ErrorCode> {
         // check name
-        if nickname.to_lowercase().eq("ams") {
+        if RESERVED_NAMES.contains(&nickname) {
             return Err(ErrorCode::InvalidName);
         }
+
         // build agent
         let hap = self.name;
         let (tx, rx) = sync_channel::<Message>(1);
@@ -168,7 +168,6 @@ impl Platform {
             return Err(ErrorCode::Duplicated);
         }
 
-        let agent = T::agent_with_param_builder(base_agent, param);
 
         // check prio
         if priority == ThreadPriorityValue::MAX {
@@ -176,12 +175,11 @@ impl Platform {
                 "Max priority only allowed for Services",
             ));
         }
-
         let thread_priority =
             ThreadPriority::try_from(priority).map_err(ErrorCode::InvalidPriority)?;
 
         // spawn agent with spinlock
-
+        let agent = T::agent_with_param_builder(base_agent, param);
         let agent_handle = thread::Builder::new()
             .stack_size(stack_size)
             .spawn_with_priority(ThreadPriority::Min, move |_| {
@@ -192,7 +190,7 @@ impl Platform {
         let join_handle = agent_handle.map_err(|_| ErrorCode::AgentPanic)?;
 
         //Build description and insert in env lock
-        aid.set_thread(join_handle.thread().id());
+        aid.set_id(join_handle.thread().id());
         deck()
             .write()
             .add_agent(aid.clone(), join_handle, thread_priority, control_block)?;
