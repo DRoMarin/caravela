@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.signal import savgol_filter
 import argparse
 
 
@@ -18,12 +19,6 @@ def calc_noise(signal, target_snr_db=20, mean_noise=0):
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "-f",
-        "--signal-frequency",
-        help="Frequency of the sine signal in Hz",
-        default=5,
-    )
-    parser.add_argument(
         "-s",
         "--sampling-frequency",
         help="Sampling frequency of the signal in Hz",
@@ -31,10 +26,10 @@ def get_args():
     )
 
     parser.add_argument(
-        "-d",
-        "--pulse-duration",
-        help="Duration of the motion (sine pulse) in s",
-        default=0.5,
+        "-a",
+        "--attitude-file",
+        help="",
+        default="",
     )
 
     parser.add_argument(
@@ -44,55 +39,46 @@ def get_args():
         default=20,
     )
     args = parser.parse_args()
-    f = float(args.signal_frequency)
+    df = pd.read_csv(args.attitude_file)
     fs = float(args.sampling_frequency)
-    t = float(args.pulse_duration)
     snr = float(args.target_snr)
-    return (f, fs, t, snr)
+
+    return (fs, df, snr)
 
 
-def generate_position(fs, f, t, binary_signal):
-    samples = np.linspace(0, t, int(fs * t), endpoint=False)
-    pulse = np.sin(2 * np.pi * f * samples) * np.pi / 2.0 * 0.90
-    empty = np.zeros(len(samples))
-    res = np.array(
-        list(
-            map(
-                lambda x: pulse if x == 1 else empty,
-                binary_signal,
-            )
-        )
-    ).flatten()
-    return res
+def normalize(signal):
+    signal = (
+        ((signal - signal.min()) / (signal.max() - signal.min()) - 0.5)
+        * np.pi
+        / 2.0
+        * 0.9
+    )
+    return signal
 
 
-(f, fs, t, snr) = get_args()
+def smooth(signal):
+    filtered = savgol_filter(signal, 200, 2, mode="nearest")
+    print(filtered)
+    return filtered
 
-# phi =   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0]
-# theta = [0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1, 0]
-# psi =   [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0]
 
-phi = [0, 1, 0, 1, 0, 1, 0, 1, 0]
-theta = [0, 0, 1, 1, 0, 0, 1, 1, 0]
-psi = [0, 0, 0, 0, 1, 1, 1, 1, 0]
+(fs, input_df, snr) = get_args()
+signal_phi = input_df["phi"]
+signal_theta = input_df["theta"]
+signal_psi = input_df["psi"]
 
-# roll
-signal_phi = generate_position(fs, f, t, phi)
-# pitch
-signal_theta = generate_position(fs, f, t, theta)
-# yaw
-signal_psi = generate_position(fs, f, t, psi)
+signal_phi = normalize(smooth(signal_phi))
+signal_theta = normalize(smooth(signal_theta))
+signal_psi = normalize(smooth(signal_psi))
 
-print(signal_phi)
-
-timeline = np.linspace(
-    0,
-    len(signal_phi) / fs,
-    int(len(signal_phi)),
-    endpoint=False,
+timeline, dx = np.linspace(
+    0, len(signal_phi) / fs, int(len(signal_phi)), endpoint=False, retstep=True
 )
 
-dx = 2 * np.pi * f / (fs)
+print(timeline, dx)
+
+# dx = 2 * np.pi * f / (fs)
+# dx = 1
 w_phi = np.gradient(signal_phi, dx)
 w_theta = np.gradient(signal_theta, dx)
 w_psi = np.gradient(signal_psi, dx)
@@ -117,6 +103,19 @@ measure_df = pd.DataFrame(
     np.transpose(
         [
             timeline,
+            a_x,
+            a_y,
+            a_z,
+            w_phi,
+            w_theta,
+            w_psi,
+        ]
+    )
+)
+noisy_measure_df = pd.DataFrame(
+    np.transpose(
+        [
+            timeline,
             a_x_noise,
             a_y_noise,
             a_z_noise,
@@ -126,11 +125,19 @@ measure_df = pd.DataFrame(
         ]
     )
 )
+
 print("Measurements frame: ", measure_df.shape)
 measure_df.columns = ["t", "ax", "ay", "az", "wx", "wy", "wz"]
 measure_df.to_csv(
+    "/home/drojasm/Desktop/CARAVEL/caravel-fix/examples/kalman/records/clean_measurements.csv",
+    float_format="%.5f",
+    index=False,
+)
+
+noisy_measure_df.columns = ["t", "ax", "ay", "az", "wx", "wy", "wz"]
+noisy_measure_df.to_csv(
     "/home/drojasm/Desktop/CARAVEL/caravel-fix/examples/kalman/records/measurements.csv",
-    float_format="%.4f",
+    float_format="%.5f",
     index=False,
 )
 

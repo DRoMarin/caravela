@@ -1,5 +1,5 @@
 from scipy.spatial.transform import Rotation as R
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FuncAnimation,FFMpegWriter
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -32,7 +32,7 @@ z = 0
 start_point = np.array([x, y, z])
 data = []
 
-df = pd.read_csv("../records/true_position.csv")
+df = pd.read_csv("/home/drojasm/Desktop/CARAVEL/caravel-fix/examples/kalman/records/true_position.csv")
 
 for index, row in df.iterrows():
     # print(row["roll"], row["pitch"], row["yaw"])
@@ -57,8 +57,10 @@ def update(i):
     #if (i % 100) == 0:
     print(i)
     quiver = ax.quiver(0, 0, 0, data[i][0], data[i][1], data[i][2], linewidth=3)
+    return quiver,
 
-ani = FuncAnimation(fig, update, interval=1, frames=len(data), repeat=False)
+ani = FuncAnimation(fig, update, interval=50,blit=True, save_count=len(data), repeat=False)
 #plt.show()
-ani.save('../quiver_test_ani.mp4', writer='ffmpeg')
+writer = FFMpegWriter(fps=30)
+ani.save('quiver_test_ani.mp4', writer=writer)
 plt.close()
