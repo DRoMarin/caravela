@@ -52,10 +52,10 @@ impl Behavior for Logger {
         self.agent.add_contact("AgentPredictor")
     }
     fn action(&mut self) -> Result<(), ErrorCode> {
-        let param = &mut self.param;
+        //let param = &mut self.param;
 
         // previous values
-        let previous = &param.state_covar;
+        let previous = &self.param.state_covar;
         let previous_string = previous.to_json().map_err(ErrorCode::Other)?;
         let previous_content = Content::Expression(previous_string);
 
@@ -71,7 +71,7 @@ impl Behavior for Logger {
             .or(Err(ErrorCode::InvalidContent(new_string)))?;
 
         // serialize and save state
-        param.update_state_covar(new_state_covar);
-        param.write_state()
+        self.param.update_state_covar(new_state_covar);
+        self.param.write_state()
     }
 }

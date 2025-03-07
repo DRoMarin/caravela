@@ -54,9 +54,9 @@ impl Behavior for Sensor {
         Ok(())
     }
     fn action(&mut self) -> Result<(), ErrorCode> {
-        let param = &mut self.param;
-        if param.update {
-            param.get_data()?;
+        //let param = &mut self.param;
+        if self.param.update {
+            self.param.get_data()?;
         }
 
         let msg = self.agent.receive()?;
@@ -65,10 +65,10 @@ impl Behavior for Sensor {
         // format data
         let content_string = match msg.content().to_string().as_str() {
             "Send Accelerometer" => {
-                param.update = true;
-                param.serialize_accel()?
+                self.param.update = true;
+                self.param.serialize_accel()?
             }
-            "Send Gyroscope" => param.serialize_gyro()?,
+            "Send Gyroscope" => self.param.serialize_gyro()?,
             _ => "".to_string(),
         };
 

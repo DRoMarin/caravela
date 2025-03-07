@@ -30,12 +30,10 @@ fn main_loop(
     // send state
     logging.send(state_covar_string).map_err(|e| e.to_string())
 }
-pub fn correct(
-    r0: kalman::DataType,
-    r1: kalman::DataType,
-    r2: kalman::DataType,
+pub fn thread(
     rx: Receiver<String>,
     senders: super::SenderList,
+    r: kalman::MatrixType,
 ) -> Result<(), String> {
     println!("START CORRECTION THREAD");
 
@@ -46,7 +44,7 @@ pub fn correct(
             lock.get("logging").unwrap().clone(),
         )
     };
-    let r = kalman::MatrixType::from_diagonal(&kalman::VectorType::new(r0, r1, r2));
+    //let r = kalman::MatrixType::from_diagonal(&kalman::VectorType::new(r0, r1, r2));
     loop {
         let res = main_loop(&rx, &sense, &logging, &r);
         if let Err(e) = res {

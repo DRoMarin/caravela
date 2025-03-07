@@ -7,22 +7,10 @@ use caravela::{
     ErrorCode,
 };
 
-#[derive(Debug)]
-pub struct PredictorParams {
-    q: kalman::MatrixType,
-}
-
-impl PredictorParams {
-    pub fn new(noise: kalman::DataType) -> Self {
-        let q = kalman::MatrixType::from_diagonal_element(noise);
-        Self { q }
-    }
-}
-
 const CORRECTOR: &str = "AgentCorrector";
 const SENSOR: &str = "AgentSensor";
 
-make_agent_with_param!(pub Predictor, PredictorParams);
+make_agent_with_param!(pub Predictor, kalman::MatrixType);
 
 impl Behavior for Predictor {
     fn setup(&mut self) -> Result<(), ErrorCode> {
@@ -32,7 +20,6 @@ impl Behavior for Predictor {
     }
 
     fn action(&mut self) -> Result<(), ErrorCode> {
-        let param = &mut self.param;
 
         // get previous estimated state
         let state_covar_msg = self.agent.receive()?;
@@ -59,7 +46,7 @@ impl Behavior for Predictor {
             .or(Err(ErrorCode::InvalidContent(u_content)))?;
 
         // predict
-        let prediction = kalman::predict(&state_covar, kalman::DT, &u, &param.q);
+        let prediction = kalman::predict(&state_covar, kalman::DT, &u, &self.param);
 
         // get string
         let state_covar_string = prediction.to_json().map_err(ErrorCode::Other)?;

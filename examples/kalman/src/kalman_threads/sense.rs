@@ -2,12 +2,12 @@ use std::sync::mpsc::{Receiver, SyncSender};
 
 use crate::imu_data;
 
-struct Sensor {
+pub struct SenseStruct {
     reader: csv::Reader<std::fs::File>,
     data: imu_data::ImuData,
     update: bool,
 }
-impl Sensor {
+impl SenseStruct {
     pub fn new(filepath: &'static str) -> Result<Self, String> {
         let file = std::fs::File::open(filepath).map_err(|e| e.to_string())?;
         let reader = csv::ReaderBuilder::new()
@@ -40,7 +40,7 @@ impl Sensor {
 }
 
 fn main_loop(
-    sensor: &mut Sensor,
+    sensor: &mut SenseStruct,
     rx: &Receiver<String>,
     correct: &SyncSender<String>,
     predict: &SyncSender<String>,
@@ -65,22 +65,27 @@ fn main_loop(
     }
 }
 
-pub fn sensor(
-    filepath: &'static str,
+fn check(sensor: &SenseStruct) -> bool {
+    sensor.reader.is_done()
+}
+
+pub fn thread(
     rx: Receiver<String>,
     senders: super::SenderList,
+    sensor: SenseStruct,
 ) -> Result<(), String> {
     let lock = senders.read().map_err(|e| e.to_string())?;
     let correct = lock.get("correct").ok_or("not found")?;
     let predict = lock.get("predict").ok_or("not found")?;
 
-    let res = Sensor::new(filepath);
-    let mut sensor = match res {
-        Ok(x) => x,
-        Err(e) => {
-            panic!("{}", e)
-        } 
-    };
+    let mut sensor = sensor;
+    //let res = Sensor::new(filepath);
+    //let mut sensor = match res {
+    //    Ok(x) => x,
+    //    Err(e) => {
+    //        panic!("{}", e)
+    //    }
+    //};
 
     println!("START SENSING THREAD");
     loop {
@@ -88,7 +93,7 @@ pub fn sensor(
         if let Err(e) = res {
             println!("SENSOR: {}", e.as_str());
         }
-        if sensor.reader.is_done() {
+        if check(&sensor) {
             break;
         }
     }

@@ -2,12 +2,12 @@ use std::sync::mpsc::{Receiver, SyncSender};
 
 use crate::kalman;
 
-struct Logger {
+pub struct LogStruct {
     state_covar: kalman::StateCovariance,
     writer: csv::Writer<std::fs::File>,
 }
 
-impl Logger {
+impl LogStruct {
     pub fn new(filepath: &'static str) -> Result<Self, String> {
         let file = std::fs::File::create(filepath).map_err(|e| e.to_string())?;
         let writer = csv::WriterBuilder::new()
@@ -38,7 +38,7 @@ impl Logger {
 fn main_loop(
     rx: &Receiver<String>,
     predict: &SyncSender<String>,
-    logger: &mut Logger,
+    logger: &mut LogStruct,
 ) -> Result<(), String> {
     //previous values
     let previous = &logger.state_covar;
@@ -57,23 +57,24 @@ fn main_loop(
     logger.write_state()
 }
 
-pub fn logging(
-    filepath: &'static str,
+pub fn thread(
     rx: Receiver<String>,
     senders: super::SenderList,
+    logger: LogStruct,
 ) -> Result<(), String> {
     let predict = {
         let lock = senders.read().map_err(|e| e.to_string())?;
         lock.get("predict").unwrap().clone()
     };
 
-    let res = Logger::new(filepath);
-    let mut logger = match res {
-        Ok(x) => x,
-        Err(e) => {
-            panic!("{:?}", e)
-        }
-    };
+    let mut logger = logger;
+    //let res = Logger::new(filepath);
+    //let mut logger = match res {
+    //    Ok(x) => x,
+    //    Err(e) => {
+    //        panic!("{:?}", e)
+    //    }
+    //};
     logger.set_header()?;
 
     println!("START LOGGING THREAD");

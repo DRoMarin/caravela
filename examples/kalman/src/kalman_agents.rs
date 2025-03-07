@@ -11,7 +11,7 @@ use logger::*;
 use predictor::*;
 use sensor::*;
 
-use super::{Q, R0, R1, R2};
+use crate::{kalman,Q0, Q1, Q2, R0, R1, R2};
 
 pub fn caravela_main(
     in_filepath: &'static str,
@@ -21,9 +21,11 @@ pub fn caravela_main(
 
     let logger_params = LoggerParams::new(out_filepath)?;
 
-    let predictor_params = PredictorParams::new(Q);
+    //let predictor_params = PredictorParams::new_multiple_noise(Q0, Q1, Q2);
+    let predictor_params = kalman::MatrixType::from_diagonal(&kalman::VectorType::new(Q0, Q1, Q2));
 
-    let corrector_params = CorrectorParams::new_multiple_noise(R0, R1, R2);
+    //let corrector_params = CorrectorParams::new_multiple_noise(R0, R1, R2);
+    let corrector_params = kalman::MatrixType::from_diagonal(&kalman::VectorType::new(R0, R1, R2));
 
     let agent_platform = Platform::new("adcs")?;
     // add agents

@@ -7,26 +7,10 @@ use caravela::{
     ErrorCode,
 };
 
-#[derive(Debug)]
-pub struct CorrectorParams {
-    r: kalman::MatrixType,
-}
-
-impl CorrectorParams {
-    pub fn new_multiple_noise(
-        n0: kalman::DataType,
-        n1: kalman::DataType,
-        n2: kalman::DataType,
-    ) -> Self {
-        let r = kalman::MatrixType::from_diagonal(&kalman::VectorType::new(n0, n1, n2));
-        Self { r }
-    }
-}
-
 const LOGGER: &str = "AgentLogger";
 const SENSOR: &str = "AgentSensor";
 
-make_agent_with_param!(pub Corrector, CorrectorParams);
+make_agent_with_param!(pub Corrector, kalman::MatrixType);
 
 impl Behavior for Corrector {
     fn setup(&mut self) -> Result<(), ErrorCode> {
@@ -36,7 +20,6 @@ impl Behavior for Corrector {
     }
 
     fn action(&mut self) -> Result<(), ErrorCode> {
-        let param = &mut self.param;
 
         // get predicted state
         let state_covar_msg = self.agent.receive()?;
@@ -63,7 +46,7 @@ impl Behavior for Corrector {
             .or(Err(ErrorCode::InvalidContent(z_content)))?;
 
         // correct
-        let correction = kalman::correct(&state_covar, &z, &param.r)
+        let correction = kalman::correct(&state_covar, &z, &self.param)
             .map_err(|e| ErrorCode::Other(e.to_string()))?;
 
         // get string

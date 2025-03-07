@@ -31,10 +31,10 @@ fn main_loop(
     correct.send(state_covar_string).map_err(|e| e.to_string())
 }
 
-pub fn predict(
-    q: kalman::DataType,
+pub fn thread(
     rx: Receiver<String>,
     senders: super::SenderList,
+    q: kalman::MatrixType,
 ) -> Result<(), String> {
     println!("START PREDICTION THREAD");
     let (sense, correct) = {
@@ -44,9 +44,9 @@ pub fn predict(
             lock.get("correct").unwrap().clone(),
         )
     };
-    let q_mat = kalman::MatrixType::from_diagonal_element(q);
+    //let q_mat = kalman::MatrixType::from_diagonal(&kalman::VectorType::new(q0, q1, q2));
     loop {
-        let res = main_loop(&rx, &sense, &correct, &q_mat);
+        let res = main_loop(&rx, &sense, &correct, &q);
         if let Err(e) = res {
             println!("PREDICT: {}", e.as_str());
         }
